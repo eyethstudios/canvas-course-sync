@@ -1,3 +1,4 @@
+
 /**
  * Canvas Course Sync Admin JavaScript
  */
@@ -175,7 +176,7 @@
                         $('#ccs-skipped').text(response.data.skipped);
                         $('#ccs-errors').text(response.data.errors);
                     } else {
-                        $('#ccs-sync-message').html('<div class="notice notice-error inline"><p>' + response.data.message || 'Sync failed.' + '</p></div>');
+                        $('#ccs-sync-message').html('<div class="notice notice-error inline"><p>' + (response.data.message || 'Sync failed.') + '</p></div>');
                     }
                     
                     results.show();

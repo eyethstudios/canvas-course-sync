@@ -1,3 +1,4 @@
+
 <?php
 /**
  * Canvas Course Sync Admin Page
@@ -14,6 +15,7 @@ if (!defined('ABSPATH')) {
 require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-api-settings.php';
 require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-sync-controls.php';
 require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-logs-display.php';
+require_once CCS_PLUGIN_DIR . 'includes/admin/index.php';
 
 /**
  * Admin Page class
@@ -104,7 +106,10 @@ class CCS_Admin_Page {
             array(
                 'ajaxUrl' => admin_url('admin-ajax.php'),
                 'syncNonce' => wp_create_nonce('ccs_sync_nonce'),
-                'testConnectionNonce' => wp_create_nonce('ccs_test_connection_nonce')
+                'testConnectionNonce' => wp_create_nonce('ccs_test_connection_nonce'),
+                'clearLogsNonce' => wp_create_nonce('ccs_clear_logs_nonce'),
+                'getCoursesNonce' => wp_create_nonce('ccs_get_courses_nonce'),
+                'syncStatusNonce' => wp_create_nonce('ccs_sync_status_nonce')
             )
         );
     }
