@@ -1,4 +1,3 @@
-
 <?php
 /**
  * Canvas API handler
@@ -54,6 +53,15 @@ class CCS_Canvas_API {
      */
     public function get_token() {
         return $this->api_token;
+    }
+    
+    /**
+     * Get API domain
+     *
+     * @return string API domain
+     */
+    public function get_domain() {
+        return $this->api_domain;
     }
 
     /**

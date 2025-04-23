@@ -91,6 +91,9 @@ class Canvas_Course_Sync {
         // Register AJAX handlers
         add_action('wp_ajax_ccs_sync_courses', array($this, 'ajax_sync_courses'));
         add_action('wp_ajax_ccs_test_connection', array($this, 'ajax_test_connection'));
+        
+        // Register metabox for course link
+        add_action('add_meta_boxes', array($this, 'register_course_metaboxes'));
     }
 
     /**
@@ -141,6 +144,20 @@ class Canvas_Course_Sync {
      */
     public function load_textdomain() {
         load_plugin_textdomain('canvas-course-sync', false, dirname(plugin_basename(__FILE__)) . '/languages/');
+    }
+    
+    /**
+     * Register metaboxes for courses post type
+     */
+    public function register_course_metaboxes() {
+        add_meta_box(
+            'ccs_course_link',
+            'Canvas Course Link',
+            array($this->importer, 'display_course_link_metabox'),
+            'courses',
+            'side',
+            'default'
+        );
     }
 
     /**

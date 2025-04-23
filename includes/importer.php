@@ -98,6 +98,11 @@ class CCS_Importer {
                 $image_result = $this->set_featured_image($course_id, $course_details);
                 $this->logger->log('Featured image result: ' . ($image_result ? 'Success' : 'Failed'));
                 
+                // Store Canvas course link in post meta
+                $canvas_url = trailingslashit($this->api->get_domain()) . 'courses/' . $course_details->id;
+                update_post_meta($course_id, 'link', $canvas_url);
+                $this->logger->log('Added Canvas course link: ' . $canvas_url);
+                
                 $this->logger->log('Successfully imported course: ' . $course_details->name . ' (WordPress ID: ' . $course_id . ')');
                 $stats['imported']++;
                 
@@ -260,6 +265,7 @@ class CCS_Importer {
             // Look for image files
             $image_file = null;
             foreach ($files as $file) {
+                // Fix: Check if content_type property exists before accessing it
                 if (isset($file->content_type) && strpos($file->content_type, 'image/') === 0) {
                     $image_file = $file;
                     break;
@@ -391,7 +397,11 @@ class CCS_Importer {
         return $attach_id;
     }
 
-    // Add to existing metabox display logic in the CCS_Importer class or create_metabox_content function
+    /**
+     * Display course link metabox
+     * 
+     * @param WP_Post $post The post object
+     */
     public function display_course_link_metabox($post) {
         $canvas_link = get_post_meta($post->ID, 'link', true);
         echo '<p><strong>Canvas Course Link:</strong> ';
@@ -402,8 +412,4 @@ class CCS_Importer {
         }
         echo '</p>';
     }
-
-    // Make sure this is hooked up to the metabox display action
-    // Example:
-    // add_meta_box('ccs_course_link', 'Course Link', array($this, 'display_course_link_metabox'), 'courses', 'side', 'default');
 }
