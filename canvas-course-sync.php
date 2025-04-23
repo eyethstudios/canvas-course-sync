@@ -83,6 +83,7 @@ class Canvas_Course_Sync {
         // Register AJAX handlers
         add_action('wp_ajax_ccs_sync_courses', array($this, 'ajax_sync_courses'));
         add_action('wp_ajax_ccs_test_connection', array($this, 'ajax_test_connection'));
+        add_action('wp_ajax_ccs_sync_status', array($this, 'ajax_sync_status'));
         
         // Register metabox for course link
         add_action('add_meta_boxes', array($this, 'register_course_metaboxes'));
@@ -167,23 +168,26 @@ class Canvas_Course_Sync {
         }
         
         try {
+            // Get course IDs from POST data
+            $course_ids = isset($_POST['course_ids']) ? array_map('sanitize_text_field', $_POST['course_ids']) : array();
+            
+            if (empty($course_ids)) {
+                $this->logger->log('No course IDs provided for sync', 'error');
+                wp_send_json_error('No courses selected for sync');
+            }
+            
             // Start the import process
-            $this->logger->log('Starting course sync process');
-            $result = $this->importer->import_courses(50); // Set 50 courses per page
+            $this->logger->log('Starting course sync process for ' . count($course_ids) . ' courses');
+            $result = $this->importer->import_courses($course_ids);
             
             wp_send_json_success(array(
-                'message' => sprintf(
-                    'Successfully processed %d courses (%d imported, %d skipped, %d errors)',
-                    $result['total'],
-                    $result['imported'],
-                    $result['skipped'],
-                    $result['errors']
-                ),
+                'message' => $result['message'],
                 'imported' => $result['imported'],
                 'skipped' => $result['skipped'],
                 'errors' => $result['errors'],
                 'total' => $result['total']
             ));
+            
         } catch (Exception $e) {
             $this->logger->log('Error in sync process: ' . $e->getMessage(), 'error');
             wp_send_json_error('Error: ' . $e->getMessage());
@@ -211,6 +215,33 @@ class Canvas_Course_Sync {
                 wp_send_json_success('Connection successful!');
             } else {
                 wp_send_json_error('Connection failed. Please check your API settings.');
+            }
+        } catch (Exception $e) {
+            wp_send_json_error('Error: ' . $e->getMessage());
+        }
+    }
+    
+    /**
+     * AJAX handler for getting sync status
+     */
+    public function ajax_sync_status() {
+        // Check nonce for security
+        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'ccs_sync_status_nonce')) {
+            wp_send_json_error('Security check failed');
+        }
+        
+        // Check user capabilities
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Permission denied');
+        }
+        
+        try {
+            $status = ccs_get_sync_status();
+            
+            if ($status) {
+                wp_send_json_success($status);
+            } else {
+                wp_send_json_error('No sync currently in progress');
             }
         } catch (Exception $e) {
             wp_send_json_error('Error: ' . $e->getMessage());

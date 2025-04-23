@@ -1,3 +1,4 @@
+
 <?php
 /**
  * Handles importing courses from Canvas into WP.
@@ -13,6 +14,36 @@ if (!defined('ABSPATH')) {
 // Include handlers
 require_once plugin_dir_path(__FILE__) . 'handlers/class-ccs-content-handler.php';
 require_once plugin_dir_path(__FILE__) . 'handlers/class-ccs-media-handler.php';
+
+/**
+ * Helper function to update sync status
+ *
+ * @param string $status Status message
+ * @param array $data Additional data
+ */
+function ccs_update_sync_status($status, $data = array()) {
+    $sync_status = array_merge(
+        array('status' => $status),
+        $data
+    );
+    update_option('ccs_sync_status', $sync_status);
+}
+
+/**
+ * Helper function to clear sync status
+ */
+function ccs_clear_sync_status() {
+    delete_option('ccs_sync_status');
+}
+
+/**
+ * Helper function to get sync status
+ *
+ * @return array|false Sync status data or false if not set
+ */
+function ccs_get_sync_status() {
+    return get_option('ccs_sync_status', false);
+}
 
 /**
  * Importer class
@@ -86,6 +117,7 @@ class CCS_Importer {
                 )
             );
             
+            $this->logger->log('Fetching details for course ID: ' . $course_id);
             $course_details = $this->api->get_course_details($course_id);
             
             if (is_wp_error($course_details)) {
@@ -185,11 +217,8 @@ class CCS_Importer {
                 }
             }
             
-            if (!empty($existing_by_id) || !empty($existing_by_title)) {
-                $skipped++;
-            } else {
-                $imported++;
-            }
+            $imported++;
+            $this->logger->log('Successfully imported course: ' . $course_name);
         }
 
         $final_status = sprintf(
@@ -210,5 +239,25 @@ class CCS_Importer {
             'total'    => $total_courses,
             'message'  => $final_status
         );
+    }
+
+    /**
+     * Display course link metabox
+     *
+     * @param WP_Post $post Current post object
+     */
+    public function display_course_link_metabox($post) {
+        $link = get_post_meta($post->ID, 'link', true);
+        if (empty($link)) {
+            echo '<p>' . esc_html__('No Canvas course link available.', 'canvas-course-sync') . '</p>';
+            return;
+        }
+        ?>
+        <p>
+            <a href="<?php echo esc_url($link); ?>" target="_blank">
+                <?php esc_html_e('View in Canvas', 'canvas-course-sync'); ?>
+            </a>
+        </p>
+        <?php
     }
 }

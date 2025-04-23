@@ -185,6 +185,33 @@ jQuery(document).ready(function($) {
         
         console.log('Starting sync for courses:', courseIds);
         
+        // Set up status checking interval
+        let statusInterval = setInterval(function() {
+            $.ajax({
+                url: ccsData.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'ccs_sync_status',
+                    nonce: ccsData.syncStatusNonce
+                },
+                success: function(response) {
+                    console.log('Sync status update:', response);
+                    if (response.success && response.data) {
+                        syncStatus.text(response.data.status);
+                        
+                        // Update progress bar if we have processed/total info
+                        if (response.data.processed && response.data.total) {
+                            const percent = Math.min(100, Math.round((response.data.processed / response.data.total) * 100));
+                            progressBar.css('width', percent + '%');
+                        }
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error checking sync status:', error);
+                }
+            });
+        }, 2000);
+        
         // AJAX call to start course sync
         $.ajax({
             url: ccsData.ajaxUrl,
@@ -195,6 +222,7 @@ jQuery(document).ready(function($) {
                 course_ids: courseIds
             },
             success: function(response) {
+                clearInterval(statusInterval);
                 console.log('Sync courses response:', response);
                 button.attr('disabled', false);
                 syncProgress.hide();
@@ -210,6 +238,7 @@ jQuery(document).ready(function($) {
                 }
             },
             error: function(xhr, status, error) {
+                clearInterval(statusInterval);
                 console.error('Sync courses error:', error, xhr.responseText);
                 button.attr('disabled', false);
                 syncProgress.hide();
@@ -220,30 +249,6 @@ jQuery(document).ready(function($) {
         
         return false;
     });
-    
-    function updateSyncStatus() {
-        $.ajax({
-            url: ccsData.ajaxUrl,
-            type: 'POST',
-            data: {
-                action: 'ccs_sync_status',
-                nonce: ccsData.syncStatusNonce
-            },
-            success: function(response) {
-                if (response.success) {
-                    // Update progress bar and status
-                    const progress = response.data.progress;
-                    $('#ccs-sync-progress-bar').css('width', progress + '%');
-                    $('#ccs-sync-status').text('Syncing: ' + progress + '%');
-                } else {
-                    console.error('Failed to get sync status: ' + (response.data || 'Unknown error'));
-                }
-            },
-            error: function(xhr, status, error) {
-                console.error('Error getting sync status: ' + error);
-            }
-        });
-    }
     
     // Check if ccsData object exists and contains necessary data
     if (typeof ccsData === 'undefined') {
