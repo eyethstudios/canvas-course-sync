@@ -2,11 +2,11 @@
 <?php
 /**
  * Plugin Name: Canvas Course Sync
- * Plugin URI: https://example.com/plugins/canvas-course-sync
+ * Plugin URI: https://eyethstudios.com
  * Description: Synchronize courses from Canvas LMS to WordPress custom post type "courses"
  * Version: 1.0.0
- * Author: Lovable
- * Author URI: https://lovable.dev
+ * Author: Eyeth Studios
+ * Author URI: https://eyethstudios.com
  * Text Domain: canvas-course-sync
  * Domain Path: /languages
  * License: GPL v2 or later

@@ -1,4 +1,3 @@
-
 <?php
 /**
  * Canvas Course Importer
@@ -391,4 +390,20 @@ class CCS_Importer {
         
         return $attach_id;
     }
+
+    // Add to existing metabox display logic in the CCS_Importer class or create_metabox_content function
+    public function display_course_link_metabox($post) {
+        $canvas_link = get_post_meta($post->ID, 'link', true);
+        echo '<p><strong>Canvas Course Link:</strong> ';
+        if (!empty($canvas_link)) {
+            echo '<a href="' . esc_url($canvas_link) . '" target="_blank" rel="noopener noreferrer">' . esc_html($canvas_link) . '</a>';
+        } else {
+            echo 'No link available.';
+        }
+        echo '</p>';
+    }
+
+    // Make sure this is hooked up to the metabox display action
+    // Example:
+    // add_meta_box('ccs_course_link', 'Course Link', array($this, 'display_course_link_metabox'), 'courses', 'side', 'default');
 }
