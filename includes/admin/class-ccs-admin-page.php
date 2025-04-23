@@ -56,6 +56,9 @@ class CCS_Admin_Page {
         $this->sync_controls = new CCS_Sync_Controls();
         $this->logs_display = new CCS_Logs_Display($this->logger);
         
+        // Add admin menu - explicitly call the add_menu method
+        $this->admin_menu->add_menu();
+        
         // Register settings
         add_action('admin_init', array($this->api_settings, 'register_settings'));
         

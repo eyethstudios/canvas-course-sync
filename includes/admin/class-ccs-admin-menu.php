@@ -19,8 +19,7 @@ class CCS_Admin_Menu {
      * Constructor
      */
     public function __construct() {
-        // Register the admin menu
-        add_action('admin_menu', array($this, 'add_menu'));
+        // We don't need to add the action here as it's called directly
     }
     
     /**
