@@ -13,7 +13,4 @@
             echo 'No link available.';
         }
         echo '</p>';
-        
-        // Add Eyeth Studios link
-        echo '<p><strong>Created by:</strong> <a href="https://eyethstudios.com" target="_blank" rel="noopener noreferrer">Eyeth Studios</a></p>';
     }
