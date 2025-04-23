@@ -1,3 +1,4 @@
+
 /**
  * Canvas Course Sync Admin JavaScript
  */
@@ -12,10 +13,10 @@ jQuery(document).ready(function($) {
     }
     
     // Initialize log manager
-    initLogManager($);
+    const logManager = initLogManager($);
     
     // Initialize course manager
-    initCourseManager($);
+    const courseManager = initCourseManager($);
     
     // Initialize sync manager
     if (typeof initSyncManager === 'function') {
@@ -29,7 +30,8 @@ jQuery(document).ready(function($) {
  * Log management functionality
  */
 function initLogManager($) {
-    $('#ccs-clear-logs').on('click', function() {
+    $('#ccs-clear-logs').on('click', function(e) {
+        e.preventDefault();
         const button = $(this);
         button.attr('disabled', true);
         
@@ -53,7 +55,11 @@ function initLogManager($) {
                 alert('Failed to clear logs. Please try again. Error: ' + error);
             }
         });
+
+        return false;
     });
+    
+    console.log('Log manager initialized');
 }
 
 /**
@@ -61,7 +67,8 @@ function initLogManager($) {
  */
 function initCourseManager($) {
     // Load courses button handler
-    $('#ccs-load-courses').on('click', function() {
+    $('#ccs-load-courses').on('click', function(e) {
+        e.preventDefault();
         const button = $(this);
         const courseList = $('#ccs-course-list');
         const loadingText = $('#ccs-loading-courses');
@@ -70,6 +77,8 @@ function initCourseManager($) {
         button.attr('disabled', true);
         loadingText.show();
         courseList.html('');
+        
+        console.log('Sending AJAX request to load courses');
         
         $.ajax({
             url: ccsData.ajaxUrl,
@@ -112,19 +121,24 @@ function initCourseManager($) {
                 loadingText.hide();
             }
         });
+
+        return false;
     });
 
     // Handle select all checkbox
     $(document).on('change', '#ccs-select-all-checkbox', function() {
         $('.ccs-course-checkbox').prop('checked', $(this).prop('checked'));
     });
+    
+    console.log('Course manager initialized');
 }
 
 /**
  * Connection tester functionality
  */
 function initConnectionTester($) {
-    $('#ccs-test-connection').on('click', function() {
+    $('#ccs-test-connection').on('click', function(e) {
+        e.preventDefault();
         const button = $(this);
         const resultContainer = $('#ccs-connection-result');
         
@@ -152,14 +166,19 @@ function initConnectionTester($) {
                 resultContainer.html('<div class="ccs-error">Connection error: ' + error + '</div>');
             }
         });
+        
+        return false;
     });
+    
+    console.log('Connection tester initialized');
 }
 
 /**
  * Sync manager functionality
  */
 function initSyncManager($) {
-    $('#ccs-sync-courses').on('click', function() {
+    $('#ccs-sync-courses').on('click', function(e) {
+        e.preventDefault();
         const button = $(this);
         const courseList = $('#ccs-course-list');
         const syncProgress = $('#ccs-sync-progress');
@@ -224,6 +243,8 @@ function initSyncManager($) {
                 syncMessage.html('<div class="ccs-error">Sync error: ' + error + '</div>');
             }
         });
+        
+        return false;
     });
     
     function updateSyncStatus() {
@@ -249,4 +270,6 @@ function initSyncManager($) {
             }
         });
     }
+    
+    console.log('Sync manager initialized');
 }

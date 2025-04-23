@@ -72,6 +72,9 @@ class CCS_Admin_Page {
         add_action('ccs_render_api_settings', array($this->api_settings, 'render'));
         add_action('ccs_render_sync_controls', array($this->sync_controls, 'render'));
         add_action('ccs_render_logs_display', array($this->logs_display, 'render'));
+        
+        // Debug log
+        $this->logger->log('Admin page initialized', 'info');
     }
 
     /**
@@ -114,5 +117,7 @@ class CCS_Admin_Page {
                 'syncStatusNonce' => wp_create_nonce('ccs_sync_status_nonce')
             )
         );
+        
+        $this->logger->log('Admin scripts enqueued for hook: ' . $hook);
     }
 }

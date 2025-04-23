@@ -5,9 +5,6 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-// Include handlers
-require_once CCS_PLUGIN_DIR . 'includes/handlers/index.php';
-
 /**
  * AJAX handler for clearing logs
  */
