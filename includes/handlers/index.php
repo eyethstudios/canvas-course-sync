@@ -1,41 +1,45 @@
 
 <?php
-/**
- * Canvas Course Sync Handlers
- */
-
-// Exit if accessed directly
+// Prevent direct file access
 if (!defined('ABSPATH')) {
     exit;
 }
 
 /**
- * Get the current sync status from transient storage
- *
- * @return array|bool The current status array or false if no sync is in progress
+ * Update the sync status
+ * 
+ * @param string $message Status message
+ * @param array $data Additional status data
  */
-function ccs_get_sync_status() {
-    return get_transient('ccs_sync_status');
+function ccs_update_sync_status($message = '', $data = array()) {
+    $status = array(
+        'message' => $message,
+        'timestamp' => current_time('mysql'),
+        'data' => $data
+    );
+    
+    update_option('ccs_sync_status', $status);
+    return $status;
 }
 
 /**
- * Update the sync status
- *
- * @param string $message The status message
- * @param array  $data    Additional data to store with the status
+ * Get the current sync status
+ * 
+ * @return array Current sync status
  */
-function ccs_update_sync_status($message, $data = array()) {
-    $status = array_merge(
-        array('status' => $message),
-        $data
-    );
-    set_transient('ccs_sync_status', $status, HOUR_IN_SECONDS);
+function ccs_get_sync_status() {
+    $status = get_option('ccs_sync_status', array(
+        'message' => '',
+        'timestamp' => '',
+        'data' => array()
+    ));
+    
+    return $status;
 }
 
 /**
  * Clear the sync status
  */
 function ccs_clear_sync_status() {
-    delete_transient('ccs_sync_status');
+    delete_option('ccs_sync_status');
 }
-
