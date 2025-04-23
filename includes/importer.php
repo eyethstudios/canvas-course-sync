@@ -1,3 +1,4 @@
+
 <?php
 /**
  * Handles importing courses from Canvas into WP.
@@ -9,6 +10,10 @@
 if (!defined('ABSPATH')) {
     exit;
 }
+
+// Include handlers
+require_once plugin_dir_path(__FILE__) . 'handlers/class-ccs-content-handler.php';
+require_once plugin_dir_path(__FILE__) . 'handlers/class-ccs-media-handler.php';
 
 /**
  * Importer class
@@ -29,12 +34,28 @@ class CCS_Importer {
     private $api;
 
     /**
+     * Content Handler instance
+     *
+     * @var CCS_Content_Handler
+     */
+    private $content_handler;
+
+    /**
+     * Media Handler instance
+     *
+     * @var CCS_Media_Handler
+     */
+    private $media_handler;
+
+    /**
      * Constructor
      */
     public function __construct() {
         global $canvas_course_sync;
         $this->logger = $canvas_course_sync->logger ?? new CCS_Logger();
         $this->api = $canvas_course_sync->api ?? new CCS_Canvas_API();
+        $this->content_handler = new CCS_Content_Handler();
+        $this->media_handler = new CCS_Media_Handler();
     }
 
     /**
@@ -60,7 +81,7 @@ class CCS_Importer {
                 $errors++;
                 continue;
             }
-
+            
             $course_name = $course_details->name;
             
             $processed++;
@@ -84,19 +105,17 @@ class CCS_Importer {
                 $post_id = $existing_by_id[0];
                 $this->logger->log('Found existing course with Canvas ID metadata. Post ID: ' . $post_id . '. Skipping import.');
                 $skipped++;
-                continue; // Skip to the next course
+                continue;
             }
             
-            // If no match by ID, check by title (using a more reliable method)
+            // If no match by ID, check by title
             $existing_by_title = get_posts(array(
                 'post_type'      => 'courses',
                 'post_status'    => array('draft', 'publish', 'private', 'pending'),
-                'title'          => $course_name, // WordPress will match this exactly
+                'title'          => $course_name,
                 'posts_per_page' => 1,
                 'fields'         => 'ids',
             ));
-
-            $this->logger->log('Checking for existing course with title: ' . $course_name . ', Found: ' . count($existing_by_title));
             
             if (!empty($existing_by_title)) {
                 $post_id = $existing_by_title[0];
@@ -110,11 +129,11 @@ class CCS_Importer {
                 }
                 
                 $skipped++;
-                continue; // Skip to the next course
+                continue;
             }
             
-            // Process content for the course
-            $post_content = $this->prepare_course_content($course_details);
+            // Process content using the content handler
+            $post_content = $this->content_handler->prepare_course_content($course_details);
             
             // For debugging
             $this->logger->log('Post content length: ' . strlen($post_content) . ' characters');
@@ -122,29 +141,23 @@ class CCS_Importer {
                 $this->logger->log('Warning: No content found for course', 'warning');
             }
             
-            // Prepare post data - ensure post_status is draft
-            $args = array(
-                'post_title'   => $course_name ?? '',
-                'post_status'  => 'draft', // Ensure it's set to draft
-                'post_type'    => 'courses',
-                'post_content' => $post_content, // Set prepared content
-            );
-            
             // Create new post
-            $this->logger->log('Creating new course: ' . $course_name);
-            $post_id = wp_insert_post($args);
+            $post_id = wp_insert_post(array(
+                'post_title'   => $course_name ?? '',
+                'post_status'  => 'draft',
+                'post_type'    => 'courses',
+                'post_content' => $post_content,
+            ));
             
             if (is_wp_error($post_id) || !$post_id) {
                 $this->logger->log('Failed to create post for course ' . $course_id . ': ' . (is_wp_error($post_id) ? $post_id->get_error_message() : 'Unknown error'), 'error');
                 $errors++;
                 continue;
-            } else {
-                $this->logger->log('New post created successfully with ID: ' . $post_id . ' and ' . strlen($post_content) . ' chars of content');
             }
             
             // Save marker meta for future lookups
             update_post_meta($post_id, 'canvas_course_id', $course_id);
-
+            
             // Set course link
             $canvas_domain = $this->api->get_domain();
             if (!empty($canvas_domain) && !empty($course_id)) {
@@ -152,20 +165,17 @@ class CCS_Importer {
                 update_post_meta($post_id, 'link', esc_url_raw($canvas_course_link));
             }
             
-            // Check for and handle featured image
+            // Handle featured image using the media handler
             if (!empty($course_details->image_download_url)) {
                 $this->logger->log('Course has image at URL: ' . $course_details->image_download_url);
                 
-                // Download and set the featured image properly
-                $result = $this->set_featured_image($post_id, $course_details->image_download_url, $course_name);
+                $result = $this->media_handler->set_featured_image($post_id, $course_details->image_download_url, $course_name);
                 
                 if ($result) {
                     $this->logger->log('Successfully set featured image for course');
                 } else {
                     $this->logger->log('Failed to set featured image for course', 'warning');
                 }
-            } else {
-                $this->logger->log('No image available for this course');
             }
             
             $imported++;
@@ -180,124 +190,5 @@ class CCS_Importer {
             'total'    => $total_courses,
         );
     }
-    
-    /**
-     * Prepare course content from Canvas data
-     * 
-     * @param object $course_details Course details object from Canvas API
-     * @return string Prepared content
-     */
-    private function prepare_course_content($course_details) {
-        $content = '';
-        
-        // Check for syllabus content first (priority)
-        if (!empty($course_details->syllabus_body)) {
-            $this->logger->log('Using syllabus content for course (' . strlen($course_details->syllabus_body) . ' chars)');
-            $content = $course_details->syllabus_body;
-        } 
-        
-        // If no syllabus, check for public description
-        if (empty($content) && !empty($course_details->public_description)) {
-            $this->logger->log('Using public description as fallback (' . strlen($course_details->public_description) . ' chars)');
-            $content = $course_details->public_description;
-        } 
-        
-        // If we have a course description, use it as a fallback or addition
-        if (!empty($course_details->description)) {
-            if (empty($content)) {
-                $this->logger->log('Using course description as content (' . strlen($course_details->description) . ' chars)');
-                $content = $course_details->description;
-            } else {
-                // Optionally append description if we already have content
-                $this->logger->log('Appending course description to existing content');
-                $content .= "\n\n<h3>Course Description</h3>\n" . $course_details->description;
-            }
-        }
-        
-        // Make sure we sanitize the content but keep the HTML
-        $content = wp_kses_post($content);
-        
-        return $content;
-    }
-    
-    /**
-     * Set featured image for a course
-     * 
-     * @param int $post_id The post ID
-     * @param string $image_url The image URL
-     * @param string $course_name The course name for the image title
-     * @return bool True on success, false on failure
-     */
-    public function set_featured_image($post_id, $image_url, $course_name) {
-        // Check if post already has a featured image
-        if (has_post_thumbnail($post_id)) {
-            $this->logger->log('Post already has featured image. Removing old image before setting new one.');
-            delete_post_thumbnail($post_id);
-        }
-        
-        $this->logger->log('Setting featured image for course: ' . $course_name);
-        
-        // Ensure the URL doesn't have any spaces
-        $image_url = str_replace(' ', '%20', $image_url);
-        $this->logger->log('Downloading image from URL: ' . $image_url);
-        
-        // Download image from Canvas using WordPress functions
-        include_once(ABSPATH . 'wp-admin/includes/file.php');
-        include_once(ABSPATH . 'wp-admin/includes/media.php');
-        include_once(ABSPATH . 'wp-admin/includes/image.php');
-        
-        // Get the file and save it to the media library directly
-        $attachment_id = media_sideload_image($image_url, $post_id, $course_name . ' - Featured Image', 'id');
-        
-        if (is_wp_error($attachment_id)) {
-            $this->logger->log('Failed to sideload image: ' . $attachment_id->get_error_message(), 'error');
-            
-            // Fall back to manual download if sideload fails
-            $tmp_file = $this->api->download_file($image_url);
-            if (is_wp_error($tmp_file)) {
-                $this->logger->log('Manual download also failed: ' . $tmp_file->get_error_message(), 'error');
-                return false;
-            }
-            
-            $file_array = array(
-                'name' => basename($image_url),
-                'tmp_name' => $tmp_file
-            );
-            
-            $attachment_id = media_handle_sideload($file_array, $post_id, $course_name . ' - Featured Image');
-            
-            if (is_wp_error($attachment_id)) {
-                $this->logger->log('Manual sideload also failed: ' . $attachment_id->get_error_message(), 'error');
-                @unlink($tmp_file);
-                return false;
-            }
-        }
-        
-        // Set as featured image
-        $result = set_post_thumbnail($post_id, $attachment_id);
-        
-        if ($result) {
-            $this->logger->log('Successfully set featured image (thumbnail ID: ' . $attachment_id . ') for post ID: ' . $post_id);
-        } else {
-            $this->logger->log('Failed to set post thumbnail', 'error');
-        }
-        
-        return $result;
-    }
-
-    /**
-     * Display course link metabox
-     * 
-     * @param WP_Post $post The post object
-     */
-    public function display_course_link_metabox($post) {
-        $canvas_link = get_post_meta($post->ID, 'link', true);
-        echo '<p><strong>Canvas Course Link:</strong> ';
-        if (!empty($canvas_link)) {
-            echo '<a href="' . esc_url($canvas_link) . '" target="_blank" rel="noopener noreferrer">' . esc_html($canvas_link) . '</a>';
-        } else {
-            echo 'No link available.';
-        }
-        echo '</p>';
-    }
 }
+
