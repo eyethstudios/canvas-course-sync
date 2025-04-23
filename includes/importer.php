@@ -1,3 +1,4 @@
+
 <?php
 /**
  * Handles importing courses from Canvas into WP.
@@ -73,15 +74,24 @@ class CCS_Importer {
                 continue;
             }
 
-            // Prepare post data
+            // Get syllabus content
+            $syllabus_content = '';
+            if (!empty($course_details->syllabus_body)) {
+                $syllabus_content = $course_details->syllabus_body;
+                $this->logger->log('Found syllabus content (' . strlen($syllabus_content) . ' chars)');
+            } else {
+                $this->logger->log('No syllabus content found for course');
+            }
+
+            // Prepare post data - set post_status to draft
             $args = array(
                 'post_title'   => $course_name ?? '',
-                'post_status'  => 'publish',
+                'post_status'  => 'draft', // Set to draft instead of publish
                 'post_type'    => 'courses',
-                'post_content' => isset($course_details->syllabus_body) ? $course_details->syllabus_body : '',
+                'post_content' => $syllabus_content, // Set syllabus content as post_content
             );
             
-            // Check if course already exists by post title (instead of Canvas course ID)
+            // Check if course already exists by post title
             $existing = get_posts(array(
                 'post_type'      => 'courses',
                 'title'          => $course_name,
