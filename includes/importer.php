@@ -68,7 +68,7 @@ class CCS_Importer {
                 $this->logger->log('Processing course: ' . $course->name . ' (ID: ' . $course->id . ')');
                 
                 // Check if course already exists
-                if ($this->course_exists($course->name)) {
+                if ($this->course_exists($course->id)) {
                     $this->logger->log('Course already exists, skipping: ' . $course->name);
                     $stats['skipped']++;
                     continue;
@@ -83,6 +83,9 @@ class CCS_Importer {
                     continue;
                 }
                 
+                // Debug log the course details to check what we're receiving
+                $this->logger->log('Course details received: ' . print_r($course_details, true));
+                
                 // Create the course
                 $course_id = $this->create_course($course_details);
                 
@@ -93,7 +96,8 @@ class CCS_Importer {
                 }
                 
                 // Try to set featured image
-                $this->set_featured_image($course_id, $course_details);
+                $image_result = $this->set_featured_image($course_id, $course_details);
+                $this->logger->log('Featured image result: ' . ($image_result ? 'Success' : 'Failed'));
                 
                 $this->logger->log('Successfully imported course: ' . $course_details->name . ' (WordPress ID: ' . $course_id . ')');
                 $stats['imported']++;
@@ -112,16 +116,22 @@ class CCS_Importer {
     /**
      * Check if a course already exists
      *
-     * @param string $title Course title
+     * @param int $canvas_id Canvas course ID
      * @return boolean
      */
-    private function course_exists($title) {
-        $this->logger->log('Checking if course exists: ' . $title);
+    private function course_exists($canvas_id) {
+        $this->logger->log('Checking if course exists with Canvas ID: ' . $canvas_id);
         
         $args = array(
             'post_type' => 'courses',
             'post_status' => 'any',
-            'title' => $title,
+            'meta_query' => array(
+                array(
+                    'key' => '_canvas_course_id',
+                    'value' => $canvas_id,
+                    'compare' => '='
+                )
+            ),
             'posts_per_page' => 1,
             'fields' => 'ids'
         );
@@ -140,11 +150,20 @@ class CCS_Importer {
     private function create_course($course) {
         $this->logger->log('Creating course: ' . $course->name);
         
-        $description = !empty($course->description) ? $course->description : '';
+        // Handle description - ensure we capture the full HTML content
+        $description = '';
+        if (!empty($course->description)) {
+            $description = $course->description;
+        } elseif (!empty($course->syllabus_body)) {
+            $description = $course->syllabus_body;
+        }
+        
+        // Log the description to debug
+        $this->logger->log('Course description length: ' . strlen($description));
         
         // Prepare post data
         $post_data = array(
-            'post_title' => $course->name,
+            'post_title' => wp_strip_all_tags($course->name),
             'post_content' => $description,
             'post_status' => 'publish',
             'post_type' => 'courses'
@@ -189,19 +208,40 @@ class CCS_Importer {
     private function set_featured_image($post_id, $course) {
         $this->logger->log('Attempting to set featured image for course: ' . $course->name);
         
-        // Try to get course image from Canvas
+        // Check for course image URL in different possible properties
+        $image_url = null;
+        
         if (!empty($course->image_download_url)) {
-            $this->logger->log('Found image URL for course: ' . $course->image_download_url);
+            $image_url = $course->image_download_url;
+            $this->logger->log('Found image_download_url: ' . $image_url);
+        } elseif (!empty($course->image_url)) {
+            $image_url = $course->image_url;
+            $this->logger->log('Found image_url: ' . $image_url);
+        } elseif (!empty($course->course_image_url)) {
+            $image_url = $course->course_image_url;
+            $this->logger->log('Found course_image_url: ' . $image_url);
+        }
+        
+        // If we found an image URL, try to download and attach it
+        if ($image_url) {
             try {
-                $tmp_file = $this->api->download_file($course->image_download_url);
+                $this->logger->log('Downloading image from URL: ' . $image_url);
+                
+                // Add the access token if needed
+                if (strpos($image_url, '?') === false && strpos($image_url, $this->api_domain) !== false) {
+                    $image_url .= '?access_token=' . $this->api->get_token();
+                }
+                
+                $tmp_file = download_url($image_url);
                 
                 if (is_wp_error($tmp_file)) {
                     $this->logger->log('Failed to download course image: ' . $tmp_file->get_error_message(), 'error');
-                    return false;
+                    // Try alternate method through the API
+                    return $this->try_api_image_download($post_id, $image_url, $course->name);
                 }
                 
-                $this->attach_image($post_id, $tmp_file, $course->name . ' Featured Image');
-                return true;
+                $result = $this->attach_image($post_id, $tmp_file, $course->name . ' Featured Image');
+                return !is_wp_error($result);
             } catch (Exception $e) {
                 $this->logger->log('Error setting featured image: ' . $e->getMessage(), 'error');
                 return false;
@@ -210,6 +250,7 @@ class CCS_Importer {
         
         // Try to get course files and use a suitable image file
         try {
+            $this->logger->log('No direct image URL found, checking course files');
             $files = $this->api->get_course_files($course->id);
             
             if (is_wp_error($files) || empty($files)) {
@@ -220,7 +261,7 @@ class CCS_Importer {
             // Look for image files
             $image_file = null;
             foreach ($files as $file) {
-                if (strpos($file->content_type, 'image/') === 0) {
+                if (isset($file->content_type) && strpos($file->content_type, 'image/') === 0) {
                     $image_file = $file;
                     break;
                 }
@@ -228,6 +269,12 @@ class CCS_Importer {
             
             if ($image_file) {
                 $this->logger->log('Found suitable image in course files: ' . $image_file->display_name);
+                
+                if (empty($image_file->url)) {
+                    $this->logger->log('Image file URL is empty', 'warning');
+                    return false;
+                }
+                
                 $tmp_file = $this->api->download_file($image_file->url);
                 
                 if (is_wp_error($tmp_file)) {
@@ -235,14 +282,41 @@ class CCS_Importer {
                     return false;
                 }
                 
-                $this->attach_image($post_id, $tmp_file, $course->name . ' Featured Image');
-                return true;
+                $result = $this->attach_image($post_id, $tmp_file, $course->name . ' Featured Image');
+                return !is_wp_error($result);
             }
             
             $this->logger->log('No suitable image found for course', 'warning');
             return false;
         } catch (Exception $e) {
             $this->logger->log('Error looking for course images: ' . $e->getMessage(), 'error');
+            return false;
+        }
+    }
+    
+    /**
+     * Alternate method to download image via API
+     *
+     * @param int $post_id WordPress post ID
+     * @param string $url Image URL
+     * @param string $title Course title
+     * @return boolean Success status
+     */
+    private function try_api_image_download($post_id, $url, $title) {
+        $this->logger->log('Trying alternate image download method through API');
+        
+        try {
+            $tmp_file = $this->api->download_file($url);
+            
+            if (is_wp_error($tmp_file)) {
+                $this->logger->log('API file download failed: ' . $tmp_file->get_error_message(), 'error');
+                return false;
+            }
+            
+            $result = $this->attach_image($post_id, $tmp_file, $title . ' Featured Image');
+            return !is_wp_error($result);
+        } catch (Exception $e) {
+            $this->logger->log('API image download error: ' . $e->getMessage(), 'error');
             return false;
         }
     }
@@ -258,6 +332,21 @@ class CCS_Importer {
     private function attach_image($post_id, $file, $title) {
         $this->logger->log('Attaching image to post ID: ' . $post_id);
         
+        // Check if file exists
+        if (!file_exists($file)) {
+            $this->logger->log('Image file does not exist at path: ' . $file, 'error');
+            return new WP_Error('missing_file', 'Image file does not exist');
+        }
+        
+        // Check file size
+        $file_size = filesize($file);
+        if ($file_size === 0) {
+            $this->logger->log('Image file is empty (0 bytes)', 'error');
+            @unlink($file); // Delete the temp file
+            return new WP_Error('empty_file', 'Image file is empty');
+        }
+        $this->logger->log('Image file size: ' . $file_size . ' bytes');
+        
         // Check file type
         $file_type = wp_check_filetype(basename($file), null);
         
@@ -266,6 +355,8 @@ class CCS_Importer {
             @unlink($file); // Delete the temp file
             return new WP_Error('invalid_file_type', 'Invalid file type for image');
         }
+        
+        $this->logger->log('File type detected: ' . $file_type['type']);
         
         // Prepare attachment data
         $attachment = array(
@@ -290,7 +381,8 @@ class CCS_Importer {
         wp_update_attachment_metadata($attach_id, $attach_data);
         
         // Set as featured image
-        set_post_thumbnail($post_id, $attach_id);
+        $set_result = set_post_thumbnail($post_id, $attach_id);
+        $this->logger->log('Set post thumbnail result: ' . ($set_result ? 'Success' : 'Failed'));
         
         $this->logger->log('Successfully attached image as featured image. Attachment ID: ' . $attach_id);
         

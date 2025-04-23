@@ -48,6 +48,15 @@ class CCS_Canvas_API {
     }
 
     /**
+     * Get API token
+     *
+     * @return string API token
+     */
+    public function get_token() {
+        return $this->api_token;
+    }
+
+    /**
      * Get courses from Canvas
      *
      * @return array|WP_Error
@@ -109,7 +118,8 @@ class CCS_Canvas_API {
             return new WP_Error('api_config', 'API domain or token not configured');
         }
         
-        $url = trailingslashit($this->api_domain) . 'api/v1/courses/' . $course_id;
+        // Include additional parameters to get more complete course information
+        $url = trailingslashit($this->api_domain) . 'api/v1/courses/' . $course_id . '?include[]=syllabus_body&include[]=term&include[]=course_image';
         $args = array(
             'headers' => array(
                 'Authorization' => 'Bearer ' . $this->api_token
@@ -158,7 +168,7 @@ class CCS_Canvas_API {
             return new WP_Error('api_config', 'API domain or token not configured');
         }
         
-        $url = trailingslashit($this->api_domain) . 'api/v1/courses/' . $course_id . '/files';
+        $url = trailingslashit($this->api_domain) . 'api/v1/courses/' . $course_id . '/files?sort=created_at&order=desc&per_page=50';
         $args = array(
             'headers' => array(
                 'Authorization' => 'Bearer ' . $this->api_token
@@ -207,11 +217,46 @@ class CCS_Canvas_API {
             return new WP_Error('api_config', 'API token not configured');
         }
         
-        $tmp_file = download_url($url . '?access_token=' . $this->api_token);
+        // Check if the URL already has parameters
+        $url_with_token = $url;
+        if (strpos($url, '?') === false) {
+            $url_with_token .= '?access_token=' . $this->api_token;
+        } else {
+            $url_with_token .= '&access_token=' . $this->api_token;
+        }
         
-        if (is_wp_error($tmp_file)) {
-            $this->logger->log('Failed to download file: ' . $tmp_file->get_error_message(), 'error');
-            return $tmp_file;
+        $this->logger->log('Downloading from URL with token: ' . $url_with_token);
+        
+        $response = wp_remote_get($url_with_token, array(
+            'timeout' => 60,
+            'redirection' => 5,
+            'sslverify' => false,
+        ));
+        
+        if (is_wp_error($response)) {
+            $this->logger->log('Remote get failed: ' . $response->get_error_message(), 'error');
+            return $response;
+        }
+        
+        $response_code = wp_remote_retrieve_response_code($response);
+        if ($response_code !== 200) {
+            $this->logger->log('Download returned non-200 status code: ' . $response_code, 'error');
+            return new WP_Error('download_error', 'Download returned status code: ' . $response_code);
+        }
+        
+        // Create a temporary file
+        $tmp_file = wp_tempnam();
+        if (!$tmp_file) {
+            $this->logger->log('Failed to create temporary file', 'error');
+            return new WP_Error('temp_file', 'Failed to create temporary file');
+        }
+        
+        // Write the response body to the temporary file
+        $file_content = wp_remote_retrieve_body($response);
+        if (file_put_contents($tmp_file, $file_content) === false) {
+            $this->logger->log('Failed to write to temporary file', 'error');
+            @unlink($tmp_file);
+            return new WP_Error('file_write', 'Failed to write to temporary file');
         }
         
         $this->logger->log('Successfully downloaded file to: ' . $tmp_file);
