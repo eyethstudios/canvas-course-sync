@@ -25,9 +25,9 @@ export function initConnectionTester($) {
                     statusSpan.html('✗ ' + response.data).addClass('ccs-status-error');
                 }
             },
-            error: function() {
+            error: function(xhr, status, error) {
                 button.attr('disabled', false);
-                statusSpan.html('✗ Connection error').addClass('ccs-status-error');
+                statusSpan.html('✗ Connection error: ' + error).addClass('ccs-status-error');
             }
         });
     });

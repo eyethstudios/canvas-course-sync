@@ -71,11 +71,11 @@ export function initSyncManager($) {
                     location.reload();
                 }, 5000);
             },
-            error: function() {
+            error: function(xhr, status, error) {
                 clearInterval(syncInterval);
                 button.attr('disabled', false);
                 progress.hide();
-                $('#ccs-sync-message').html('<div class="notice notice-error inline"><p>Connection error occurred. Please try again.</p></div>');
+                $('#ccs-sync-message').html('<div class="notice notice-error inline"><p>Connection error occurred. Please try again. Error: ' + error + '</p></div>');
                 results.show();
             }
         });

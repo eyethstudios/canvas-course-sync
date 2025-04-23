@@ -13,8 +13,6 @@ export function initCourseManager($) {
         button.attr('disabled', true);
         loadingText.show();
         courseList.html('');
-        console.log('Load courses button clicked');
-        console.log('Using nonce:', ccsData.getCoursesNonce);
         
         $.ajax({
             url: ccsData.ajaxUrl,
@@ -24,7 +22,6 @@ export function initCourseManager($) {
                 nonce: ccsData.getCoursesNonce
             },
             success: function(response) {
-                console.log('Courses response:', response);
                 if (response.success && Array.isArray(response.data)) {
                     let html = '<div class="ccs-select-all">' +
                         '<label>' +
@@ -50,9 +47,6 @@ export function initCourseManager($) {
                 }
             },
             error: function(xhr, status, error) {
-                console.error('AJAX error:', error);
-                console.error('AJAX status:', status);
-                console.error('AJAX response:', xhr.responseText);
                 courseList.html('<p class="error">Connection error occurred. Please try again.</p>');
                 coursesWrapper.show();
             },
