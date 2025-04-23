@@ -1,73 +1,64 @@
-# Welcome to your Lovable project
 
-## Project info
+# Canvas Course Sync
 
-**URL**: https://lovable.dev/projects/a1abb80f-391b-478d-b324-22613a7658e2
+A WordPress plugin to synchronize courses from Canvas LMS to a WordPress custom post type.
 
-## How can I edit this code?
+## Description
 
-There are several ways of editing your application.
+Canvas Course Sync creates a bridge between your Canvas Learning Management System and WordPress. It allows you to import courses from Canvas into a custom post type called "courses" in WordPress.
 
-**Use Lovable**
+The plugin will:
+- Connect to the Canvas API using your credentials
+- Fetch course data including titles, descriptions, and images
+- Compare with existing WordPress courses (by title) and skip duplicates
+- Import new courses as WordPress posts
+- Set featured images from Canvas course images when available
+- Log all activities and provide a detailed admin interface
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/a1abb80f-391b-478d-b324-22613a7658e2) and start prompting.
+## Requirements
 
-Changes made via Lovable will be committed automatically to this repo.
+- WordPress 5.0 or higher
+- PHP 7.0 or higher
+- A custom post type named "courses" must exist in your WordPress installation
+- Canvas LMS account with API access
 
-**Use your preferred IDE**
+## Installation
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+1. Upload the `canvas-course-sync` folder to the `/wp-content/plugins/` directory
+2. Activate the plugin through the 'Plugins' menu in WordPress
+3. Go to Canvas Sync menu in the WordPress admin area
+4. Configure your Canvas API settings
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## Configuration
 
-Follow these steps:
+1. Navigate to Canvas Sync in your WordPress admin menu
+2. Enter your Canvas Domain (e.g., https://canvas.instructure.com)
+3. Enter your Canvas API Token 
+4. Click "Test Connection" to verify your settings
+5. Once connected, click "Sync Courses Now" to begin importing
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+## Usage
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+After configuration, simply click the "Sync Courses Now" button whenever you want to import new courses from Canvas. The plugin will:
 
-# Step 3: Install the necessary dependencies.
-npm i
+- Connect to your Canvas instance
+- Retrieve all courses
+- Skip courses that already exist in WordPress (matched by title)
+- Import new courses with their descriptions and featured images
+- Display import statistics and logs
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+## Logs
 
-**Edit a file directly in GitHub**
+The plugin maintains detailed logs of all operations. You can view recent logs in the admin interface or access the full log file in your WordPress uploads directory.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Customization
 
-**Use GitHub Codespaces**
+If you need to customize how courses are imported or mapped to WordPress, you can modify the CCS_Importer class in `includes/importer.php`.
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Support
 
-## What technologies are used for this project?
+For support or feature requests, please open an issue in the plugin's repository.
 
-This project is built with:
+## License
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/a1abb80f-391b-478d-b324-22613a7658e2) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+This plugin is licensed under the GPL v2 or later.

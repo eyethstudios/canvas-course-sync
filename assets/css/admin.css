@@ -1,0 +1,125 @@
+
+/**
+ * Canvas Course Sync Admin Styles
+ */
+
+.ccs-admin-container {
+    display: flex;
+    flex-wrap: wrap;
+    margin-top: 20px;
+}
+
+.ccs-admin-main {
+    flex: 2;
+    min-width: 600px;
+    margin-right: 20px;
+}
+
+.ccs-admin-sidebar {
+    flex: 1;
+    min-width: 300px;
+}
+
+.ccs-panel {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.ccs-panel h2 {
+    margin-top: 0;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #eee;
+}
+
+.ccs-list {
+    list-style-type: disc;
+    padding-left: 20px;
+}
+
+#ccs-connection-status {
+    margin-left: 10px;
+    padding: 5px 0;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.ccs-status-success {
+    color: #46b450;
+}
+
+.ccs-status-error {
+    color: #dc3232;
+}
+
+.ccs-spinner {
+    background: url(../../../wp-admin/images/spinner.gif) no-repeat;
+    background-size: 20px 20px;
+    display: inline-block;
+    visibility: visible;
+    vertical-align: middle;
+    opacity: 0.7;
+    filter: alpha(opacity=70);
+    width: 20px;
+    height: 20px;
+    margin: 0 10px;
+}
+
+.ccs-results-table {
+    width: 50%;
+    border-collapse: collapse;
+    margin-top: 15px;
+}
+
+.ccs-results-table th,
+.ccs-results-table td {
+    padding: 8px;
+    border: 1px solid #ddd;
+    text-align: left;
+}
+
+.ccs-results-table th {
+    background-color: #f8f8f8;
+}
+
+.ccs-log-container {
+    max-height: 400px;
+    overflow-y: auto;
+    background: #f8f8f8;
+    border: 1px solid #ddd;
+    padding: 10px;
+    font-family: monospace;
+    font-size: 12px;
+}
+
+.ccs-log-entry {
+    margin-bottom: 5px;
+}
+
+.ccs-log-entry pre {
+    margin: 0;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.ccs-log-error {
+    color: #dc3232;
+}
+
+.ccs-log-warning {
+    color: #ffb900;
+}
+
+@media screen and (max-width: 782px) {
+    .ccs-admin-container {
+        flex-direction: column;
+    }
+    
+    .ccs-admin-main,
+    .ccs-admin-sidebar {
+        min-width: 100%;
+        margin-right: 0;
+    }
+}
