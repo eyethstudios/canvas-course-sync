@@ -23,23 +23,9 @@ function ccs_update_sync_status($message = '', $data = array()) {
 }
 
 /**
- * Get the current sync status
- * 
- * @return array Current sync status
- */
-function ccs_get_sync_status() {
-    $status = get_option('ccs_sync_status', array(
-        'message' => '',
-        'timestamp' => '',
-        'data' => array()
-    ));
-    
-    return $status;
-}
-
-/**
  * Clear the sync status
  */
 function ccs_clear_sync_status() {
     delete_option('ccs_sync_status');
 }
+

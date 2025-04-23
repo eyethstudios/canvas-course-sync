@@ -11,7 +11,10 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-// Include admin component files
+// Include handlers first since they contain the base functions
+require_once CCS_PLUGIN_DIR . 'includes/handlers/index.php';
+
+// Then include admin component files
 require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-admin-menu.php';
 require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-api-settings.php';
 require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-sync-controls.php';
