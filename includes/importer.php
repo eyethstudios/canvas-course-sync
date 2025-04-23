@@ -76,19 +76,32 @@ class CCS_Importer {
 
             // Process syllabus content
             $syllabus_content = '';
+            $post_content = '';
+            
+            // Check for syllabus content
             if (!empty($course_details->syllabus_body)) {
                 $syllabus_content = $course_details->syllabus_body;
                 $this->logger->log('Found syllabus content (' . strlen($syllabus_content) . ' chars)');
+                $post_content = $syllabus_content;
             } else {
                 $this->logger->log('No syllabus content found for course');
             }
+            
+            // Check for public description as fallback
+            if (empty($post_content) && !empty($course_details->public_description)) {
+                $this->logger->log('Using public description as fallback (' . strlen($course_details->public_description) . ' chars)');
+                $post_content = $course_details->public_description;
+            }
 
+            // For debugging
+            $this->logger->log('Post content length: ' . strlen($post_content));
+            
             // Prepare post data - ensure post_status is draft
             $args = array(
                 'post_title'   => $course_name ?? '',
                 'post_status'  => 'draft', // Ensure it's set to draft
                 'post_type'    => 'courses',
-                'post_content' => $syllabus_content, // Set syllabus content
+                'post_content' => $post_content, // Set prepared content
             );
             
             // Check if course already exists by post title
@@ -105,16 +118,24 @@ class CCS_Importer {
                 
                 // Update existing post
                 $args['ID'] = $post_id;
-                wp_update_post($args);
+                $result = wp_update_post($args);
+                
+                if (is_wp_error($result)) {
+                    $this->logger->log('Error updating post: ' . $result->get_error_message(), 'error');
+                } else {
+                    $this->logger->log('Post updated successfully with ' . strlen($post_content) . ' chars of content');
+                }
             } else {
                 $this->logger->log('Creating new course: ' . $course_name);
                 
                 // Create new post
                 $post_id = wp_insert_post($args);
                 if (is_wp_error($post_id) || !$post_id) {
-                    $this->logger->log('Failed to create post for course ' . $course_id . ': ' . ($post_id->get_error_message() ?? 'Unknown error'), 'error');
+                    $this->logger->log('Failed to create post for course ' . $course_id . ': ' . (is_wp_error($post_id) ? $post_id->get_error_message() : 'Unknown error'), 'error');
                     $errors++;
                     continue;
+                } else {
+                    $this->logger->log('New post created successfully with ID: ' . $post_id . ' and ' . strlen($post_content) . ' chars of content');
                 }
                 
                 // Save marker meta for future lookups
