@@ -42,16 +42,19 @@ class CCS_Admin_Page {
      */
     public function __construct() {
         global $canvas_course_sync;
-        $this->logger = $canvas_course_sync->logger ?? new CCS_Logger();
+        
+        // Get the logger from the global instance or create a new one
+        if (isset($canvas_course_sync) && isset($canvas_course_sync->logger)) {
+            $this->logger = $canvas_course_sync->logger;
+        } else {
+            $this->logger = new CCS_Logger();
+        }
         
         // Initialize components
         $this->admin_menu = new CCS_Admin_Menu();
         $this->api_settings = new CCS_API_Settings();
         $this->sync_controls = new CCS_Sync_Controls();
         $this->logs_display = new CCS_Logs_Display($this->logger);
-        
-        // Add admin menu
-        add_action('admin_menu', array($this->admin_menu, 'add_menu'));
         
         // Register settings
         add_action('admin_init', array($this->api_settings, 'register_settings'));

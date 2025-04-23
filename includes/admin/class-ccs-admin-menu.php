@@ -16,6 +16,14 @@ if (!defined('ABSPATH')) {
  */
 class CCS_Admin_Menu {
     /**
+     * Constructor
+     */
+    public function __construct() {
+        // Register the admin menu
+        add_action('admin_menu', array($this, 'add_menu'));
+    }
+    
+    /**
      * Add admin menu
      */
     public function add_menu() {

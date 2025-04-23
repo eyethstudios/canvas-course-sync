@@ -1,3 +1,4 @@
+
 <?php
 /**
  * Plugin Name: Canvas Course Sync
@@ -62,13 +63,6 @@ class Canvas_Course_Sync {
     public $importer;
 
     /**
-     * Admin page instance
-     *
-     * @var CCS_Admin_Page
-     */
-    public $admin_page;
-
-    /**
      * Constructor
      */
     public function __construct() {
@@ -76,8 +70,7 @@ class Canvas_Course_Sync {
         $this->logger = new CCS_Logger();
         $this->api = new CCS_Canvas_API();
         $this->importer = new CCS_Importer();
-        $this->admin_page = new CCS_Admin_Page();
-
+        
         // Register activation hook
         register_activation_hook(__FILE__, array($this, 'activate_plugin'));
 
@@ -225,10 +218,15 @@ class Canvas_Course_Sync {
     }
 }
 
+// Make the plugin globally accessible
+global $canvas_course_sync;
+
 // Initialize the plugin
 function canvas_course_sync() {
-    return Canvas_Course_Sync::get_instance();
+    global $canvas_course_sync;
+    $canvas_course_sync = Canvas_Course_Sync::get_instance();
+    return $canvas_course_sync;
 }
 
 // Start the plugin
-canvas_course_sync();
+add_action('plugins_loaded', 'canvas_course_sync');

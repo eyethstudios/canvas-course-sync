@@ -15,4 +15,10 @@ if (!defined('ABSPATH')) {
 require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-admin-page.php';
 
 // Initialize admin page functionality
-$ccs_admin_page = new CCS_Admin_Page();
+function ccs_init_admin_page() {
+    $ccs_admin_page = new CCS_Admin_Page();
+    return $ccs_admin_page;
+}
+
+// Hook the admin page initialization to admin_init
+add_action('admin_init', 'ccs_init_admin_page');
