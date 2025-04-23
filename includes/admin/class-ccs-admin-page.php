@@ -89,7 +89,7 @@ class CCS_Admin_Page {
             CCS_VERSION
         );
         
-        // Enqueue admin JS
+        // Enqueue admin JS with jQuery dependency
         wp_enqueue_script(
             'ccs-admin-js',
             CCS_PLUGIN_URL . 'assets/js/admin.js',

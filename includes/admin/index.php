@@ -138,3 +138,28 @@ function ccs_ajax_test_connection() {
     }
 }
 add_action('wp_ajax_ccs_test_connection', 'ccs_ajax_test_connection');
+
+/**
+ * Get current sync status
+ * 
+ * @return array Current sync status
+ */
+function ccs_get_sync_status() {
+    $status = array(
+        'is_syncing' => false,
+        'progress' => 0,
+        'total' => 0,
+        'imported' => 0,
+        'skipped' => 0,
+        'errors' => 0
+    );
+    
+    // Get status from transient
+    $sync_status = get_transient('ccs_sync_status');
+    
+    if ($sync_status !== false) {
+        $status = $sync_status;
+    }
+    
+    return $status;
+}
