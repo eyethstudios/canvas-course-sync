@@ -1,4 +1,3 @@
-
 /**
  * Canvas Course Sync Admin Styles
  */
@@ -92,6 +91,7 @@
     padding: 10px;
     font-family: monospace;
     font-size: 12px;
+    margin-bottom: 15px;
 }
 
 .ccs-log-entry {
@@ -110,6 +110,17 @@
 
 .ccs-log-warning {
     color: #ffb900;
+}
+
+.ccs-clear-logs {
+    margin-bottom: 15px;
+}
+
+#ccs-sync-status {
+    display: inline-block;
+    margin-left: 10px;
+    font-style: italic;
+    color: #666;
 }
 
 @media screen and (max-width: 782px) {

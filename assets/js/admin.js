@@ -1,4 +1,3 @@
-
 /**
  * Canvas Course Sync Admin JavaScript
  */
@@ -36,15 +35,57 @@
             });
         });
         
+        // Clear logs button
+        $('#ccs-clear-logs').on('click', function() {
+            const button = $(this);
+            button.attr('disabled', true);
+            
+            $.ajax({
+                url: ccsData.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'ccs_clear_logs',
+                    nonce: ccsData.clearLogsNonce
+                },
+                success: function(response) {
+                    button.attr('disabled', false);
+                    if (response.success) {
+                        $('.ccs-log-container').html('<p>Logs cleared successfully.</p>');
+                    }
+                },
+                error: function() {
+                    button.attr('disabled', false);
+                    alert('Failed to clear logs. Please try again.');
+                }
+            });
+        });
+        
         // Sync courses button
         $('#ccs-sync-courses').on('click', function() {
             const button = $(this);
             const progress = $('#ccs-sync-progress');
             const results = $('#ccs-sync-results');
+            const statusText = $('#ccs-sync-status');
             
             button.attr('disabled', true);
             progress.show();
             results.hide();
+            
+            let syncInterval = setInterval(function() {
+                $.ajax({
+                    url: ccsData.ajaxUrl,
+                    type: 'POST',
+                    data: {
+                        action: 'ccs_sync_status',
+                        nonce: ccsData.syncNonce
+                    },
+                    success: function(response) {
+                        if (response.success && response.data.status) {
+                            statusText.html(response.data.status);
+                        }
+                    }
+                });
+            }, 2000);
             
             $.ajax({
                 url: ccsData.ajaxUrl,
@@ -54,6 +95,7 @@
                     nonce: ccsData.syncNonce
                 },
                 success: function(response) {
+                    clearInterval(syncInterval);
                     button.attr('disabled', false);
                     progress.hide();
                     
@@ -74,6 +116,7 @@
                     }, 5000);
                 },
                 error: function() {
+                    clearInterval(syncInterval);
                     button.attr('disabled', false);
                     progress.hide();
                     $('#ccs-sync-message').html('<div class="notice notice-error inline"><p>Connection error occurred. Please try again.</p></div>');

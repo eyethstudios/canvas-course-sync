@@ -1,4 +1,3 @@
-
 <?php
 /**
  * Canvas Course Sync Admin Page
@@ -183,6 +182,7 @@ class CCS_Admin_Page {
                         <div id="ccs-sync-progress" style="display: none;">
                             <p><?php _e('Syncing courses...', 'canvas-course-sync'); ?></p>
                             <div class="ccs-spinner"></div>
+                            <div id="ccs-sync-status"></div>
                         </div>
                         
                         <div id="ccs-sync-results" style="display: none;">
@@ -210,6 +210,9 @@ class CCS_Admin_Page {
                 <div class="ccs-admin-sidebar">
                     <div class="ccs-panel">
                         <h2><?php _e('Sync Logs', 'canvas-course-sync'); ?></h2>
+                        <button id="ccs-clear-logs" class="button button-secondary ccs-clear-logs">
+                            <?php _e('Clear Logs', 'canvas-course-sync'); ?>
+                        </button>
                         <?php
                         $recent_logs = $this->logger->get_recent_logs(20);
                         if (!empty($recent_logs)) :
