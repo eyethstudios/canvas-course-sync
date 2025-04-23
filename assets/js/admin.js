@@ -59,9 +59,73 @@
                 }
             });
         });
+
+        // Load courses button
+        $('#ccs-load-courses').on('click', function() {
+            const button = $(this);
+            const courseList = $('#ccs-course-list');
+            const loadingText = $('#ccs-loading-courses');
+            
+            button.attr('disabled', true);
+            loadingText.show();
+            courseList.html('');
+            
+            $.ajax({
+                url: ccsData.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'ccs_get_courses',
+                    nonce: ccsData.getCoursesNonce
+                },
+                success: function(response) {
+                    if (response.success) {
+                        let html = '<div class="ccs-select-all">' +
+                            '<label>' +
+                            '<input type="checkbox" id="ccs-select-all-checkbox" checked> ' +
+                            'Select/Deselect All</label>' +
+                            '</div>';
+                            
+                        response.data.forEach(function(course) {
+                            html += '<div class="ccs-course-item">' +
+                                '<label>' +
+                                '<input type="checkbox" class="ccs-course-checkbox" ' +
+                                'value="' + course.id + '" checked> ' +
+                                course.name + '</label>' +
+                                '</div>';
+                        });
+                        
+                        courseList.html(html);
+                        $('#ccs-courses-wrapper').show();
+                    } else {
+                        courseList.html('<p class="error">Error loading courses: ' + response.data + '</p>');
+                    }
+                },
+                error: function() {
+                    courseList.html('<p class="error">Connection error occurred. Please try again.</p>');
+                },
+                complete: function() {
+                    button.attr('disabled', false);
+                    loadingText.hide();
+                }
+            });
+        });
+
+        // Handle select all checkbox
+        $(document).on('change', '#ccs-select-all-checkbox', function() {
+            $('.ccs-course-checkbox').prop('checked', $(this).prop('checked'));
+        });
         
         // Sync courses button
         $('#ccs-sync-courses').on('click', function() {
+            const selectedCourses = $('.ccs-course-checkbox:checked').map(function() {
+                return $(this).val();
+            }).get();
+            
+            if (selectedCourses.length === 0) {
+                alert('Please select at least one course to sync.');
+                return;
+            }
+            
             const button = $(this);
             const progress = $('#ccs-sync-progress');
             const results = $('#ccs-sync-results');
@@ -92,7 +156,8 @@
                 type: 'POST',
                 data: {
                     action: 'ccs_sync_courses',
-                    nonce: ccsData.syncNonce
+                    nonce: ccsData.syncNonce,
+                    course_ids: selectedCourses
                 },
                 success: function(response) {
                     clearInterval(syncInterval);

@@ -38,39 +38,30 @@ class CCS_Importer {
     }
 
     /**
-     * Import courses from Canvas
+     * Import specific courses from Canvas
      *
-     * @param int $per_page Number of items per API page request
+     * @param array $course_ids Array of Canvas course IDs to import
      * @return array Result of import process
      */
-    public function import_courses($per_page = 50) {
-        $this->logger->log('Starting course import process');
-        
-        // Get all courses using pagination
-        $this->logger->log('Fetching courses from Canvas API with pagination (per_page=' . $per_page . ')');
-        $canvas_courses = $this->api->get_courses($per_page);
-        
-        if (is_wp_error($canvas_courses)) {
-            $this->logger->log('Failed to fetch courses from Canvas API: ' . $canvas_courses->get_error_message(), 'error');
-            return array(
-                'imported' => 0,
-                'skipped' => 0,
-                'errors' => 1,
-                'total' => 0
-            );
-        }
-
-        $total_courses = count($canvas_courses);
-        $this->logger->log('Preparing to process ' . $total_courses . ' courses');
+    public function import_courses($course_ids = array()) {
+        $this->logger->log('Starting course import process for ' . count($course_ids) . ' selected courses');
         
         $imported = 0;
         $skipped = 0;
         $errors = 0;
         $processed = 0;
+        $total_courses = count($course_ids);
 
-        foreach ($canvas_courses as $canvas_course) {
-            $course_id = $canvas_course->id;
-            $course_name = $canvas_course->name;
+        foreach ($course_ids as $course_id) {
+            $course_details = $this->api->get_course_details($course_id);
+            
+            if (is_wp_error($course_details)) {
+                $this->logger->log('Failed to get details for course ' . $course_id . ': ' . $course_details->get_error_message(), 'error');
+                $errors++;
+                continue;
+            }
+
+            $course_name = $course_details->name;
             
             $processed++;
             if ($processed % 10 == 0) {
