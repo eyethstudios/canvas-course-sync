@@ -5,33 +5,16 @@
 jQuery(document).ready(function($) {
     'use strict';
     
-    // Initialize connection tester
-    if (typeof initConnectionTester === 'function') {
-        initConnectionTester($);
-    } else {
-        console.error('Connection tester module not loaded');
-    }
+    console.log('Canvas Course Sync admin.js initialized');
     
-    // Initialize log manager
-    const logManager = initLogManager($);
+    // Debug element visibility
+    console.log('Clear logs button exists:', $('#ccs-clear-logs').length > 0);
+    console.log('Load courses button exists:', $('#ccs-load-courses').length > 0);
     
-    // Initialize course manager
-    const courseManager = initCourseManager($);
-    
-    // Initialize sync manager
-    if (typeof initSyncManager === 'function') {
-        initSyncManager($);
-    } else {
-        console.error('Sync manager module not loaded');
-    }
-});
-
-/**
- * Log management functionality
- */
-function initLogManager($) {
+    // Direct event binding for clear logs button
     $('#ccs-clear-logs').on('click', function(e) {
         e.preventDefault();
+        console.log('Clear logs button clicked');
         const button = $(this);
         button.attr('disabled', true);
         
@@ -44,6 +27,7 @@ function initLogManager($) {
             },
             success: function(response) {
                 button.attr('disabled', false);
+                console.log('Clear logs response:', response);
                 if (response.success) {
                     $('.ccs-log-container').html('<p>Logs cleared successfully.</p>');
                 } else {
@@ -52,6 +36,7 @@ function initLogManager($) {
             },
             error: function(xhr, status, error) {
                 button.attr('disabled', false);
+                console.error('Clear logs error:', error, xhr.responseText);
                 alert('Failed to clear logs. Please try again. Error: ' + error);
             }
         });
@@ -59,16 +44,10 @@ function initLogManager($) {
         return false;
     });
     
-    console.log('Log manager initialized');
-}
-
-/**
- * Course management functionality
- */
-function initCourseManager($) {
-    // Load courses button handler
+    // Direct event binding for load courses button
     $('#ccs-load-courses').on('click', function(e) {
         e.preventDefault();
+        console.log('Load courses button clicked');
         const button = $(this);
         const courseList = $('#ccs-course-list');
         const loadingText = $('#ccs-loading-courses');
@@ -78,7 +57,7 @@ function initCourseManager($) {
         loadingText.show();
         courseList.html('');
         
-        console.log('Sending AJAX request to load courses');
+        console.log('Sending AJAX request to load courses, nonce:', ccsData.getCoursesNonce);
         
         $.ajax({
             url: ccsData.ajaxUrl,
@@ -88,6 +67,7 @@ function initCourseManager($) {
                 nonce: ccsData.getCoursesNonce
             },
             success: function(response) {
+                console.log('Load courses response:', response);
                 if (response.success && Array.isArray(response.data)) {
                     let html = '<div class="ccs-select-all">' +
                         '<label>' +
@@ -113,6 +93,7 @@ function initCourseManager($) {
                 }
             },
             error: function(xhr, status, error) {
+                console.error('Load courses error:', error, xhr.responseText);
                 courseList.html('<p class="error">Connection error occurred. Please try again.</p>');
                 coursesWrapper.show();
             },
@@ -130,15 +111,10 @@ function initCourseManager($) {
         $('.ccs-course-checkbox').prop('checked', $(this).prop('checked'));
     });
     
-    console.log('Course manager initialized');
-}
-
-/**
- * Connection tester functionality
- */
-function initConnectionTester($) {
+    // Connection tester functionality
     $('#ccs-test-connection').on('click', function(e) {
         e.preventDefault();
+        console.log('Test connection button clicked');
         const button = $(this);
         const resultContainer = $('#ccs-connection-result');
         
@@ -154,6 +130,7 @@ function initConnectionTester($) {
             },
             success: function(response) {
                 button.attr('disabled', false);
+                console.log('Connection test response:', response);
                 
                 if (response.success) {
                     resultContainer.html('<div class="ccs-success">' + response.data + '</div>');
@@ -163,6 +140,7 @@ function initConnectionTester($) {
             },
             error: function(xhr, status, error) {
                 button.attr('disabled', false);
+                console.error('Connection test error:', error, xhr.responseText);
                 resultContainer.html('<div class="ccs-error">Connection error: ' + error + '</div>');
             }
         });
@@ -170,17 +148,11 @@ function initConnectionTester($) {
         return false;
     });
     
-    console.log('Connection tester initialized');
-}
-
-/**
- * Sync manager functionality
- */
-function initSyncManager($) {
+    // Sync courses functionality
     $('#ccs-sync-courses').on('click', function(e) {
         e.preventDefault();
+        console.log('Sync courses button clicked');
         const button = $(this);
-        const courseList = $('#ccs-course-list');
         const syncProgress = $('#ccs-sync-progress');
         const syncResults = $('#ccs-sync-results');
         const syncMessage = $('#ccs-sync-message');
@@ -189,6 +161,17 @@ function initSyncManager($) {
         const errorsCount = $('#ccs-errors');
         const progressBar = $('#ccs-sync-progress-bar');
         const syncStatus = $('#ccs-sync-status');
+        
+        // Get selected course IDs
+        let courseIds = [];
+        $('.ccs-course-checkbox:checked').each(function() {
+            courseIds.push($(this).val());
+        });
+        
+        if (courseIds.length === 0) {
+            alert('Please select at least one course to sync.');
+            return false;
+        }
         
         button.attr('disabled', true);
         syncProgress.show();
@@ -200,18 +183,7 @@ function initSyncManager($) {
         progressBar.css('width', '0%');
         syncStatus.text('Initializing...');
         
-        // Get selected course IDs
-        let courseIds = [];
-        $('.ccs-course-checkbox:checked').each(function() {
-            courseIds.push($(this).val());
-        });
-        
-        if (courseIds.length === 0) {
-            alert('Please select at least one course to sync.');
-            button.attr('disabled', false);
-            syncProgress.hide();
-            return;
-        }
+        console.log('Starting sync for courses:', courseIds);
         
         // AJAX call to start course sync
         $.ajax({
@@ -223,6 +195,7 @@ function initSyncManager($) {
                 course_ids: courseIds
             },
             success: function(response) {
+                console.log('Sync courses response:', response);
                 button.attr('disabled', false);
                 syncProgress.hide();
                 syncResults.show();
@@ -237,6 +210,7 @@ function initSyncManager($) {
                 }
             },
             error: function(xhr, status, error) {
+                console.error('Sync courses error:', error, xhr.responseText);
                 button.attr('disabled', false);
                 syncProgress.hide();
                 syncResults.show();
@@ -271,5 +245,13 @@ function initSyncManager($) {
         });
     }
     
-    console.log('Sync manager initialized');
-}
+    // Check if ccsData object exists and contains necessary data
+    if (typeof ccsData === 'undefined') {
+        console.error('ccsData is not defined. Scripts may not be properly localized.');
+    } else {
+        console.log('ccsData available:', ccsData);
+    }
+
+    // Console log document ready complete
+    console.log('Canvas Course Sync admin.js initialization completed');
+});

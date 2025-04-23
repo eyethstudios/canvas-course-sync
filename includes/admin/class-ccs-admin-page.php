@@ -11,14 +11,16 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-// Include handlers first since they contain the base functions
-require_once CCS_PLUGIN_DIR . 'includes/handlers/index.php';
-
-// Then include admin component files
+// Include admin component files first
 require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-admin-menu.php';
 require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-api-settings.php';
 require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-sync-controls.php';
 require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-logs-display.php';
+
+// Then include handlers, which contain the AJAX handlers
+require_once CCS_PLUGIN_DIR . 'includes/handlers/index.php';
+
+// Finally include the admin index file with additional AJAX handlers
 require_once CCS_PLUGIN_DIR . 'includes/admin/index.php';
 
 /**
@@ -83,6 +85,8 @@ class CCS_Admin_Page {
      * @param string $hook Current admin page
      */
     public function enqueue_scripts($hook) {
+        $this->logger->log('Enqueuing scripts for hook: ' . $hook);
+        
         if ('toplevel_page_canvas-course-sync' !== $hook) {
             return;
         }
@@ -95,12 +99,15 @@ class CCS_Admin_Page {
             CCS_VERSION
         );
         
-        // Enqueue admin JS with jQuery dependency
+        // Enqueue jQuery first
+        wp_enqueue_script('jquery');
+        
+        // Enqueue admin JS
         wp_enqueue_script(
             'ccs-admin-js',
             CCS_PLUGIN_URL . 'assets/js/admin.js',
             array('jquery'),
-            CCS_VERSION,
+            CCS_VERSION . '.' . time(), // Force no cache with timestamp
             true
         );
         
@@ -114,7 +121,9 @@ class CCS_Admin_Page {
                 'testConnectionNonce' => wp_create_nonce('ccs_test_connection_nonce'),
                 'clearLogsNonce' => wp_create_nonce('ccs_clear_logs_nonce'),
                 'getCoursesNonce' => wp_create_nonce('ccs_get_courses_nonce'),
-                'syncStatusNonce' => wp_create_nonce('ccs_sync_status_nonce')
+                'syncStatusNonce' => wp_create_nonce('ccs_sync_status_nonce'),
+                'pluginUrl' => CCS_PLUGIN_URL,
+                'pluginVersion' => CCS_VERSION
             )
         );
         
