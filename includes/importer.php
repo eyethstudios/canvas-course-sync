@@ -1,3 +1,4 @@
+
 <?php
 /**
  * Handles importing courses from Canvas into WP.
@@ -40,12 +41,16 @@ class CCS_Importer {
     /**
      * Import courses from Canvas
      *
+     * @param int $per_page Number of items per API page request
      * @return array Result of import process
      */
-    public function import_courses() {
+    public function import_courses($per_page = 50) {
         $this->logger->log('Starting course import process');
         
-        $canvas_courses = $this->api->get_courses();
+        // Get all courses using pagination
+        $this->logger->log('Fetching courses from Canvas API with pagination (per_page=' . $per_page . ')');
+        $canvas_courses = $this->api->get_courses($per_page);
+        
         if (is_wp_error($canvas_courses)) {
             $this->logger->log('Failed to fetch courses from Canvas API: ' . $canvas_courses->get_error_message(), 'error');
             return array(
@@ -55,13 +60,22 @@ class CCS_Importer {
             );
         }
 
+        $total_courses = count($canvas_courses);
+        $this->logger->log('Preparing to process ' . $total_courses . ' courses');
+        
         $imported = 0;
         $skipped = 0;
         $errors = 0;
+        $processed = 0;
 
         foreach ($canvas_courses as $canvas_course) {
             $course_id = $canvas_course->id;
             $course_name = $canvas_course->name;
+            
+            $processed++;
+            if ($processed % 10 == 0) {
+                $this->logger->log('Progress: ' . $processed . '/' . $total_courses . ' courses processed');
+            }
             
             $this->logger->log('Processing course: ' . $course_name . ' (ID: ' . $course_id . ')');
             
@@ -172,10 +186,13 @@ class CCS_Importer {
             $imported++;
         }
 
+        $this->logger->log('Import complete. Processed: ' . $total_courses . ', Imported: ' . $imported . ', Skipped: ' . $skipped . ', Errors: ' . $errors);
+
         return array(
             'imported' => $imported,
             'skipped'  => $skipped,
             'errors'   => $errors,
+            'total'    => $total_courses,
         );
     }
     

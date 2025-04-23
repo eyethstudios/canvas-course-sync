@@ -176,13 +176,20 @@ class Canvas_Course_Sync {
         try {
             // Start the import process
             $this->logger->log('Starting course sync process');
-            $result = $this->importer->import_courses();
+            $result = $this->importer->import_courses(50); // Set 50 courses per page
             
             wp_send_json_success(array(
-                'message' => sprintf('Successfully imported %d courses', $result['imported']),
+                'message' => sprintf(
+                    'Successfully processed %d courses (%d imported, %d skipped, %d errors)',
+                    $result['total'],
+                    $result['imported'],
+                    $result['skipped'],
+                    $result['errors']
+                ),
                 'imported' => $result['imported'],
                 'skipped' => $result['skipped'],
-                'errors' => $result['errors']
+                'errors' => $result['errors'],
+                'total' => $result['total']
             ));
         } catch (Exception $e) {
             $this->logger->log('Error in sync process: ' . $e->getMessage(), 'error');
