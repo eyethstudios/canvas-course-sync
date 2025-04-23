@@ -29,3 +29,11 @@ function ccs_clear_sync_status() {
     delete_option('ccs_sync_status');
 }
 
+/**
+ * Helper function to get sync status
+ *
+ * @return array|false Sync status data or false if not set
+ */
+function ccs_get_sync_status() {
+    return get_option('ccs_sync_status', false);
+}

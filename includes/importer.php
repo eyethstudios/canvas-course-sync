@@ -11,38 +11,9 @@ if (!defined('ABSPATH')) {
 }
 
 // Include handlers
+require_once plugin_dir_path(__FILE__) . 'handlers/index.php';
 require_once plugin_dir_path(__FILE__) . 'handlers/class-ccs-content-handler.php';
 require_once plugin_dir_path(__FILE__) . 'handlers/class-ccs-media-handler.php';
-
-/**
- * Helper function to update sync status
- *
- * @param string $status Status message
- * @param array $data Additional data
- */
-function ccs_update_sync_status($status, $data = array()) {
-    $sync_status = array_merge(
-        array('status' => $status),
-        $data
-    );
-    update_option('ccs_sync_status', $sync_status);
-}
-
-/**
- * Helper function to clear sync status
- */
-function ccs_clear_sync_status() {
-    delete_option('ccs_sync_status');
-}
-
-/**
- * Helper function to get sync status
- *
- * @return array|false Sync status data or false if not set
- */
-function ccs_get_sync_status() {
-    return get_option('ccs_sync_status', false);
-}
 
 /**
  * Importer class
