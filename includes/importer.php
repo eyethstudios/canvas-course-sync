@@ -1,4 +1,3 @@
-
 <?php
 /**
  * Handles importing courses from Canvas into WP.
@@ -76,19 +75,18 @@ class CCS_Importer {
 
             // Prepare post data
             $args = array(
-                'post_title'   => $canvas_course->name ?? '',
+                'post_title'   => $course_name ?? '',
                 'post_status'  => 'publish',
                 'post_type'    => 'courses',
                 'post_content' => isset($course_details->syllabus_body) ? $course_details->syllabus_body : '',
             );
             
-            // Check if course already exists by Canvas course ID
+            // Check if course already exists by post title (instead of Canvas course ID)
             $existing = get_posts(array(
-                'post_type' => 'courses',
-                'meta_key' => 'canvas_course_id',
-                'meta_value' => $course_id,
+                'post_type'      => 'courses',
+                'title'          => $course_name,
                 'posts_per_page' => 1,
-                'fields' => 'ids',
+                'fields'         => 'ids',
             ));
 
             if ($existing && count($existing) > 0) {
@@ -109,7 +107,7 @@ class CCS_Importer {
                     continue;
                 }
                 
-                // Save marker meta for future lookups
+                // Save marker meta for future lookups (optional, keeps old method for debugging if needed)
                 update_post_meta($post_id, 'canvas_course_id', $course_id);
             }
 
