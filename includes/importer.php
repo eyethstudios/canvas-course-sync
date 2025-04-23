@@ -113,35 +113,14 @@ class CCS_Importer {
                 continue; // Skip to the next course
             }
             
-            // Get detailed course information
-            $course_details = $this->api->get_course_details($course_id);
-            if (is_wp_error($course_details)) {
-                $this->logger->log('Failed to get details for course ' . $course_id . ': ' . $course_details->get_error_message(), 'error');
-                $errors++;
-                continue;
-            }
-
-            // Process syllabus content
-            $syllabus_content = '';
-            $post_content = '';
+            // Process content for the course
+            $post_content = $this->prepare_course_content($course_details);
             
-            // Check for syllabus content
-            if (!empty($course_details->syllabus_body)) {
-                $syllabus_content = $course_details->syllabus_body;
-                $this->logger->log('Found syllabus content (' . strlen($syllabus_content) . ' chars)');
-                $post_content = $syllabus_content;
-            } else {
-                $this->logger->log('No syllabus content found for course');
-            }
-            
-            // Check for public description as fallback
-            if (empty($post_content) && !empty($course_details->public_description)) {
-                $this->logger->log('Using public description as fallback (' . strlen($course_details->public_description) . ' chars)');
-                $post_content = $course_details->public_description;
-            }
-
             // For debugging
-            $this->logger->log('Post content length: ' . strlen($post_content));
+            $this->logger->log('Post content length: ' . strlen($post_content) . ' characters');
+            if (empty($post_content)) {
+                $this->logger->log('Warning: No content found for course', 'warning');
+            }
             
             // Prepare post data - ensure post_status is draft
             $args = array(
@@ -203,6 +182,45 @@ class CCS_Importer {
     }
     
     /**
+     * Prepare course content from Canvas data
+     * 
+     * @param object $course_details Course details object from Canvas API
+     * @return string Prepared content
+     */
+    private function prepare_course_content($course_details) {
+        $content = '';
+        
+        // Check for syllabus content first (priority)
+        if (!empty($course_details->syllabus_body)) {
+            $this->logger->log('Using syllabus content for course (' . strlen($course_details->syllabus_body) . ' chars)');
+            $content = $course_details->syllabus_body;
+        } 
+        
+        // If no syllabus, check for public description
+        if (empty($content) && !empty($course_details->public_description)) {
+            $this->logger->log('Using public description as fallback (' . strlen($course_details->public_description) . ' chars)');
+            $content = $course_details->public_description;
+        } 
+        
+        // If we have a course description, use it as a fallback or addition
+        if (!empty($course_details->description)) {
+            if (empty($content)) {
+                $this->logger->log('Using course description as content (' . strlen($course_details->description) . ' chars)');
+                $content = $course_details->description;
+            } else {
+                // Optionally append description if we already have content
+                $this->logger->log('Appending course description to existing content');
+                $content .= "\n\n<h3>Course Description</h3>\n" . $course_details->description;
+            }
+        }
+        
+        // Make sure we sanitize the content but keep the HTML
+        $content = wp_kses_post($content);
+        
+        return $content;
+    }
+    
+    /**
      * Set featured image for a course
      * 
      * @param int $post_id The post ID
@@ -210,7 +228,7 @@ class CCS_Importer {
      * @param string $course_name The course name for the image title
      * @return bool True on success, false on failure
      */
-    private function set_featured_image($post_id, $image_url, $course_name) {
+    public function set_featured_image($post_id, $image_url, $course_name) {
         // Check if post already has a featured image
         if (has_post_thumbnail($post_id)) {
             $this->logger->log('Post already has featured image. Removing old image before setting new one.');
