@@ -43,8 +43,8 @@ class CCS_Admin_Page {
      */
     public function add_admin_menu() {
         add_menu_page(
-            __('Canvas Course Sync', 'canvas-course-sync'),
-            __('Canvas Sync', 'canvas-course-sync'),
+            __('Courses Sync', 'canvas-course-sync'),
+            __('Courses Sync', 'canvas-course-sync'),
             'manage_options',
             'canvas-course-sync',
             array($this, 'display_admin_page'),
