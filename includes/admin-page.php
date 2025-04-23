@@ -186,7 +186,9 @@ class CCS_Admin_Page {
                             
                             <div id="ccs-sync-progress" style="display: none;">
                                 <p><?php _e('Syncing selected courses...', 'canvas-course-sync'); ?></p>
-                                <div class="ccs-spinner"></div>
+                                <div class="ccs-progress-bar-container">
+                                    <div id="ccs-sync-progress-bar" class="ccs-progress-bar"></div>
+                                </div>
                                 <div id="ccs-sync-status"></div>
                             </div>
                             

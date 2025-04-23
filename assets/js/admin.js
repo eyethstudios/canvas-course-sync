@@ -130,6 +130,7 @@
             const progress = $('#ccs-sync-progress');
             const results = $('#ccs-sync-results');
             const statusText = $('#ccs-sync-status');
+            const progressBar = $('#ccs-sync-progress-bar');
             
             button.attr('disabled', true);
             progress.show();
@@ -141,11 +142,15 @@
                     type: 'POST',
                     data: {
                         action: 'ccs_sync_status',
-                        nonce: ccsData.syncNonce
+                        nonce: ccsData.syncStatusNonce
                     },
                     success: function(response) {
-                        if (response.success && response.data.status) {
+                        if (response.success && response.data) {
                             statusText.html(response.data.status);
+                            if (response.data.processed && response.data.total) {
+                                const percent = (response.data.processed / response.data.total) * 100;
+                                progressBar.css('width', percent + '%');
+                            }
                         }
                     }
                 });
@@ -170,7 +175,7 @@
                         $('#ccs-skipped').text(response.data.skipped);
                         $('#ccs-errors').text(response.data.errors);
                     } else {
-                        $('#ccs-sync-message').html('<div class="notice notice-error inline"><p>' + response.data + '</p></div>');
+                        $('#ccs-sync-message').html('<div class="notice notice-error inline"><p>' + response.data.message || 'Sync failed.' + '</p></div>');
                     }
                     
                     results.show();

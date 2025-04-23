@@ -1,4 +1,3 @@
-
 <?php
 /**
  * Handles importing courses from Canvas into WP.
@@ -66,6 +65,7 @@ class CCS_Importer {
      */
     public function import_courses($course_ids = array()) {
         $this->logger->log('Starting course import process for ' . count($course_ids) . ' selected courses');
+        ccs_clear_sync_status();
         
         $imported = 0;
         $skipped = 0;
@@ -74,6 +74,18 @@ class CCS_Importer {
         $total_courses = count($course_ids);
 
         foreach ($course_ids as $course_id) {
+            $processed++;
+            ccs_update_sync_status(
+                sprintf('Processing course %d of %d...', $processed, $total_courses),
+                array(
+                    'processed' => $processed,
+                    'total' => $total_courses,
+                    'imported' => $imported,
+                    'skipped' => $skipped,
+                    'errors' => $errors
+                )
+            );
+            
             $course_details = $this->api->get_course_details($course_id);
             
             if (is_wp_error($course_details)) {
@@ -83,11 +95,6 @@ class CCS_Importer {
             }
             
             $course_name = $course_details->name;
-            
-            $processed++;
-            if ($processed % 10 == 0) {
-                $this->logger->log('Progress: ' . $processed . '/' . $total_courses . ' courses processed');
-            }
             
             $this->logger->log('Processing course: ' . $course_name . ' (ID: ' . $course_id . ')');
             
@@ -178,17 +185,30 @@ class CCS_Importer {
                 }
             }
             
-            $imported++;
+            if (!empty($existing_by_id) || !empty($existing_by_title)) {
+                $skipped++;
+            } else {
+                $imported++;
+            }
         }
 
-        $this->logger->log('Import complete. Processed: ' . $total_courses . ', Imported: ' . $imported . ', Skipped: ' . $skipped . ', Errors: ' . $errors);
+        $final_status = sprintf(
+            'Import complete. Processed %d courses (%d imported, %d skipped, %d errors)',
+            $total_courses,
+            $imported,
+            $skipped,
+            $errors
+        );
+        
+        $this->logger->log($final_status);
+        ccs_clear_sync_status();
 
         return array(
             'imported' => $imported,
             'skipped'  => $skipped,
             'errors'   => $errors,
             'total'    => $total_courses,
+            'message'  => $final_status
         );
     }
 }
-
