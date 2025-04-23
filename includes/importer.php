@@ -1,4 +1,3 @@
-
 <?php
 /**
  * Handles importing courses from Canvas into WP.
@@ -56,7 +55,8 @@ class CCS_Importer {
             return array(
                 'imported' => 0,
                 'skipped' => 0,
-                'errors' => 1
+                'errors' => 1,
+                'total' => 0
             );
         }
 
@@ -79,23 +79,37 @@ class CCS_Importer {
             
             $this->logger->log('Processing course: ' . $course_name . ' (ID: ' . $course_id . ')');
             
-            // Check if course already exists by title - fix the existing query
-            $existing_posts = get_posts(array(
+            // First, check if we have a post with this Canvas ID already
+            $existing_by_id = get_posts(array(
                 'post_type'      => 'courses',
-                'post_title'     => $course_name,
-                'post_status'    => array('draft', 'publish', 'private', 'pending'), // Check all statuses
+                'post_status'    => array('draft', 'publish', 'private', 'pending'),
                 'posts_per_page' => 1,
+                'meta_key'       => 'canvas_course_id',
+                'meta_value'     => $course_id,
                 'fields'         => 'ids',
-                'exact_title'    => true, // Use exact match
             ));
 
-            // Debug the existing posts query
-            $this->logger->log('Checking for existing course with title: ' . $course_name . ', Found: ' . count($existing_posts));
-            
-            if (!empty($existing_posts)) {
-                $post_id = $existing_posts[0];
-                $this->logger->log('Found existing course with ID: ' . $post_id . '. Skipping import.');
+            if (!empty($existing_by_id)) {
+                $post_id = $existing_by_id[0];
+                $this->logger->log('Found existing course with Canvas ID metadata. Post ID: ' . $post_id . '. Skipping import.');
                 $skipped++;
+                continue; // Skip to the next course
+            }
+            
+            // If no match by ID, check by title (using a more reliable method)
+            $existing_by_title = get_posts(array(
+                'post_type'      => 'courses',
+                'post_status'    => array('draft', 'publish', 'private', 'pending'),
+                'title'          => $course_name, // WordPress will match this exactly
+                'posts_per_page' => 1,
+                'fields'         => 'ids',
+            ));
+
+            $this->logger->log('Checking for existing course with title: ' . $course_name . ', Found: ' . count($existing_by_title));
+            
+            if (!empty($existing_by_title)) {
+                $post_id = $existing_by_title[0];
+                $this->logger->log('Found existing course with ID: ' . $post_id . '. Skipping import.');
                 
                 // Maybe update existing Canvas course ID if not present
                 $existing_canvas_id = get_post_meta($post_id, 'canvas_course_id', true);
@@ -104,6 +118,7 @@ class CCS_Importer {
                     $this->logger->log('Added missing Canvas course ID metadata to existing post.');
                 }
                 
+                $skipped++;
                 continue; // Skip to the next course
             }
             
