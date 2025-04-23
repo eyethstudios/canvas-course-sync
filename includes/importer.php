@@ -120,7 +120,15 @@ class CCS_Importer {
             
             // Handle featured image if course has an image
             if (!empty($course_details->image_download_url)) {
-                $this->set_featured_image($post_id, $course_details->image_download_url, $course_name);
+                $this->logger->log('Course has image at URL: ' . $course_details->image_download_url);
+                $result = $this->set_featured_image($post_id, $course_details->image_download_url, $course_name);
+                if ($result) {
+                    $this->logger->log('Successfully set featured image for course');
+                } else {
+                    $this->logger->log('Failed to set featured image for course', 'warning');
+                }
+            } else {
+                $this->logger->log('No image available for this course');
             }
             
             $imported++;
@@ -144,8 +152,8 @@ class CCS_Importer {
     private function set_featured_image($post_id, $image_url, $course_name) {
         // Check if post already has a featured image
         if (has_post_thumbnail($post_id)) {
-            $this->logger->log('Post already has featured image. Skipping.');
-            return false;
+            $this->logger->log('Post already has featured image. Removing old image before setting new one.');
+            delete_post_thumbnail($post_id);
         }
         
         $this->logger->log('Setting featured image for course: ' . $course_name);
@@ -157,10 +165,33 @@ class CCS_Importer {
             return false;
         }
         
+        $this->logger->log('Successfully downloaded image to temp file: ' . $tmp_file);
+        
         // Prepare file data for upload
         $file_name = basename($image_url);
+        if (empty(pathinfo($file_name, PATHINFO_EXTENSION))) {
+            // If no file extension, add .jpg as default
+            $file_name .= '.jpg';
+        }
+        
         $file_type = wp_check_filetype($file_name, null);
-        $upload = wp_upload_bits($file_name, null, file_get_contents($tmp_file));
+        if (empty($file_type['type'])) {
+            // Default to jpeg if filetype can't be determined
+            $file_type['type'] = 'image/jpeg';
+        }
+        
+        $this->logger->log('Uploading with file type: ' . $file_type['type']);
+        
+        // Read file content before upload
+        $file_content = file_get_contents($tmp_file);
+        if ($file_content === false) {
+            $this->logger->log('Failed to read temporary file content', 'error');
+            @unlink($tmp_file);
+            return false;
+        }
+        
+        // Upload the file to WordPress media
+        $upload = wp_upload_bits($file_name, null, $file_content);
         
         // Clean up temp file
         @unlink($tmp_file);
@@ -169,6 +200,8 @@ class CCS_Importer {
             $this->logger->log('Failed to upload image: ' . $upload['error'], 'error');
             return false;
         }
+        
+        $this->logger->log('Successfully uploaded image to: ' . $upload['file']);
         
         // Prepare attachment data
         $attachment = array(
@@ -185,16 +218,27 @@ class CCS_Importer {
             return false;
         }
         
+        $this->logger->log('Created attachment with ID: ' . $attachment_id);
+        
+        // Make sure that the WordPress image processing functions are loaded
+        require_once(ABSPATH . 'wp-admin/includes/image.php');
+        
         // Generate metadata for the attachment
         $attachment_data = wp_generate_attachment_metadata($attachment_id, $upload['file']);
         wp_update_attachment_metadata($attachment_id, $attachment_data);
         
+        $this->logger->log('Updated attachment metadata');
+        
         // Set as featured image
-        set_post_thumbnail($post_id, $attachment_id);
+        $result = set_post_thumbnail($post_id, $attachment_id);
         
-        $this->logger->log('Successfully set featured image for course: ' . $course_name);
+        if ($result) {
+            $this->logger->log('Successfully set featured image (thumbnail ID: ' . $attachment_id . ') for post ID: ' . $post_id);
+        } else {
+            $this->logger->log('Failed to set post thumbnail', 'error');
+        }
         
-        return true;
+        return $result;
     }
 
     /**
