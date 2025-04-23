@@ -70,10 +70,22 @@ function ccs_ajax_get_courses() {
     
     try {
         $courses = $canvas_course_sync->api->get_courses();
+        
+        // Add error logging for debugging
+        if (is_wp_error($courses)) {
+            $canvas_course_sync->logger->log('Error getting courses: ' . $courses->get_error_message(), 'error');
+            wp_send_json_error($courses->get_error_message());
+            return;
+        }
+        
+        // Log success message with count
+        $count = is_array($courses) ? count($courses) : 'unknown number of';
+        $canvas_course_sync->logger->log('Successfully retrieved ' . $count . ' courses from API');
+        
         wp_send_json_success($courses);
     } catch (Exception $e) {
+        $canvas_course_sync->logger->log('Exception getting courses: ' . $e->getMessage(), 'error');
         wp_send_json_error($e->getMessage());
     }
 }
 add_action('wp_ajax_ccs_get_courses', 'ccs_ajax_get_courses');
-

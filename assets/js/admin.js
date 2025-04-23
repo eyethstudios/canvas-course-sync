@@ -61,11 +61,12 @@
             });
         });
 
-        // Load courses button
+        // Load courses button - Fixed by properly handling the AJAX response
         $('#ccs-load-courses').on('click', function() {
             const button = $(this);
             const courseList = $('#ccs-course-list');
             const loadingText = $('#ccs-loading-courses');
+            const coursesWrapper = $('#ccs-courses-wrapper');
             
             button.attr('disabled', true);
             loadingText.show();
@@ -79,7 +80,8 @@
                     nonce: ccsData.getCoursesNonce
                 },
                 success: function(response) {
-                    if (response.success) {
+                    console.log('Courses response:', response);
+                    if (response.success && Array.isArray(response.data)) {
                         let html = '<div class="ccs-select-all">' +
                             '<label>' +
                             '<input type="checkbox" id="ccs-select-all-checkbox" checked> ' +
@@ -96,13 +98,17 @@
                         });
                         
                         courseList.html(html);
-                        $('#ccs-courses-wrapper').show();
+                        coursesWrapper.show();
                     } else {
-                        courseList.html('<p class="error">Error loading courses: ' + response.data + '</p>');
+                        const errorMessage = response.data || 'Error loading courses. Please try again.';
+                        courseList.html('<p class="error">Error loading courses: ' + errorMessage + '</p>');
+                        coursesWrapper.show();
                     }
                 },
-                error: function() {
+                error: function(xhr, status, error) {
+                    console.error('AJAX error:', error);
                     courseList.html('<p class="error">Connection error occurred. Please try again.</p>');
+                    coursesWrapper.show();
                 },
                 complete: function() {
                     button.attr('disabled', false);
