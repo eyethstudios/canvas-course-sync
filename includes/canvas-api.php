@@ -239,7 +239,7 @@ class CCS_Canvas_API {
         }
         
         $this->logger->log('Successfully retrieved details for course: ' . $course->name);
-        $this->logger->log('Course has syllabus: ' . (!empty($course->syllabus_body) ? 'Yes ('.strlen($course->syllabus_body).' chars)' : 'No'));
+        $this->logger->log('Course has syllabus: ' . (!empty($course->syllabus_body) ? 'Yes ('.strlen($course->syyllabus_body).' chars)' : 'No'));
         $this->logger->log('Course has image: ' . (!empty($course->image_download_url) ? 'Yes' : 'No'));
         
         return $course;
@@ -410,5 +410,52 @@ class CCS_Canvas_API {
         $this->logger->log('API connection test successful');
         
         return true;
+    }
+
+    /**
+     * Get course modules
+     *
+     * @param int $course_id Canvas course ID
+     * @return array|WP_Error Array of modules or error
+     */
+    public function get_course_modules($course_id) {
+        $this->logger->log('Fetching modules for course ID: ' . $course_id);
+        
+        if (empty($this->api_domain) || empty($this->api_token)) {
+            $this->logger->log('API domain or token not set', 'error');
+            return new WP_Error('api_config', 'API domain or token not configured');
+        }
+        
+        $url = trailingslashit($this->api_domain) . 'api/v1/courses/' . $course_id . '/modules?include[]=items&include[]=content_details';
+        $args = array(
+            'headers' => array(
+                'Authorization' => 'Bearer ' . $this->api_token
+            ),
+            'timeout' => 60
+        );
+        
+        $response = wp_remote_get($url, $args);
+        
+        if (is_wp_error($response)) {
+            $this->logger->log('Failed to fetch modules: ' . $response->get_error_message(), 'error');
+            return $response;
+        }
+        
+        $response_code = wp_remote_retrieve_response_code($response);
+        if ($response_code !== 200) {
+            $this->logger->log('API returned non-200 status code: ' . $response_code, 'error');
+            return new WP_Error('api_error', 'API returned status code: ' . $response_code);
+        }
+        
+        $body = wp_remote_retrieve_body($response);
+        $modules = json_decode($body);
+        
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            $this->logger->log('Failed to parse modules JSON: ' . json_last_error_msg(), 'error');
+            return new WP_Error('json_parse', 'Failed to parse JSON response');
+        }
+        
+        $this->logger->log('Successfully retrieved ' . count($modules) . ' modules');
+        return $modules;
     }
 }
