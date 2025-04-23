@@ -165,11 +165,11 @@ class CCS_Importer {
         // Log the description to debug
         $this->logger->log('Course description length: ' . strlen($description));
         
-        // Prepare post data
+        // Prepare post data - set status to draft
         $post_data = array(
             'post_title' => wp_strip_all_tags($course->name),
             'post_content' => $description,
-            'post_status' => 'publish',
+            'post_status' => 'draft',
             'post_type' => 'courses'
         );
         
