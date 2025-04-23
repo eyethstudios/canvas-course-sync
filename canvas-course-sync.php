@@ -168,8 +168,16 @@ class Canvas_Course_Sync {
         }
         
         try {
-            // Get course IDs from POST data
-            $course_ids = isset($_POST['course_ids']) ? array_map('sanitize_text_field', $_POST['course_ids']) : array();
+            // Get course IDs from POST data and ensure it's an array
+            $course_ids = isset($_POST['course_ids']) ? $_POST['course_ids'] : array();
+            
+            // Handle case when only one course is selected (not an array)
+            if (!is_array($course_ids)) {
+                $course_ids = array($course_ids);
+            }
+            
+            // Sanitize all IDs
+            $course_ids = array_map('sanitize_text_field', $course_ids);
             
             if (empty($course_ids)) {
                 $this->logger->log('No course IDs provided for sync', 'error');

@@ -1,4 +1,3 @@
-
 <?php
 /**
  * Handles importing courses from Canvas into WP.
@@ -95,6 +94,18 @@ class CCS_Importer {
      * @return array Result of import process
      */
     public function import_courses($course_ids = array()) {
+        // Make sure $course_ids is an array before trying to count it
+        if (!is_array($course_ids)) {
+            $this->logger->log('Course IDs must be an array, ' . gettype($course_ids) . ' given', 'error');
+            return array(
+                'imported' => 0,
+                'skipped'  => 0,
+                'errors'   => 1,
+                'total'    => 0,
+                'message'  => 'Invalid course IDs format'
+            );
+        }
+
         $this->logger->log('Starting course import process for ' . count($course_ids) . ' selected courses');
         ccs_clear_sync_status();
         
