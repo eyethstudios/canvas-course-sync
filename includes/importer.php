@@ -1,4 +1,3 @@
-
 <?php
 /**
  * Handles importing courses from Canvas into WP.
@@ -66,6 +65,34 @@ class CCS_Importer {
             
             $this->logger->log('Processing course: ' . $course_name . ' (ID: ' . $course_id . ')');
             
+            // Check if course already exists by title - fix the existing query
+            $existing_posts = get_posts(array(
+                'post_type'      => 'courses',
+                'post_title'     => $course_name,
+                'post_status'    => array('draft', 'publish', 'private', 'pending'), // Check all statuses
+                'posts_per_page' => 1,
+                'fields'         => 'ids',
+                'exact_title'    => true, // Use exact match
+            ));
+
+            // Debug the existing posts query
+            $this->logger->log('Checking for existing course with title: ' . $course_name . ', Found: ' . count($existing_posts));
+            
+            if (!empty($existing_posts)) {
+                $post_id = $existing_posts[0];
+                $this->logger->log('Found existing course with ID: ' . $post_id . '. Skipping import.');
+                $skipped++;
+                
+                // Maybe update existing Canvas course ID if not present
+                $existing_canvas_id = get_post_meta($post_id, 'canvas_course_id', true);
+                if (empty($existing_canvas_id)) {
+                    update_post_meta($post_id, 'canvas_course_id', $course_id);
+                    $this->logger->log('Added missing Canvas course ID metadata to existing post.');
+                }
+                
+                continue; // Skip to the next course
+            }
+            
             // Get detailed course information
             $course_details = $this->api->get_course_details($course_id);
             if (is_wp_error($course_details)) {
@@ -104,43 +131,20 @@ class CCS_Importer {
                 'post_content' => $post_content, // Set prepared content
             );
             
-            // Check if course already exists by post title
-            $existing = get_posts(array(
-                'post_type'      => 'courses',
-                'title'          => $course_name,
-                'posts_per_page' => 1,
-                'fields'         => 'ids',
-            ));
-
-            if ($existing && count($existing) > 0) {
-                $post_id = $existing[0];
-                $this->logger->log('Updating existing course: ' . $course_name . ' (Post ID: ' . $post_id . ')');
-                
-                // Update existing post
-                $args['ID'] = $post_id;
-                $result = wp_update_post($args);
-                
-                if (is_wp_error($result)) {
-                    $this->logger->log('Error updating post: ' . $result->get_error_message(), 'error');
-                } else {
-                    $this->logger->log('Post updated successfully with ' . strlen($post_content) . ' chars of content');
-                }
+            // Create new post
+            $this->logger->log('Creating new course: ' . $course_name);
+            $post_id = wp_insert_post($args);
+            
+            if (is_wp_error($post_id) || !$post_id) {
+                $this->logger->log('Failed to create post for course ' . $course_id . ': ' . (is_wp_error($post_id) ? $post_id->get_error_message() : 'Unknown error'), 'error');
+                $errors++;
+                continue;
             } else {
-                $this->logger->log('Creating new course: ' . $course_name);
-                
-                // Create new post
-                $post_id = wp_insert_post($args);
-                if (is_wp_error($post_id) || !$post_id) {
-                    $this->logger->log('Failed to create post for course ' . $course_id . ': ' . (is_wp_error($post_id) ? $post_id->get_error_message() : 'Unknown error'), 'error');
-                    $errors++;
-                    continue;
-                } else {
-                    $this->logger->log('New post created successfully with ID: ' . $post_id . ' and ' . strlen($post_content) . ' chars of content');
-                }
-                
-                // Save marker meta for future lookups
-                update_post_meta($post_id, 'canvas_course_id', $course_id);
+                $this->logger->log('New post created successfully with ID: ' . $post_id . ' and ' . strlen($post_content) . ' chars of content');
             }
+            
+            // Save marker meta for future lookups
+            update_post_meta($post_id, 'canvas_course_id', $course_id);
 
             // Set course link
             $canvas_domain = $this->api->get_domain();
