@@ -1,3 +1,4 @@
+
 <?php
 /**
  * Canvas API handler
@@ -127,12 +128,13 @@ class CCS_Canvas_API {
         }
         
         // Include additional parameters to get more complete course information
-        $url = trailingslashit($this->api_domain) . 'api/v1/courses/' . $course_id . '?include[]=syllabus_body&include[]=term&include[]=course_image';
+        // Explicitly request syllabus_body and course_image
+        $url = trailingslashit($this->api_domain) . 'api/v1/courses/' . $course_id . '?include[]=syllabus_body&include[]=term&include[]=course_image&include[]=public_description';
         $args = array(
             'headers' => array(
                 'Authorization' => 'Bearer ' . $this->api_token
             ),
-            'timeout' => 30
+            'timeout' => 60 // Increased timeout for larger responses
         );
         
         $response = wp_remote_get($url, $args);
@@ -158,6 +160,8 @@ class CCS_Canvas_API {
         }
         
         $this->logger->log('Successfully retrieved details for course: ' . $course->name);
+        $this->logger->log('Course has syllabus: ' . (!empty($course->syllabus_body) ? 'Yes ('.strlen($course->syllabus_body).' chars)' : 'No'));
+        $this->logger->log('Course has image: ' . (!empty($course->image_download_url) ? 'Yes' : 'No'));
         
         return $course;
     }
@@ -227,18 +231,27 @@ class CCS_Canvas_API {
         
         // Check if the URL already has parameters
         $url_with_token = $url;
-        if (strpos($url, '?') === false) {
-            $url_with_token .= '?access_token=' . $this->api_token;
-        } else {
-            $url_with_token .= '&access_token=' . $this->api_token;
+        
+        // Only add access token if the URL doesn't already contain it
+        if (strpos($url, 'access_token=') === false) {
+            if (strpos($url, '?') === false) {
+                $url_with_token .= '?access_token=' . $this->api_token;
+            } else {
+                $url_with_token .= '&access_token=' . $this->api_token;
+            }
         }
         
-        $this->logger->log('Downloading from URL with token: ' . $url_with_token);
+        $this->logger->log('Downloading from URL with token appended');
         
+        // Use WordPress HTTP API with increased timeout and no SSL verification
         $response = wp_remote_get($url_with_token, array(
-            'timeout' => 60,
+            'timeout' => 120, // Increased timeout for larger files
             'redirection' => 5,
             'sslverify' => false,
+            'user-agent' => 'WordPress/Canvas-Course-Sync', // Custom user agent
+            'headers' => array(
+                'Accept' => '*/*' // Accept any content type
+            )
         ));
         
         if (is_wp_error($response)) {
@@ -252,6 +265,12 @@ class CCS_Canvas_API {
             return new WP_Error('download_error', 'Download returned status code: ' . $response_code);
         }
         
+        // Get response headers to check content type
+        $headers = wp_remote_retrieve_headers($response);
+        $content_type = $headers['content-type'] ?? '';
+        
+        $this->logger->log('Downloaded content with type: ' . $content_type);
+        
         // Create a temporary file
         $tmp_file = wp_tempnam();
         if (!$tmp_file) {
@@ -261,13 +280,15 @@ class CCS_Canvas_API {
         
         // Write the response body to the temporary file
         $file_content = wp_remote_retrieve_body($response);
-        if (file_put_contents($tmp_file, $file_content) === false) {
+        $bytes_written = file_put_contents($tmp_file, $file_content);
+        
+        if ($bytes_written === false) {
             $this->logger->log('Failed to write to temporary file', 'error');
             @unlink($tmp_file);
             return new WP_Error('file_write', 'Failed to write to temporary file');
         }
         
-        $this->logger->log('Successfully downloaded file to: ' . $tmp_file);
+        $this->logger->log('Successfully downloaded file to: ' . $tmp_file . ' (' . $bytes_written . ' bytes)');
         
         return $tmp_file;
     }

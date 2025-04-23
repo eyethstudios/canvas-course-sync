@@ -74,7 +74,7 @@ class CCS_Importer {
                 continue;
             }
 
-            // Get syllabus content
+            // Process syllabus content
             $syllabus_content = '';
             if (!empty($course_details->syllabus_body)) {
                 $syllabus_content = $course_details->syllabus_body;
@@ -83,12 +83,12 @@ class CCS_Importer {
                 $this->logger->log('No syllabus content found for course');
             }
 
-            // Prepare post data - set post_status to draft
+            // Prepare post data - ensure post_status is draft
             $args = array(
                 'post_title'   => $course_name ?? '',
-                'post_status'  => 'draft', // Set to draft instead of publish
+                'post_status'  => 'draft', // Ensure it's set to draft
                 'post_type'    => 'courses',
-                'post_content' => $syllabus_content, // Set syllabus content as post_content
+                'post_content' => $syllabus_content, // Set syllabus content
             );
             
             // Check if course already exists by post title
@@ -117,7 +117,7 @@ class CCS_Importer {
                     continue;
                 }
                 
-                // Save marker meta for future lookups (optional, keeps old method for debugging if needed)
+                // Save marker meta for future lookups
                 update_post_meta($post_id, 'canvas_course_id', $course_id);
             }
 
@@ -128,10 +128,13 @@ class CCS_Importer {
                 update_post_meta($post_id, 'link', esc_url_raw($canvas_course_link));
             }
             
-            // Handle featured image if course has an image
+            // Check for and handle featured image
             if (!empty($course_details->image_download_url)) {
                 $this->logger->log('Course has image at URL: ' . $course_details->image_download_url);
+                
+                // Download and set the featured image properly
                 $result = $this->set_featured_image($post_id, $course_details->image_download_url, $course_name);
+                
                 if ($result) {
                     $this->logger->log('Successfully set featured image for course');
                 } else {
@@ -168,76 +171,41 @@ class CCS_Importer {
         
         $this->logger->log('Setting featured image for course: ' . $course_name);
         
-        // Download image from Canvas
-        $tmp_file = $this->api->download_file($image_url);
-        if (is_wp_error($tmp_file)) {
-            $this->logger->log('Failed to download image: ' . $tmp_file->get_error_message(), 'error');
-            return false;
+        // Ensure the URL doesn't have any spaces
+        $image_url = str_replace(' ', '%20', $image_url);
+        $this->logger->log('Downloading image from URL: ' . $image_url);
+        
+        // Download image from Canvas using WordPress functions
+        include_once(ABSPATH . 'wp-admin/includes/file.php');
+        include_once(ABSPATH . 'wp-admin/includes/media.php');
+        include_once(ABSPATH . 'wp-admin/includes/image.php');
+        
+        // Get the file and save it to the media library directly
+        $attachment_id = media_sideload_image($image_url, $post_id, $course_name . ' - Featured Image', 'id');
+        
+        if (is_wp_error($attachment_id)) {
+            $this->logger->log('Failed to sideload image: ' . $attachment_id->get_error_message(), 'error');
+            
+            // Fall back to manual download if sideload fails
+            $tmp_file = $this->api->download_file($image_url);
+            if (is_wp_error($tmp_file)) {
+                $this->logger->log('Manual download also failed: ' . $tmp_file->get_error_message(), 'error');
+                return false;
+            }
+            
+            $file_array = array(
+                'name' => basename($image_url),
+                'tmp_name' => $tmp_file
+            );
+            
+            $attachment_id = media_handle_sideload($file_array, $post_id, $course_name . ' - Featured Image');
+            
+            if (is_wp_error($attachment_id)) {
+                $this->logger->log('Manual sideload also failed: ' . $attachment_id->get_error_message(), 'error');
+                @unlink($tmp_file);
+                return false;
+            }
         }
-        
-        $this->logger->log('Successfully downloaded image to temp file: ' . $tmp_file);
-        
-        // Prepare file data for upload
-        $file_name = basename($image_url);
-        if (empty(pathinfo($file_name, PATHINFO_EXTENSION))) {
-            // If no file extension, add .jpg as default
-            $file_name .= '.jpg';
-        }
-        
-        $file_type = wp_check_filetype($file_name, null);
-        if (empty($file_type['type'])) {
-            // Default to jpeg if filetype can't be determined
-            $file_type['type'] = 'image/jpeg';
-        }
-        
-        $this->logger->log('Uploading with file type: ' . $file_type['type']);
-        
-        // Read file content before upload
-        $file_content = file_get_contents($tmp_file);
-        if ($file_content === false) {
-            $this->logger->log('Failed to read temporary file content', 'error');
-            @unlink($tmp_file);
-            return false;
-        }
-        
-        // Upload the file to WordPress media
-        $upload = wp_upload_bits($file_name, null, $file_content);
-        
-        // Clean up temp file
-        @unlink($tmp_file);
-        
-        if ($upload['error']) {
-            $this->logger->log('Failed to upload image: ' . $upload['error'], 'error');
-            return false;
-        }
-        
-        $this->logger->log('Successfully uploaded image to: ' . $upload['file']);
-        
-        // Prepare attachment data
-        $attachment = array(
-            'post_mime_type' => $file_type['type'],
-            'post_title'     => sanitize_text_field($course_name . ' - Featured Image'),
-            'post_content'   => '',
-            'post_status'    => 'inherit'
-        );
-        
-        // Insert attachment into media library
-        $attachment_id = wp_insert_attachment($attachment, $upload['file'], $post_id);
-        if (is_wp_error($attachment_id) || !$attachment_id) {
-            $this->logger->log('Failed to insert attachment: ' . ($attachment_id->get_error_message() ?? 'Unknown error'), 'error');
-            return false;
-        }
-        
-        $this->logger->log('Created attachment with ID: ' . $attachment_id);
-        
-        // Make sure that the WordPress image processing functions are loaded
-        require_once(ABSPATH . 'wp-admin/includes/image.php');
-        
-        // Generate metadata for the attachment
-        $attachment_data = wp_generate_attachment_metadata($attachment_id, $upload['file']);
-        wp_update_attachment_metadata($attachment_id, $attachment_data);
-        
-        $this->logger->log('Updated attachment metadata');
         
         // Set as featured image
         $result = set_post_thumbnail($post_id, $attachment_id);
