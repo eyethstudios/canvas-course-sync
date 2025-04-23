@@ -36,10 +36,12 @@
             });
         });
         
-        // Clear logs button
+        // Clear logs button - Fixed with proper debugging
         $('#ccs-clear-logs').on('click', function() {
             const button = $(this);
             button.attr('disabled', true);
+            console.log('Clear logs button clicked');
+            console.log('Using nonce:', ccsData.clearLogsNonce);
             
             $.ajax({
                 url: ccsData.ajaxUrl,
@@ -49,19 +51,23 @@
                     nonce: ccsData.clearLogsNonce
                 },
                 success: function(response) {
+                    console.log('Clear logs response:', response);
                     button.attr('disabled', false);
                     if (response.success) {
                         $('.ccs-log-container').html('<p>Logs cleared successfully.</p>');
+                    } else {
+                        alert('Failed to clear logs: ' + (response.data || 'Unknown error'));
                     }
                 },
-                error: function() {
+                error: function(xhr, status, error) {
+                    console.error('Clear logs AJAX error:', error);
                     button.attr('disabled', false);
-                    alert('Failed to clear logs. Please try again.');
+                    alert('Failed to clear logs. Please try again. Error: ' + error);
                 }
             });
         });
 
-        // Load courses button - Fixed by properly handling the AJAX response
+        // Load courses button - Fixed with improved debugging and error handling
         $('#ccs-load-courses').on('click', function() {
             const button = $(this);
             const courseList = $('#ccs-course-list');
@@ -71,6 +77,8 @@
             button.attr('disabled', true);
             loadingText.show();
             courseList.html('');
+            console.log('Load courses button clicked');
+            console.log('Using nonce:', ccsData.getCoursesNonce);
             
             $.ajax({
                 url: ccsData.ajaxUrl,
@@ -107,6 +115,8 @@
                 },
                 error: function(xhr, status, error) {
                     console.error('AJAX error:', error);
+                    console.error('AJAX status:', status);
+                    console.error('AJAX response:', xhr.responseText);
                     courseList.html('<p class="error">Connection error occurred. Please try again.</p>');
                     coursesWrapper.show();
                 },

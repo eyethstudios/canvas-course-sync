@@ -99,7 +99,7 @@ class CCS_Admin_Page {
             true
         );
         
-        // Localize script with data
+        // Localize script with data and all necessary nonces
         wp_localize_script(
             'ccs-admin-js',
             'ccsData',

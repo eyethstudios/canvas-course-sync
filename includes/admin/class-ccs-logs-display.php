@@ -36,28 +36,24 @@ class CCS_Logs_Display {
             <button id="ccs-clear-logs" class="button button-secondary ccs-clear-logs">
                 <?php _e('Clear Logs', 'canvas-course-sync'); ?>
             </button>
+            <div class="ccs-log-container">
             <?php
             $recent_logs = $this->logger->get_recent_logs(20);
             if (!empty($recent_logs)) :
+                foreach ($recent_logs as $log_entry) : 
+                    $entry_class = '';
+                    if (strpos($log_entry, '[ERROR]') !== false) {
+                        $entry_class = 'ccs-log-error';
+                    } elseif (strpos($log_entry, '[WARNING]') !== false) {
+                        $entry_class = 'ccs-log-warning';
+                    }
+                    echo '<div class="ccs-log-entry"><pre class="' . $entry_class . '">' . esc_html($log_entry) . '</pre></div>';
+                endforeach;
+            else : 
+                echo '<p>' . __('No logs available yet.', 'canvas-course-sync') . '</p>';
+            endif;
             ?>
-                <div class="ccs-log-container">
-                    <?php foreach ($recent_logs as $log_entry) : ?>
-                        <div class="ccs-log-entry">
-                            <?php 
-                                $entry_class = '';
-                                if (strpos($log_entry, '[ERROR]') !== false) {
-                                    $entry_class = 'ccs-log-error';
-                                } elseif (strpos($log_entry, '[WARNING]') !== false) {
-                                    $entry_class = 'ccs-log-warning';
-                                }
-                                echo '<pre class="' . $entry_class . '">' . esc_html($log_entry) . '</pre>';
-                            ?>
-                        </div>
-                    <?php endforeach; ?>
-                </div>
-            <?php else : ?>
-                <p><?php _e('No logs available yet.', 'canvas-course-sync'); ?></p>
-            <?php endif; ?>
+            </div>
             
             <p>
                 <?php 

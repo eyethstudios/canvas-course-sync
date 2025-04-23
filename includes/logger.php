@@ -75,23 +75,28 @@ class CCS_Logger {
             return array();
         }
         
-        $file = new SplFileObject($this->log_file, 'r');
-        $file->seek(PHP_INT_MAX); // Seek to the end of file
-        $total_lines = $file->key(); // Get total number of lines
-        
-        $log_entries = array();
-        $start_line = max(0, $total_lines - $lines);
-        
-        $file->seek($start_line);
-        
-        while (!$file->eof()) {
-            $line = $file->fgets();
-            if (!empty($line)) {
-                $log_entries[] = $line;
+        try {
+            $file = new SplFileObject($this->log_file, 'r');
+            $file->seek(PHP_INT_MAX); // Seek to the end of file
+            $total_lines = $file->key(); // Get total number of lines
+            
+            $log_entries = array();
+            $start_line = max(0, $total_lines - $lines);
+            
+            $file->seek($start_line);
+            
+            while (!$file->eof()) {
+                $line = $file->fgets();
+                if (!empty($line)) {
+                    $log_entries[] = $line;
+                }
             }
+            
+            return $log_entries;
+        } catch (Exception $e) {
+            error_log('Canvas Course Sync: Error reading log file: ' . $e->getMessage());
+            return array('Error reading log file: ' . $e->getMessage());
         }
-        
-        return $log_entries;
     }
 
     /**
@@ -100,10 +105,20 @@ class CCS_Logger {
      * @return boolean
      */
     public function clear_logs() {
-        if (file_exists($this->log_file)) {
-            return unlink($this->log_file);
+        try {
+            if (file_exists($this->log_file)) {
+                // Open with truncate flag to clear contents
+                $file = fopen($this->log_file, 'w');
+                if ($file) {
+                    fclose($file);
+                    $this->log('Log file cleared', 'info');
+                    return true;
+                }
+            }
+            return false;
+        } catch (Exception $e) {
+            error_log('Canvas Course Sync: Error clearing log file: ' . $e->getMessage());
+            return false;
         }
-        
-        return false;
     }
 }
