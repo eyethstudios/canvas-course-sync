@@ -23,10 +23,18 @@ export function initCourseManager($) {
             },
             success: function(response) {
                 if (response.success && Array.isArray(response.data)) {
+                    // Debug the data received from the API
+                    console.log('Courses before sorting:', response.data);
+                    
                     // Sort courses by creation date (most recent first)
                     const sortedCourses = response.data.sort((a, b) => {
+                        // Debug creation dates
+                        console.log(`Course ${a.name}: created_at = ${a.created_at}`);
+                        console.log(`Course ${b.name}: created_at = ${b.created_at}`);
                         return new Date(b.created_at || 0) - new Date(a.created_at || 0);
                     });
+                    
+                    console.log('Sorted courses:', sortedCourses);
                     
                     let html = '<div class="ccs-select-all">' +
                         '<label>' +
