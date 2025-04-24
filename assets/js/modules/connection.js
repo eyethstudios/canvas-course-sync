@@ -19,16 +19,23 @@ export function initConnectionTester($) {
             },
             success: function(response) {
                 button.attr('disabled', false);
+                
+                console.log('Connection test response:', response);
+                
                 if (response.success) {
                     resultContainer.html('<div class="ccs-success">' + response.data + '</div>');
                 } else {
-                    resultContainer.html('<div class="ccs-error">Connection failed: ' + (response.data || 'Unknown error') + '</div>');
+                    const errorMsg = response.data || 'Unknown error occurred';
+                    resultContainer.html('<div class="ccs-error">Connection failed: ' + errorMsg + '</div>');
+                    console.error('Connection test failed:', errorMsg);
                 }
             },
             error: function(xhr, status, error) {
                 button.attr('disabled', false);
+                console.error('Connection test AJAX error:', {status, error, responseText: xhr.responseText});
                 resultContainer.html('<div class="ccs-error">Connection error: ' + error + '</div>');
-            }
+            },
+            timeout: 30000 // 30 second timeout
         });
     });
 }

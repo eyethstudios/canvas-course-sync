@@ -1,3 +1,4 @@
+
 <?php
 /**
  * Handles API communication with Canvas LMS.
@@ -149,12 +150,21 @@ class CCS_Canvas_API {
      * @return bool|string True on success, error message on failure
      */
     public function test_connection() {
-        $endpoint = 'accounts';
-        $params = array(
-            'per_page' => 1,
-        );
+        // Check if API domain and key are set
+        if (empty($this->domain)) {
+            $this->logger->log('API connection test failed: API domain not configured', 'error');
+            return 'API domain not configured';
+        }
+
+        if (empty($this->api_key)) {
+            $this->logger->log('API connection test failed: API key not configured', 'error');
+            return 'API key not configured';
+        }
+
+        $endpoint = 'users/self';  // Changed from 'accounts' to a simpler endpoint
+        $params = array();  // No parameters needed for this endpoint
         
-        $this->logger->log('Testing API connection');
+        $this->logger->log('Testing API connection to: ' . $this->domain);
         
         $response = $this->api_request($endpoint, $params);
         
@@ -164,12 +174,19 @@ class CCS_Canvas_API {
             return $error_message;
         }
         
-        if (is_array($response) && !empty($response)) {
-            $this->logger->log('API connection test successful');
+        // Check if response is empty or null
+        if (empty($response)) {
+            $this->logger->log('API connection test failed: Empty response received', 'error');
+            return 'Empty response received. Please check your API credentials and domain.';
+        }
+        
+        // If we got a valid response object with an ID, it's successful
+        if (is_object($response) && isset($response->id)) {
+            $this->logger->log('API connection test successful. Connected as user ID: ' . $response->id);
             return true;
         } else {
-            $this->logger->log('API connection test failed: Empty response', 'error');
-            return 'Empty response from API';
+            $this->logger->log('API connection test failed: Invalid response format', 'error');
+            return 'Invalid response format. Got: ' . print_r($response, true);
         }
     }
 
@@ -181,7 +198,9 @@ class CCS_Canvas_API {
      * @return array|WP_Error Response body or WP_Error on failure
      */
     private function api_request($endpoint, $params = array()) {
-        $url = trailingslashit($this->domain) . 'api/v1/' . $endpoint;
+        // Make sure domain ends with a trailing slash
+        $domain = trailingslashit($this->domain);
+        $url = $domain . 'api/v1/' . $endpoint;
         
         if (!empty($params)) {
             $url = add_query_arg($params, $url);
@@ -194,6 +213,7 @@ class CCS_Canvas_API {
                 'Authorization' => 'Bearer ' . $this->api_key
             ),
             'sslverify' => false,
+            'timeout' => 30,  // Increased timeout to 30 seconds
         ));
         
         if (is_wp_error($response)) {
@@ -201,15 +221,30 @@ class CCS_Canvas_API {
             return $response;
         }
         
-        $body = wp_remote_retrieve_body($response);
-        $data = json_decode($body);
+        $status_code = wp_remote_retrieve_response_code($response);
+        if ($status_code !== 200) {
+            $this->logger->log('API request returned non-200 status code: ' . $status_code, 'error');
+            $error_msg = 'HTTP Error: ' . $status_code;
+            $body = wp_remote_retrieve_body($response);
+            if (!empty($body)) {
+                $error_msg .= ' - Response: ' . $body;
+            }
+            return new WP_Error('api_error', $error_msg);
+        }
         
-        // Log the API response
-        $this->logger->log('API Response: ' . print_r($data, true));
+        $body = wp_remote_retrieve_body($response);
+        if (empty($body)) {
+            $this->logger->log('API request returned empty body', 'error');
+            return new WP_Error('empty_response', 'Empty response body received from API');
+        }
+        
+        $this->logger->log('API Response Body: ' . substr($body, 0, 500) . (strlen($body) > 500 ? '...' : ''));
+        
+        $data = json_decode($body);
         
         if (json_last_error() !== JSON_ERROR_NONE) {
             $this->logger->log('Failed to decode JSON response: ' . json_last_error_msg(), 'error');
-            return new WP_Error('json_decode_failed', 'Failed to decode JSON response: ' . json_last_error_msg());
+            return new WP_Error('json_decode_failed', 'Failed to decode JSON response: ' . json_last_error_msg() . ' - Raw response: ' . substr($body, 0, 255));
         }
         
         return $data;
