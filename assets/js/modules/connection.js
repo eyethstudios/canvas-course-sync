@@ -5,10 +5,10 @@
 export function initConnectionTester($) {
     $('#ccs-test-connection').on('click', function() {
         const button = $(this);
-        const statusSpan = $('#ccs-connection-status');
+        const resultContainer = $('#ccs-connection-result');
         
         button.attr('disabled', true);
-        statusSpan.html('Testing connection...').removeClass('ccs-status-success ccs-status-error');
+        resultContainer.html('<div class="ccs-spinner"></div> Testing connection...');
         
         $.ajax({
             url: ccsData.ajaxUrl,
@@ -20,14 +20,14 @@ export function initConnectionTester($) {
             success: function(response) {
                 button.attr('disabled', false);
                 if (response.success) {
-                    statusSpan.html('✓ ' + response.data).addClass('ccs-status-success');
+                    resultContainer.html('<div class="ccs-success">' + response.data + '</div>');
                 } else {
-                    statusSpan.html('✗ ' + response.data).addClass('ccs-status-error');
+                    resultContainer.html('<div class="ccs-error">Connection failed: ' + (response.data || 'Unknown error') + '</div>');
                 }
             },
             error: function(xhr, status, error) {
                 button.attr('disabled', false);
-                statusSpan.html('✗ Connection error: ' + error).addClass('ccs-status-error');
+                resultContainer.html('<div class="ccs-error">Connection error: ' + error + '</div>');
             }
         });
     });

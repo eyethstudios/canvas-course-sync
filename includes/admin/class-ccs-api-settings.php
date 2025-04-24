@@ -1,4 +1,3 @@
-
 <?php
 /**
  * Canvas Course Sync API Settings Component
@@ -60,7 +59,7 @@ class CCS_API_Settings {
             <button id="ccs-test-connection" class="button button-secondary">
                 <?php _e('Test Connection', 'canvas-course-sync'); ?>
             </button>
-            <span id="ccs-connection-status"></span>
+            <div id="ccs-connection-result"></div>
         </div>
         <?php
     }

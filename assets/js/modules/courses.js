@@ -23,13 +23,18 @@ export function initCourseManager($) {
             },
             success: function(response) {
                 if (response.success && Array.isArray(response.data)) {
+                    // Sort courses by creation date (most recent first)
+                    const sortedCourses = response.data.sort((a, b) => {
+                        return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+                    });
+                    
                     let html = '<div class="ccs-select-all">' +
                         '<label>' +
                         '<input type="checkbox" id="ccs-select-all-checkbox" checked> ' +
                         'Select/Deselect All</label>' +
                         '</div>';
                         
-                    response.data.forEach(function(course) {
+                    sortedCourses.forEach(function(course) {
                         html += '<div class="ccs-course-item">' +
                             '<label>' +
                             '<input type="checkbox" class="ccs-course-checkbox" ' +
