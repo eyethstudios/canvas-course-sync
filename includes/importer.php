@@ -153,6 +153,11 @@ class CCS_Importer {
                 continue;
             }
             
+            // Ensure course details include created_at timestamp
+            if (!isset($course_details->created_at)) {
+                $this->logger->log('Warning: No creation date found for course ' . $course_id, 'warning');
+            }
+            
             // Process content using the content handler
             $post_content = $this->content_handler->prepare_course_content($course_details);
             
