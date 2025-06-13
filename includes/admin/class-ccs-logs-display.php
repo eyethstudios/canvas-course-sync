@@ -19,11 +19,13 @@ class CCS_Logs_Display {
 
     /**
      * Constructor
-     *
-     * @param CCS_Logger $logger Logger instance
      */
-    public function __construct($logger) {
-        $this->logger = $logger;
+    public function __construct() {
+        $canvas_course_sync = canvas_course_sync();
+        $this->logger = ($canvas_course_sync && isset($canvas_course_sync->logger)) ? $canvas_course_sync->logger : new CCS_Logger();
+        
+        // Hook the render method to the action
+        add_action('ccs_render_logs_display', array($this, 'render'));
     }
 
     /**

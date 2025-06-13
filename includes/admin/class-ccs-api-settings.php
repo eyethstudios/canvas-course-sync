@@ -11,11 +11,19 @@ if (!defined('ABSPATH')) {
 
 class CCS_API_Settings {
     /**
+     * Constructor
+     */
+    public function __construct() {
+        // Hook the render method to the action
+        add_action('ccs_render_api_settings', array($this, 'render'));
+    }
+
+    /**
      * Register settings
      */
     public function register_settings() {
         register_setting('ccs_api_settings', 'ccs_api_domain');
-        register_setting('ccs_api_settings', 'ccs_api_key'); // Changed from ccs_api_token to ccs_api_key
+        register_setting('ccs_api_settings', 'ccs_api_token');
     }
 
     /**
@@ -41,11 +49,11 @@ class CCS_API_Settings {
                     </tr>
                     <tr>
                         <th scope="row">
-                            <label for="ccs_api_key"><?php _e('API Key', 'canvas-course-sync'); ?></label>
+                            <label for="ccs_api_token"><?php _e('API Token', 'canvas-course-sync'); ?></label>
                         </th>
                         <td>
-                            <input type="password" name="ccs_api_key" id="ccs_api_key" class="regular-text" 
-                                   value="<?php echo esc_attr(get_option('ccs_api_key')); ?>" required />
+                            <input type="password" name="ccs_api_token" id="ccs_api_token" class="regular-text" 
+                                   value="<?php echo esc_attr(get_option('ccs_api_token')); ?>" required />
                             <p class="description">
                                 <?php _e('Your Canvas API token. ', 'canvas-course-sync'); ?>
                                 <a href="https://community.canvaslms.com/t5/Admin-Guide/How-do-I-manage-API-access-tokens-as-an-admin/ta-p/89" target="_blank">

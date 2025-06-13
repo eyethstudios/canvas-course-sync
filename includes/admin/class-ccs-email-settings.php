@@ -11,6 +11,13 @@ if (!defined('ABSPATH')) {
 
 class CCS_Email_Settings {
     /**
+     * Constructor
+     */
+    public function __construct() {
+        // This component is rendered directly in the admin page, not via action hooks
+    }
+
+    /**
      * Register settings
      */
     public function register_settings() {

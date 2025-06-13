@@ -11,6 +11,14 @@ if (!defined('ABSPATH')) {
 
 class CCS_Sync_Controls {
     /**
+     * Constructor
+     */
+    public function __construct() {
+        // Hook the render method to the action
+        add_action('ccs_render_sync_controls', array($this, 'render'));
+    }
+
+    /**
      * Render sync controls section
      */
     public function render() {

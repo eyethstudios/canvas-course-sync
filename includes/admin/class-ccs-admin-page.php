@@ -9,11 +9,20 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-// Include components
-require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-api-settings.php';
-require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-email-settings.php';
-require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-sync-controls.php';
-require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-logs-display.php';
+// Include components only if files exist
+$components = array(
+    'class-ccs-api-settings.php',
+    'class-ccs-email-settings.php', 
+    'class-ccs-sync-controls.php',
+    'class-ccs-logs-display.php'
+);
+
+foreach ($components as $component) {
+    $file_path = CCS_PLUGIN_DIR . 'includes/admin/' . $component;
+    if (file_exists($file_path)) {
+        require_once $file_path;
+    }
+}
 
 class CCS_Admin_Page {
     /**
@@ -48,10 +57,19 @@ class CCS_Admin_Page {
      * Constructor
      */
     public function __construct() {
-        $this->api_settings = new CCS_API_Settings();
-        $this->email_settings = new CCS_Email_Settings();
-        $this->sync_controls = new CCS_Sync_Controls();
-        $this->logs_display = new CCS_Logs_Display();
+        // Initialize components if classes exist
+        if (class_exists('CCS_API_Settings')) {
+            $this->api_settings = new CCS_API_Settings();
+        }
+        if (class_exists('CCS_Email_Settings')) {
+            $this->email_settings = new CCS_Email_Settings();
+        }
+        if (class_exists('CCS_Sync_Controls')) {
+            $this->sync_controls = new CCS_Sync_Controls();
+        }
+        if (class_exists('CCS_Logs_Display')) {
+            $this->logs_display = new CCS_Logs_Display();
+        }
 
         // Register settings
         add_action('admin_init', array($this, 'register_settings'));
@@ -64,8 +82,12 @@ class CCS_Admin_Page {
      * Register all settings
      */
     public function register_settings() {
-        $this->api_settings->register_settings();
-        $this->email_settings->register_settings();
+        if ($this->api_settings && method_exists($this->api_settings, 'register_settings')) {
+            $this->api_settings->register_settings();
+        }
+        if ($this->email_settings && method_exists($this->email_settings, 'register_settings')) {
+            $this->email_settings->register_settings();
+        }
     }
 
     /**
@@ -77,10 +99,10 @@ class CCS_Admin_Page {
             <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
             
             <div class="ccs-admin-container">
-                <?php $this->api_settings->render(); ?>
-                <?php $this->email_settings->render(); ?>
-                <?php $this->sync_controls->render(); ?>
-                <?php $this->logs_display->render(); ?>
+                <?php if ($this->api_settings) { $this->api_settings->render(); } ?>
+                <?php if ($this->email_settings) { $this->email_settings->render(); } ?>
+                <?php if ($this->sync_controls) { $this->sync_controls->render(); } ?>
+                <?php if ($this->logs_display) { $this->logs_display->render(); } ?>
             </div>
         </div>
         <?php
@@ -95,30 +117,37 @@ class CCS_Admin_Page {
             return;
         }
 
-        wp_enqueue_script(
-            'ccs-admin',
-            CCS_PLUGIN_URL . 'assets/js/admin.js',
-            array('jquery'),
-            CCS_VERSION,
-            true
-        );
+        $js_file = CCS_PLUGIN_URL . 'assets/js/admin.js';
+        $css_file = CCS_PLUGIN_URL . 'assets/css/admin.css';
 
-        wp_enqueue_style(
-            'ccs-admin',
-            CCS_PLUGIN_URL . 'assets/css/admin.css',
-            array(),
-            CCS_VERSION
-        );
+        if (file_exists(CCS_PLUGIN_DIR . 'assets/js/admin.js')) {
+            wp_enqueue_script(
+                'ccs-admin',
+                $js_file,
+                array('jquery'),
+                CCS_VERSION,
+                true
+            );
 
-        // Localize script with AJAX data
-        wp_localize_script('ccs-admin', 'ccsData', array(
-            'ajaxUrl' => admin_url('admin-ajax.php'),
-            'syncNonce' => wp_create_nonce('ccs_sync_nonce'),
-            'testConnectionNonce' => wp_create_nonce('ccs_test_connection_nonce'),
-            'getCoursesNonce' => wp_create_nonce('ccs_get_courses_nonce'),
-            'clearLogsNonce' => wp_create_nonce('ccs_clear_logs_nonce'),
-            'syncStatusNonce' => wp_create_nonce('ccs_sync_status_nonce'),
-            'autoSyncNonce' => wp_create_nonce('ccs_auto_sync_nonce')
-        ));
+            // Localize script with AJAX data
+            wp_localize_script('ccs-admin', 'ccsData', array(
+                'ajaxUrl' => admin_url('admin-ajax.php'),
+                'syncNonce' => wp_create_nonce('ccs_sync_nonce'),
+                'testConnectionNonce' => wp_create_nonce('ccs_test_connection_nonce'),
+                'getCoursesNonce' => wp_create_nonce('ccs_get_courses_nonce'),
+                'clearLogsNonce' => wp_create_nonce('ccs_clear_logs_nonce'),
+                'syncStatusNonce' => wp_create_nonce('ccs_sync_status_nonce'),
+                'autoSyncNonce' => wp_create_nonce('ccs_auto_sync_nonce')
+            ));
+        }
+
+        if (file_exists(CCS_PLUGIN_DIR . 'assets/css/admin.css')) {
+            wp_enqueue_style(
+                'ccs-admin',
+                $css_file,
+                array(),
+                CCS_VERSION
+            );
+        }
     }
 }

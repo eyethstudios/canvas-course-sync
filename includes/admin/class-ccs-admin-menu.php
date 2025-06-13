@@ -61,14 +61,16 @@ class CCS_Admin_Menu {
             <div class="ccs-admin-container">
                 <div class="ccs-admin-main">
                     <?php 
-                    // Render admin components
-                    do_action('ccs_render_api_settings');
-                    do_action('ccs_render_sync_controls');
+                    // Initialize and render admin page components directly
+                    $canvas_course_sync = canvas_course_sync();
+                    if ($canvas_course_sync && isset($canvas_course_sync->logger)) {
+                        // Initialize admin page to render components
+                        if (class_exists('CCS_Admin_Page')) {
+                            $admin_page = new CCS_Admin_Page();
+                            $admin_page->render();
+                        }
+                    }
                     ?>
-                </div>
-                
-                <div class="ccs-admin-sidebar">
-                    <?php do_action('ccs_render_logs_display'); ?>
                 </div>
             </div>
         </div>
