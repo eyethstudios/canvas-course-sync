@@ -1,4 +1,3 @@
-
 <?php
 /**
  * Plugin Name: Canvas Course Sync
@@ -91,11 +90,11 @@ class Canvas_Course_Sync {
      * Constructor
      */
     public function __construct() {
-        // Set required plugin properties
+        // Set required plugin properties FIRST
         $this->plugin = __FILE__;
         $this->plugin_basename = plugin_basename(__FILE__);
         
-        // Initialize WordPress hooks first
+        // Initialize WordPress hooks
         $this->init_hooks();
         
         // Load dependencies
@@ -130,14 +129,14 @@ class Canvas_Course_Sync {
         // Load text domain
         add_action('plugins_loaded', array($this, 'load_textdomain'));
         
-        // Initialize admin functionality only in admin - moved to later hook
+        // Initialize admin functionality only in admin
         if (is_admin()) {
             add_action('admin_init', array($this, 'init_admin'));
             add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_assets'));
-            // Add settings link immediately
+            // Add settings link with correct basename
             add_filter('plugin_action_links_' . CCS_PLUGIN_BASENAME, array($this, 'add_settings_link'));
-            // Add admin menu after all plugins are loaded
-            add_action('admin_menu', array($this, 'add_admin_menu'), 20);
+            // Add admin menu with priority to ensure it loads
+            add_action('admin_menu', array($this, 'add_admin_menu'), 10);
         }
         
         // Register metabox for course link
@@ -152,8 +151,13 @@ class Canvas_Course_Sync {
      * Add admin menu
      */
     public function add_admin_menu() {
-        // Add main menu page
-        add_options_page(
+        // Ensure we have the capability to add menu
+        if (!current_user_can('manage_options')) {
+            return;
+        }
+
+        // Add main menu page under Settings
+        $hook = add_options_page(
             __('Canvas Course Sync', 'canvas-course-sync'),
             __('Canvas Course Sync', 'canvas-course-sync'),
             'manage_options',
@@ -161,8 +165,10 @@ class Canvas_Course_Sync {
             array($this, 'display_admin_page')
         );
 
-        if ($this->logger) {
-            $this->logger->log('Admin menu page added successfully');
+        if ($hook && $this->logger) {
+            $this->logger->log('Admin menu page added successfully with hook: ' . $hook);
+        } elseif (!$hook) {
+            error_log('Canvas Course Sync: Failed to add admin menu page');
         }
     }
 
