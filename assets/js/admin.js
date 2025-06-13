@@ -2,7 +2,6 @@
 (function($) {
     'use strict';
 
-    // Admin functionality for Canvas Course Sync
     $(document).ready(function() {
         // Check if required variables are available
         if (typeof window.ccsNonces === 'undefined' || typeof window.ajaxurl === 'undefined') {

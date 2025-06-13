@@ -29,80 +29,44 @@ define('CCS_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('CCS_PLUGIN_BASENAME', plugin_basename(__FILE__));
 define('CCS_PLUGIN_FILE', __FILE__);
 
-// Prevent multiple initializations
-if (class_exists('Canvas_Course_Sync')) {
-    return;
-}
-
 /**
  * Main plugin class
  */
 class Canvas_Course_Sync {
     /**
      * Instance of this class
-     *
-     * @var Canvas_Course_Sync
      */
-    protected static $instance = null;
-
-    /**
-     * Plugin file path
-     *
-     * @var string
-     */
-    public $plugin_file;
-
-    /**
-     * Plugin basename
-     *
-     * @var string
-     */
-    public $plugin_basename;
+    private static $instance = null;
 
     /**
      * Logger instance
-     *
-     * @var CCS_Logger
      */
     public $logger;
 
     /**
      * Canvas API instance
-     *
-     * @var CCS_Canvas_API
      */
     public $api;
 
     /**
      * Importer instance
-     *
-     * @var CCS_Importer
      */
     public $importer;
 
     /**
      * Scheduler instance
-     *
-     * @var CCS_Scheduler
      */
     public $scheduler;
 
     /**
      * Constructor
      */
-    public function __construct() {
-        // Set plugin properties
-        $this->plugin_file = __FILE__;
-        $this->plugin_basename = plugin_basename(__FILE__);
-        
-        // Initialize hooks
+    private function __construct() {
         $this->init_hooks();
     }
 
     /**
-     * Return an instance of this class
-     *
-     * @return Canvas_Course_Sync A single instance of this class
+     * Get singleton instance
      */
     public static function get_instance() {
         if (null === self::$instance) {
@@ -115,29 +79,33 @@ class Canvas_Course_Sync {
      * Initialize WordPress hooks
      */
     private function init_hooks() {
-        // Register activation/deactivation hooks
-        register_activation_hook(__FILE__, array($this, 'activate_plugin'));
-        register_deactivation_hook(__FILE__, array($this, 'deactivate_plugin'));
+        // Activation/deactivation hooks
+        register_activation_hook(__FILE__, array($this, 'activate'));
+        register_deactivation_hook(__FILE__, array($this, 'deactivate'));
 
-        // Load text domain
-        add_action('plugins_loaded', array($this, 'load_textdomain'), 5);
-        
-        // Load dependencies and initialize components
-        add_action('plugins_loaded', array($this, 'load_dependencies'), 10);
-        add_action('plugins_loaded', array($this, 'init_components'), 15);
-        
-        // Admin hooks - only if in admin and user has permissions
+        // Load plugin
+        add_action('plugins_loaded', array($this, 'load_textdomain'));
+        add_action('plugins_loaded', array($this, 'load_dependencies'));
+        add_action('init', array($this, 'init_components'));
+
+        // Admin hooks
         if (is_admin()) {
-            add_action('admin_init', array($this, 'init_admin'));
             add_action('admin_menu', array($this, 'add_admin_menu'));
             add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_assets'));
-            add_filter('plugin_action_links_' . $this->plugin_basename, array($this, 'add_settings_link'));
+            add_action('admin_init', array($this, 'register_settings'));
+            add_filter('plugin_action_links_' . plugin_basename(__FILE__), array($this, 'add_settings_link'));
         }
-        
-        // Post type hooks
-        add_action('add_meta_boxes', array($this, 'register_course_metaboxes'));
-        add_filter('manage_courses_posts_columns', array($this, 'add_sync_status_column'));
-        add_action('manage_courses_posts_custom_column', array($this, 'display_sync_status_column'), 10, 2);
+    }
+
+    /**
+     * Load plugin textdomain
+     */
+    public function load_textdomain() {
+        load_plugin_textdomain(
+            'canvas-course-sync',
+            false,
+            dirname(plugin_basename(__FILE__)) . '/languages/'
+        );
     }
 
     /**
@@ -156,77 +124,72 @@ class Canvas_Course_Sync {
             $file_path = CCS_PLUGIN_DIR . $file;
             if (file_exists($file_path)) {
                 require_once $file_path;
-            } else {
-                error_log('Canvas Course Sync: Missing required file - ' . $file);
             }
         }
 
-        // Load admin files only in admin
+        // Load admin files
         if (is_admin()) {
-            $admin_files = array(
-                'includes/admin-page.php'
-            );
-            
-            foreach ($admin_files as $file) {
-                $file_path = CCS_PLUGIN_DIR . $file;
-                if (file_exists($file_path)) {
-                    require_once $file_path;
-                }
+            $admin_file = CCS_PLUGIN_DIR . 'includes/admin/index.php';
+            if (file_exists($admin_file)) {
+                require_once $admin_file;
             }
         }
     }
 
     /**
-     * Initialize components
+     * Initialize plugin components
      */
     public function init_components() {
-        // Initialize logger first
+        // Initialize logger
         if (class_exists('CCS_Logger')) {
             $this->logger = new CCS_Logger();
-            $this->logger->log('Canvas Course Sync initializing components');
         }
-        
+
         // Initialize API
         if (class_exists('CCS_Canvas_API')) {
             $this->api = new CCS_Canvas_API();
-        } else {
-            if ($this->logger) {
-                $this->logger->log('CCS_Canvas_API class not found', 'error');
-            }
         }
-        
+
         // Initialize importer
         if (class_exists('CCS_Importer')) {
             $this->importer = new CCS_Importer();
-        } else {
-            if ($this->logger) {
-                $this->logger->log('CCS_Importer class not found', 'error');
-            }
         }
-        
+
         // Initialize scheduler
         if (class_exists('CCS_Scheduler')) {
             $this->scheduler = new CCS_Scheduler();
-        } else {
-            if ($this->logger) {
-                $this->logger->log('CCS_Scheduler class not found', 'error');
-            }
         }
     }
 
     /**
-     * Initialize admin functionality
+     * Register plugin settings
      */
-    public function init_admin() {
-        // Only proceed if user has permissions
-        if (!current_user_can('manage_options')) {
-            return;
-        }
+    public function register_settings() {
+        // API Settings
+        register_setting('ccs_api_settings', 'ccs_api_domain', array(
+            'type' => 'string',
+            'sanitize_callback' => 'esc_url_raw',
+            'default' => ''
+        ));
 
-        $admin_handlers_file = CCS_PLUGIN_DIR . 'includes/admin/index.php';
-        if (file_exists($admin_handlers_file)) {
-            require_once $admin_handlers_file;
-        }
+        register_setting('ccs_api_settings', 'ccs_api_token', array(
+            'type' => 'string',
+            'sanitize_callback' => 'sanitize_text_field',
+            'default' => ''
+        ));
+
+        // Email Settings
+        register_setting('ccs_email_settings', 'ccs_notification_email', array(
+            'type' => 'string',
+            'sanitize_callback' => 'sanitize_email',
+            'default' => ''
+        ));
+
+        register_setting('ccs_email_settings', 'ccs_auto_sync_enabled', array(
+            'type' => 'boolean',
+            'sanitize_callback' => 'rest_sanitize_boolean',
+            'default' => false
+        ));
     }
 
     /**
@@ -237,42 +200,44 @@ class Canvas_Course_Sync {
             return;
         }
 
-        $hook = add_options_page(
+        add_options_page(
             __('Canvas Course Sync', 'canvas-course-sync'),
             __('Canvas Course Sync', 'canvas-course-sync'),
             'manage_options',
             'canvas-course-sync',
             array($this, 'display_admin_page')
         );
-
-        if ($hook && $this->logger) {
-            $this->logger->log('Admin menu added successfully');
-        }
     }
 
     /**
      * Display admin page
      */
     public function display_admin_page() {
-        if (class_exists('CCS_Admin_Page')) {
-            $admin_page = new CCS_Admin_Page();
-            $admin_page->render();
-        } else {
-            echo '<div class="wrap">';
-            echo '<h1>' . esc_html__('Canvas Course Sync', 'canvas-course-sync') . '</h1>';
-            echo '<div class="notice notice-error"><p>';
-            echo esc_html__('Admin page class not found. Please check plugin installation.', 'canvas-course-sync');
-            echo '</p></div>';
-            echo '</div>';
+        $admin_page_file = CCS_PLUGIN_DIR . 'includes/admin/class-ccs-admin-page.php';
+        if (file_exists($admin_page_file)) {
+            require_once $admin_page_file;
+            if (class_exists('CCS_Admin_Page')) {
+                $admin_page = new CCS_Admin_Page();
+                $admin_page->render();
+                return;
+            }
         }
+
+        // Fallback if admin page class not found
+        echo '<div class="wrap">';
+        echo '<h1>' . esc_html__('Canvas Course Sync', 'canvas-course-sync') . '</h1>';
+        echo '<div class="notice notice-error"><p>';
+        echo esc_html__('Admin page class not found. Please check plugin installation.', 'canvas-course-sync');
+        echo '</p></div>';
+        echo '</div>';
     }
 
     /**
-     * Add settings link to plugin actions
+     * Add settings link to plugins page
      */
     public function add_settings_link($links) {
         if (current_user_can('manage_options')) {
-            $settings_link = '<a href="' . esc_url(admin_url('options-general.php?page=canvas-course-sync')) . '">' . 
+            $settings_link = '<a href="' . esc_url(admin_url('options-general.php?page=canvas-course-sync')) . '">' .
                             esc_html__('Settings', 'canvas-course-sync') . '</a>';
             array_unshift($links, $settings_link);
         }
@@ -286,28 +251,32 @@ class Canvas_Course_Sync {
         if (strpos($hook, 'canvas-course-sync') === false) {
             return;
         }
-        
+
+        // Enqueue CSS
         $css_file = CCS_PLUGIN_URL . 'assets/css/admin.css';
         if (file_exists(CCS_PLUGIN_DIR . 'assets/css/admin.css')) {
             wp_enqueue_style('ccs-admin-css', $css_file, array(), CCS_VERSION);
         }
-        
+
+        // Enqueue JS
         $js_file = CCS_PLUGIN_URL . 'assets/js/admin.js';
         if (file_exists(CCS_PLUGIN_DIR . 'assets/js/admin.js')) {
             wp_enqueue_script('ccs-admin-js', $js_file, array('jquery'), CCS_VERSION, true);
-            
+
             // Localize script for AJAX
-            wp_localize_script('ccs-admin-js', 'ccsAjax', array(
-                'ajaxurl' => admin_url('admin-ajax.php'),
-                'nonce' => wp_create_nonce('ccs_admin_nonce')
+            wp_localize_script('ccs-admin-js', 'ccsNonces', array(
+                'test_connection' => wp_create_nonce('ccs_test_connection_nonce'),
+                'get_courses' => wp_create_nonce('ccs_get_courses_nonce'),
+                'sync_courses' => wp_create_nonce('ccs_sync_nonce'),
+                'sync_status' => wp_create_nonce('ccs_sync_status_nonce')
             ));
         }
     }
 
     /**
-     * Activate the plugin
+     * Plugin activation
      */
-    public function activate_plugin() {
+    public function activate() {
         // Check requirements
         if (version_compare(PHP_VERSION, '7.4', '<')) {
             deactivate_plugins(plugin_basename(__FILE__));
@@ -319,113 +288,43 @@ class Canvas_Course_Sync {
             wp_die(__('Canvas Course Sync requires WordPress 5.0 or higher.', 'canvas-course-sync'));
         }
 
-        // Check if courses post type exists - warn but don't fail
-        if (!post_type_exists('courses')) {
-            // Log warning but allow activation
-            error_log('Canvas Course Sync: Warning - Custom post type "courses" does not exist. Plugin may not function properly.');
-        }
-        
         // Create log directory
         $upload_dir = wp_upload_dir();
         $log_dir = $upload_dir['basedir'] . '/canvas-course-sync/logs';
-        
+
         if (!file_exists($log_dir)) {
             wp_mkdir_p($log_dir);
-            $htaccess_content = "Order deny,allow\nDeny from all";
-            file_put_contents($log_dir . '/.htaccess', $htaccess_content);
+            file_put_contents($log_dir . '/.htaccess', "Order deny,allow\nDeny from all");
         }
-        
-        // Set version
+
         update_option('ccs_version', CCS_VERSION);
-        
-        // Clear transients
-        delete_transient('ccs_auth_test');
-        
         flush_rewrite_rules();
     }
 
     /**
-     * Deactivate the plugin
+     * Plugin deactivation
      */
-    public function deactivate_plugin() {
+    public function deactivate() {
         wp_clear_scheduled_hook('ccs_weekly_sync');
-        delete_transient('ccs_auth_test');
         flush_rewrite_rules();
     }
-
-    /**
-     * Load text domain
-     */
-    public function load_textdomain() {
-        load_plugin_textdomain(
-            'canvas-course-sync', 
-            false, 
-            dirname(plugin_basename(__FILE__)) . '/languages/'
-        );
-    }
-    
-    /**
-     * Register metaboxes for courses post type
-     */
-    public function register_course_metaboxes() {
-        if (!post_type_exists('courses') || !$this->importer) {
-            return;
-        }
-
-        if (method_exists($this->importer, 'display_course_link_metabox')) {
-            add_meta_box(
-                'ccs_course_link',
-                __('Canvas Course Link', 'canvas-course-sync'),
-                array($this->importer, 'display_course_link_metabox'),
-                'courses',
-                'side',
-                'default'
-            );
-        }
-    }
-
-    /**
-     * Add sync status column
-     */
-    public function add_sync_status_column($columns) {
-        if (post_type_exists('courses')) {
-            $columns['sync_status'] = __('Sync Status', 'canvas-course-sync');
-        }
-        return $columns;
-    }
-
-    /**
-     * Display sync status column
-     */
-    public function display_sync_status_column($column, $post_id) {
-        if ($column === 'sync_status') {
-            $canvas_id = get_post_meta($post_id, 'canvas_course_id', true);
-            if (!empty($canvas_id)) {
-                echo '<span class="ccs-badge ccs-badge-synced">' . esc_html__('Synced', 'canvas-course-sync') . '</span>';
-            } else {
-                echo '<span class="ccs-badge ccs-badge-manual">' . esc_html__('Not Synced', 'canvas-course-sync') . '</span>';
-            }
-        }
-    }
 }
 
-// Initialize the plugin
-function canvas_course_sync_init() {
-    return Canvas_Course_Sync::get_instance();
-}
-add_action('init', 'canvas_course_sync_init');
-
-// Global accessor function
+/**
+ * Initialize the plugin
+ */
 function canvas_course_sync() {
     return Canvas_Course_Sync::get_instance();
 }
 
-// Uninstall hook
-register_uninstall_hook(__FILE__, 'ccs_uninstall_plugin');
+// Initialize plugin
+canvas_course_sync();
 
 /**
- * Uninstall function
+ * Uninstall hook
  */
+register_uninstall_hook(__FILE__, 'ccs_uninstall_plugin');
+
 function ccs_uninstall_plugin() {
     $uninstall_file = plugin_dir_path(__FILE__) . 'uninstall.php';
     if (file_exists($uninstall_file)) {

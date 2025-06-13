@@ -16,21 +16,6 @@ if (!defined('ABSPATH')) {
  */
 class CCS_Admin_Page {
     /**
-     * Logger instance
-     *
-     * @var CCS_Logger
-     */
-    private $logger;
-
-    /**
-     * Constructor
-     */
-    public function __construct() {
-        $canvas_course_sync = canvas_course_sync();
-        $this->logger = ($canvas_course_sync && isset($canvas_course_sync->logger)) ? $canvas_course_sync->logger : null;
-    }
-
-    /**
      * Render the admin page
      */
     public function render() {
@@ -52,6 +37,7 @@ class CCS_Admin_Page {
             <?php $this->display_notices(); ?>
             
             <div class="ccs-admin-container">
+                <!-- API Settings Section -->
                 <div class="ccs-settings-section">
                     <h2><?php echo esc_html__('API Settings', 'canvas-course-sync'); ?></h2>
                     <form method="post" action="options.php">
@@ -89,6 +75,7 @@ class CCS_Admin_Page {
                     </form>
                 </div>
 
+                <!-- Sync Controls Section -->
                 <div class="ccs-settings-section">
                     <h2><?php echo esc_html__('Sync Controls', 'canvas-course-sync'); ?></h2>
                     <div class="ccs-sync-controls">
@@ -106,6 +93,7 @@ class CCS_Admin_Page {
                     <div id="ccs-sync-status" style="margin-top: 20px;"></div>
                 </div>
 
+                <!-- Email Settings Section -->
                 <div class="ccs-settings-section">
                     <h2><?php echo esc_html__('Email Settings', 'canvas-course-sync'); ?></h2>
                     <form method="post" action="options.php">
@@ -141,20 +129,6 @@ class CCS_Admin_Page {
                 </div>
             </div>
         </div>
-
-        <?php
-        // Create nonces for AJAX calls
-        $nonces = array(
-            'test_connection' => wp_create_nonce('ccs_test_connection_nonce'),
-            'get_courses' => wp_create_nonce('ccs_get_courses_nonce'),
-            'sync_courses' => wp_create_nonce('ccs_sync_nonce'),
-            'sync_status' => wp_create_nonce('ccs_sync_status_nonce')
-        );
-        ?>
-        <script type="text/javascript">
-            window.ccsNonces = <?php echo wp_json_encode($nonces); ?>;
-            window.ajaxurl = '<?php echo esc_url(admin_url('admin-ajax.php')); ?>';
-        </script>
         <?php
     }
 
