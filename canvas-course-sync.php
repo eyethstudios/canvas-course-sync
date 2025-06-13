@@ -131,8 +131,10 @@ class Canvas_Course_Sync {
         
         // Initialize admin functionality only in admin
         if (is_admin()) {
+            add_action('admin_menu', array($this, 'add_admin_menu'));
             add_action('admin_init', array($this, 'init_admin'));
             add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_assets'));
+            add_filter('plugin_action_links_' . plugin_basename(__FILE__), array($this, 'add_settings_link'));
         }
         
         // Register metabox for course link
@@ -141,6 +143,51 @@ class Canvas_Course_Sync {
         // Add sync status column to courses list
         add_filter('manage_courses_posts_columns', array($this, 'add_sync_status_column'));
         add_action('manage_courses_posts_custom_column', array($this, 'display_sync_status_column'), 10, 2);
+    }
+
+    /**
+     * Add admin menu
+     */
+    public function add_admin_menu() {
+        // Add main menu page
+        add_options_page(
+            __('Canvas Course Sync', 'canvas-course-sync'),
+            __('Canvas Course Sync', 'canvas-course-sync'),
+            'manage_options',
+            'canvas-course-sync',
+            array($this, 'display_admin_page')
+        );
+
+        if ($this->logger) {
+            $this->logger->log('Admin menu page added successfully');
+        }
+    }
+
+    /**
+     * Display admin page
+     */
+    public function display_admin_page() {
+        // Check if admin page class exists
+        if (class_exists('CCS_Admin_Page')) {
+            $admin_page = new CCS_Admin_Page();
+            $admin_page->render();
+        } else {
+            echo '<div class="wrap">';
+            echo '<h1>' . esc_html__('Canvas Course Sync', 'canvas-course-sync') . '</h1>';
+            echo '<div class="notice notice-error"><p>';
+            echo esc_html__('Admin page class not found. Please check plugin installation.', 'canvas-course-sync');
+            echo '</p></div>';
+            echo '</div>';
+        }
+    }
+
+    /**
+     * Add settings link to plugin actions
+     */
+    public function add_settings_link($links) {
+        $settings_link = '<a href="' . admin_url('options-general.php?page=canvas-course-sync') . '">' . __('Settings', 'canvas-course-sync') . '</a>';
+        array_unshift($links, $settings_link);
+        return $links;
     }
 
     /**

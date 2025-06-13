@@ -18,8 +18,7 @@ if (!is_admin()) {
 
 // Include the main admin page class
 $admin_files = array(
-    'includes/admin/class-ccs-admin-page.php',
-    'includes/admin/class-ccs-admin-menu.php'
+    'includes/admin/class-ccs-admin-page.php'
 );
 
 foreach ($admin_files as $file) {
@@ -30,55 +29,6 @@ foreach ($admin_files as $file) {
         error_log('Canvas Course Sync: Missing admin file - ' . $file);
     }
 }
-
-/**
- * Initialize admin menu - this function will be called on admin_menu hook
- */
-function ccs_init_admin_menu() {
-    // Early return if not in admin or user doesn't have permissions
-    if (!is_admin() || !current_user_can('manage_options')) {
-        return;
-    }
-    
-    $canvas_course_sync = canvas_course_sync();
-    if ($canvas_course_sync && isset($canvas_course_sync->logger)) {
-        $canvas_course_sync->logger->log('Admin menu initialization started - User can manage options: ' . (current_user_can('manage_options') ? 'yes' : 'no'));
-    }
-    
-    // Check if required class exists
-    if (!class_exists('CCS_Admin_Menu')) {
-        if ($canvas_course_sync && isset($canvas_course_sync->logger)) {
-            $canvas_course_sync->logger->log('CCS_Admin_Menu class not found during menu registration', 'error');
-        }
-        error_log('Canvas Course Sync: CCS_Admin_Menu class not found');
-        return;
-    }
-    
-    // Create and register the menu
-    try {
-        $admin_menu = new CCS_Admin_Menu();
-        
-        if (method_exists($admin_menu, 'add_menu')) {
-            $admin_menu->add_menu();
-            
-            if ($canvas_course_sync && isset($canvas_course_sync->logger)) {
-                $canvas_course_sync->logger->log('Admin menu registered successfully');
-            }
-        } else {
-            if ($canvas_course_sync && isset($canvas_course_sync->logger)) {
-                $canvas_course_sync->logger->log('add_menu method not found in CCS_Admin_Menu', 'error');
-            }
-        }
-    } catch (Exception $e) {
-        if ($canvas_course_sync && isset($canvas_course_sync->logger)) {
-            $canvas_course_sync->logger->log('Error registering admin menu: ' . $e->getMessage(), 'error');
-        }
-        error_log('Canvas Course Sync: Error registering admin menu - ' . $e->getMessage());
-    }
-}
-
-// Hook the admin menu registration to the correct action
-add_action('admin_menu', 'ccs_init_admin_menu', 10);
 
 // Initialize admin settings
 add_action('admin_init', 'ccs_init_admin_settings');
