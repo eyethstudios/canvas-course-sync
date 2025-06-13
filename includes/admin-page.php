@@ -13,6 +13,7 @@ if (!defined('ABSPATH')) {
 
 // Include the main admin page class
 require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-admin-page.php';
+require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-admin-menu.php';
 
 /**
  * Initialize admin page functionality
@@ -31,5 +32,16 @@ function ccs_init_admin_page() {
     return $admin_page;
 }
 
+/**
+ * Initialize admin menu
+ */
+function ccs_init_admin_menu() {
+    $admin_menu = new CCS_Admin_Menu();
+    $admin_menu->add_menu();
+}
+
 // Hook the admin page initialization properly
 add_action('admin_init', 'ccs_init_admin_page');
+
+// Hook the admin menu registration
+add_action('admin_menu', 'ccs_init_admin_menu');
