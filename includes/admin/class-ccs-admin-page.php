@@ -94,16 +94,36 @@ class CCS_Admin_Page {
      * Render the admin page
      */
     public function render() {
+        $canvas_course_sync = canvas_course_sync();
+        if ($canvas_course_sync && isset($canvas_course_sync->logger)) {
+            $canvas_course_sync->logger->log('Rendering admin page components');
+        }
+        
         ?>
-        <div class="wrap">
-            <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
+        <div class="ccs-admin-container">
+            <?php if ($this->api_settings) { 
+                $this->api_settings->render(); 
+            } else {
+                echo '<div class="notice notice-warning"><p>API Settings component not loaded</p></div>';
+            } ?>
             
-            <div class="ccs-admin-container">
-                <?php if ($this->api_settings) { $this->api_settings->render(); } ?>
-                <?php if ($this->email_settings) { $this->email_settings->render(); } ?>
-                <?php if ($this->sync_controls) { $this->sync_controls->render(); } ?>
-                <?php if ($this->logs_display) { $this->logs_display->render(); } ?>
-            </div>
+            <?php if ($this->email_settings) { 
+                $this->email_settings->render(); 
+            } else {
+                echo '<div class="notice notice-warning"><p>Email Settings component not loaded</p></div>';
+            } ?>
+            
+            <?php if ($this->sync_controls) { 
+                $this->sync_controls->render(); 
+            } else {
+                echo '<div class="notice notice-warning"><p>Sync Controls component not loaded</p></div>';
+            } ?>
+            
+            <?php if ($this->logs_display) { 
+                $this->logs_display->render(); 
+            } else {
+                echo '<div class="notice notice-warning"><p>Logs Display component not loaded</p></div>';
+            } ?>
         </div>
         <?php
     }
