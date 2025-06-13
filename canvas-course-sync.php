@@ -183,7 +183,7 @@ class Canvas_Course_Sync {
             if (!empty($canvas_id)) {
                 echo '<span class="ccs-badge ccs-badge-synced">' . __('Synced', 'canvas-course-sync') . '</span>';
             } else {
-                echo '<span class="ccs-badge ccs-badge-manual">' . __('Manual', 'canvas-course-sync') . '</span>';
+                echo '<span class="ccs-badge ccs-badge-manual">' . __('Not Yet Synced', 'canvas-course-sync') . '</span>';
             }
         }
     }
