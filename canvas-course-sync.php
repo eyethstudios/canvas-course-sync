@@ -123,8 +123,10 @@ class Canvas_Course_Sync {
         // Load text domain
         add_action('plugins_loaded', array($this, 'load_textdomain'));
         
-        // Initialize admin functionality
-        add_action('admin_init', array($this, 'init_admin'));
+        // Initialize admin functionality only in admin
+        if (is_admin()) {
+            add_action('admin_init', array($this, 'init_admin'));
+        }
         
         // Register metabox for course link
         add_action('add_meta_boxes', array($this, 'register_course_metaboxes'));
@@ -150,12 +152,10 @@ class Canvas_Course_Sync {
      * Initialize admin functionality
      */
     public function init_admin() {
-        if (is_admin()) {
-            // Include AJAX handlers
-            $admin_handlers_file = CCS_PLUGIN_DIR . 'includes/admin/index.php';
-            if (file_exists($admin_handlers_file)) {
-                require_once $admin_handlers_file;
-            }
+        // Include AJAX handlers only in admin and if file exists
+        $admin_handlers_file = CCS_PLUGIN_DIR . 'includes/admin/index.php';
+        if (file_exists($admin_handlers_file)) {
+            require_once $admin_handlers_file;
         }
     }
 
@@ -183,6 +183,11 @@ class Canvas_Course_Sync {
         
         // Add plugin version to options
         update_option('ccs_version', CCS_VERSION);
+        
+        // Log successful activation
+        if ($this->logger) {
+            $this->logger->log('Canvas Course Sync plugin activated successfully');
+        }
     }
 
     /**
@@ -191,6 +196,11 @@ class Canvas_Course_Sync {
     public function deactivate_plugin() {
         // Clear any scheduled events
         wp_clear_scheduled_hook('ccs_weekly_sync');
+        
+        // Log deactivation
+        if ($this->logger) {
+            $this->logger->log('Canvas Course Sync plugin deactivated');
+        }
     }
 
     /**
