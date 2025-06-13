@@ -35,10 +35,10 @@ class CCS_Scheduler {
      * Constructor
      */
     public function __construct() {
-        global $canvas_course_sync;
-        $this->logger = $canvas_course_sync->logger ?? new CCS_Logger();
-        $this->api = $canvas_course_sync->api ?? new CCS_Canvas_API();
-        $this->importer = $canvas_course_sync->importer ?? new CCS_Importer();
+        $canvas_course_sync = canvas_course_sync();
+        $this->logger = ($canvas_course_sync && isset($canvas_course_sync->logger)) ? $canvas_course_sync->logger : new CCS_Logger();
+        $this->api = ($canvas_course_sync && isset($canvas_course_sync->api)) ? $canvas_course_sync->api : new CCS_Canvas_API();
+        $this->importer = ($canvas_course_sync && isset($canvas_course_sync->importer)) ? $canvas_course_sync->importer : new CCS_Importer();
         
         // Schedule weekly sync if enabled
         add_action('ccs_weekly_sync', array($this, 'run_auto_sync'));

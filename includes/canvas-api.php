@@ -1,4 +1,3 @@
-
 <?php
 /**
  * Handles API communication with Canvas LMS.
@@ -42,8 +41,8 @@ class CCS_Canvas_API {
     public function __construct() {
         $this->domain = get_option('ccs_api_domain', '');
         $this->api_key = get_option('ccs_api_token', ''); // Fixed: was ccs_api_key, should match admin settings
-        global $canvas_course_sync;
-        $this->logger = isset($canvas_course_sync->logger) ? $canvas_course_sync->logger : new CCS_Logger();
+        $canvas_course_sync = canvas_course_sync();
+        $this->logger = ($canvas_course_sync && isset($canvas_course_sync->logger)) ? $canvas_course_sync->logger : new CCS_Logger();
     }
 
     /**

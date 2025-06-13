@@ -29,13 +29,22 @@ if (class_exists('Canvas_Course_Sync')) {
     return;
 }
 
-// Include required files
-require_once CCS_PLUGIN_DIR . 'includes/functions.php';
-require_once CCS_PLUGIN_DIR . 'includes/logger.php';
-require_once CCS_PLUGIN_DIR . 'includes/canvas-api.php';
-require_once CCS_PLUGIN_DIR . 'includes/importer.php';
-require_once CCS_PLUGIN_DIR . 'includes/admin-page.php';
-require_once CCS_PLUGIN_DIR . 'includes/class-ccs-scheduler.php';
+// Include required files only if they exist
+$required_files = array(
+    'includes/functions.php',
+    'includes/logger.php',
+    'includes/canvas-api.php',
+    'includes/importer.php',
+    'includes/admin-page.php',
+    'includes/class-ccs-scheduler.php'
+);
+
+foreach ($required_files as $file) {
+    $file_path = CCS_PLUGIN_DIR . $file;
+    if (file_exists($file_path)) {
+        require_once $file_path;
+    }
+}
 
 /**
  * Main plugin class
@@ -115,7 +124,7 @@ class Canvas_Course_Sync {
         add_action('plugins_loaded', array($this, 'load_textdomain'));
         
         // Initialize admin functionality
-        add_action('init', array($this, 'init_admin'));
+        add_action('admin_init', array($this, 'init_admin'));
         
         // Register metabox for course link
         add_action('add_meta_boxes', array($this, 'register_course_metaboxes'));
@@ -232,20 +241,18 @@ class Canvas_Course_Sync {
 
 // Initialize the plugin after all plugins are loaded
 function canvas_course_sync_init() {
-    global $canvas_course_sync;
-    
-    if (!isset($canvas_course_sync)) {
-        $canvas_course_sync = Canvas_Course_Sync::get_instance();
+    // Use a different global variable name to avoid conflicts
+    if (!isset($GLOBALS['canvas_course_sync_instance'])) {
+        $GLOBALS['canvas_course_sync_instance'] = Canvas_Course_Sync::get_instance();
     }
     
-    return $canvas_course_sync;
+    return $GLOBALS['canvas_course_sync_instance'];
 }
 
-// Hook into plugins_loaded with priority 10
-add_action('plugins_loaded', 'canvas_course_sync_init', 10);
+// Hook into plugins_loaded with priority 20 to ensure other plugins load first
+add_action('plugins_loaded', 'canvas_course_sync_init', 20);
 
 // Make the plugin globally accessible
 function canvas_course_sync() {
-    global $canvas_course_sync;
-    return $canvas_course_sync;
+    return isset($GLOBALS['canvas_course_sync_instance']) ? $GLOBALS['canvas_course_sync_instance'] : null;
 }

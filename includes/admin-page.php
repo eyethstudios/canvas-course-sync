@@ -20,10 +20,10 @@ require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-admin-page.php';
  * @return CCS_Admin_Page Admin page instance
  */
 function ccs_init_admin_page() {
-    global $canvas_course_sync;
+    $canvas_course_sync = canvas_course_sync();
     
     // Debug log
-    if (isset($canvas_course_sync) && isset($canvas_course_sync->logger)) {
+    if ($canvas_course_sync && isset($canvas_course_sync->logger)) {
         $canvas_course_sync->logger->log('Initializing admin page');
     }
     

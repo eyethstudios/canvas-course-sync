@@ -9,10 +9,10 @@ if (!defined('ABSPATH')) {
  * AJAX handler for clearing logs
  */
 function ccs_ajax_clear_logs() {
-    global $canvas_course_sync;
+    $canvas_course_sync = canvas_course_sync();
     
     // Debug log for tracking
-    if (isset($canvas_course_sync) && isset($canvas_course_sync->logger)) {
+    if ($canvas_course_sync && isset($canvas_course_sync->logger)) {
         $canvas_course_sync->logger->log('Clear logs AJAX request received');
     }
     
@@ -28,7 +28,7 @@ function ccs_ajax_clear_logs() {
         return;
     }
     
-    if (!isset($canvas_course_sync->logger)) {
+    if (!$canvas_course_sync || !isset($canvas_course_sync->logger)) {
         wp_send_json_error('Logger not initialized');
         return;
     }
@@ -49,10 +49,10 @@ add_action('wp_ajax_ccs_clear_logs', 'ccs_ajax_clear_logs');
  * AJAX handler for getting sync status
  */
 function ccs_ajax_sync_status() {
-    global $canvas_course_sync;
+    $canvas_course_sync = canvas_course_sync();
     
     // Debug log
-    if (isset($canvas_course_sync) && isset($canvas_course_sync->logger)) {
+    if ($canvas_course_sync && isset($canvas_course_sync->logger)) {
         $canvas_course_sync->logger->log('Sync status AJAX request received');
     }
     
@@ -77,10 +77,10 @@ add_action('wp_ajax_ccs_sync_status', 'ccs_ajax_sync_status');
  * AJAX handler for getting Canvas courses
  */
 function ccs_ajax_get_courses() {
-    global $canvas_course_sync;
+    $canvas_course_sync = canvas_course_sync();
     
     // Debug log
-    if (isset($canvas_course_sync) && isset($canvas_course_sync->logger)) {
+    if ($canvas_course_sync && isset($canvas_course_sync->logger)) {
         $canvas_course_sync->logger->log('Get courses AJAX request received');
     }
     
@@ -96,7 +96,7 @@ function ccs_ajax_get_courses() {
         return;
     }
     
-    if (!isset($canvas_course_sync->api)) {
+    if (!$canvas_course_sync || !isset($canvas_course_sync->api)) {
         wp_send_json_error('API not initialized');
         return;
     }
@@ -128,10 +128,10 @@ add_action('wp_ajax_ccs_get_courses', 'ccs_ajax_get_courses');
  * AJAX handler for testing the API connection
  */
 function ccs_ajax_test_connection() {
-    global $canvas_course_sync;
+    $canvas_course_sync = canvas_course_sync();
     
     // Debug log
-    if (isset($canvas_course_sync) && isset($canvas_course_sync->logger)) {
+    if ($canvas_course_sync && isset($canvas_course_sync->logger)) {
         $canvas_course_sync->logger->log('Test connection AJAX request received');
     }
     
@@ -144,6 +144,11 @@ function ccs_ajax_test_connection() {
     // Check user capabilities
     if (!current_user_can('manage_options')) {
         wp_send_json_error('Permission denied');
+        return;
+    }
+    
+    if (!$canvas_course_sync || !isset($canvas_course_sync->api)) {
+        wp_send_json_error('API not initialized');
         return;
     }
     
@@ -167,10 +172,10 @@ add_action('wp_ajax_ccs_test_connection', 'ccs_ajax_test_connection');
  * AJAX handler for syncing selected courses
  */
 function ccs_ajax_sync_courses() {
-    global $canvas_course_sync;
+    $canvas_course_sync = canvas_course_sync();
     
     // Debug log
-    if (isset($canvas_course_sync) && isset($canvas_course_sync->logger)) {
+    if ($canvas_course_sync && isset($canvas_course_sync->logger)) {
         $canvas_course_sync->logger->log('Sync courses AJAX request received');
     }
     
@@ -186,7 +191,7 @@ function ccs_ajax_sync_courses() {
         return;
     }
     
-    if (!isset($canvas_course_sync->importer)) {
+    if (!$canvas_course_sync || !isset($canvas_course_sync->importer)) {
         wp_send_json_error('Importer not initialized');
         return;
     }
@@ -213,10 +218,10 @@ add_action('wp_ajax_ccs_sync_courses', 'ccs_ajax_sync_courses');
  * AJAX handler for running auto-sync
  */
 function ccs_ajax_run_auto_sync() {
-    global $canvas_course_sync;
+    $canvas_course_sync = canvas_course_sync();
     
     // Debug log
-    if (isset($canvas_course_sync) && isset($canvas_course_sync->logger)) {
+    if ($canvas_course_sync && isset($canvas_course_sync->logger)) {
         $canvas_course_sync->logger->log('Auto-sync AJAX request received');
     }
     
@@ -232,7 +237,7 @@ function ccs_ajax_run_auto_sync() {
         return;
     }
     
-    if (!isset($canvas_course_sync->scheduler)) {
+    if (!$canvas_course_sync || !isset($canvas_course_sync->scheduler)) {
         wp_send_json_error('Scheduler not initialized');
         return;
     }

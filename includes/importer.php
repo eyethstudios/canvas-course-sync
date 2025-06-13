@@ -59,9 +59,9 @@ class CCS_Importer {
      * Constructor
      */
     public function __construct() {
-        global $canvas_course_sync;
-        $this->logger = $canvas_course_sync->logger ?? new CCS_Logger();
-        $this->api = $canvas_course_sync->api ?? new CCS_Canvas_API();
+        $canvas_course_sync = canvas_course_sync();
+        $this->logger = ($canvas_course_sync && isset($canvas_course_sync->logger)) ? $canvas_course_sync->logger : new CCS_Logger();
+        $this->api = ($canvas_course_sync && isset($canvas_course_sync->api)) ? $canvas_course_sync->api : new CCS_Canvas_API();
         
         // Initialize handlers if classes exist
         if (class_exists('CCS_Content_Handler')) {
