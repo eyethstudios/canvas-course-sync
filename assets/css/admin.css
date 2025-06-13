@@ -1,182 +1,62 @@
-/**
- * Canvas Course Sync Admin Styles
- */
+/* Canvas Course Sync Admin Styles */
 
-.ccs-admin-container {
-    display: flex;
-    flex-wrap: wrap;
-    margin-top: 20px;
+/* Sync Status Badges */
+.ccs-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
-.ccs-admin-main {
-    flex: 2;
-    min-width: 600px;
-    margin-right: 20px;
+.ccs-badge-synced {
+    background-color: #00a32a;
+    color: white;
 }
 
-.ccs-admin-sidebar {
-    flex: 1;
-    min-width: 300px;
+.ccs-badge-manual {
+    background-color: #dba617;
+    color: white;
 }
 
 .ccs-panel {
     background: #fff;
     border: 1px solid #ccd0d4;
-    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
-    padding: 15px;
+    border-radius: 4px;
+    padding: 20px;
     margin-bottom: 20px;
 }
 
 .ccs-panel h2 {
     margin-top: 0;
-    padding-bottom: 12px;
+    padding-bottom: 10px;
     border-bottom: 1px solid #eee;
-}
-
-.ccs-list {
-    list-style-type: disc;
-    padding-left: 20px;
-}
-
-#ccs-connection-status {
-    margin-left: 10px;
-    padding: 5px 0;
-    display: inline-block;
-    vertical-align: middle;
-}
-
-.ccs-status-success {
-    color: #46b450;
-}
-
-.ccs-status-error {
-    color: #dc3232;
 }
 
 .ccs-spinner {
-    background: url(../../../wp-admin/images/spinner.gif) no-repeat;
-    background-size: 20px 20px;
     display: inline-block;
-    visibility: visible;
-    vertical-align: middle;
-    opacity: 0.7;
-    filter: alpha(opacity=70);
-    width: 20px;
-    height: 20px;
-    margin: 0 10px;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #ddd;
+    border-top: 2px solid #0073aa;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-right: 8px;
 }
 
-.ccs-results-table {
-    width: 50%;
-    border-collapse: collapse;
-    margin-top: 15px;
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 
-.ccs-results-table th,
-.ccs-results-table td {
-    padding: 8px;
-    border: 1px solid #ddd;
-    text-align: left;
+.ccs-success {
+    color: #00a32a;
+    font-weight: 500;
 }
 
-.ccs-results-table th {
-    background-color: #f8f8f8;
-}
-
-.ccs-log-container {
-    max-height: 400px;
-    overflow-y: auto;
-    background: #f8f8f8;
-    border: 1px solid #ddd;
-    padding: 10px;
-    font-family: monospace;
-    font-size: 12px;
-    margin-bottom: 15px;
-}
-
-.ccs-log-entry {
-    margin-bottom: 5px;
-}
-
-.ccs-log-entry pre {
-    margin: 0;
-    white-space: pre-wrap;
-    word-wrap: break-word;
-}
-
-.ccs-log-error {
-    color: #dc3232;
-}
-
-.ccs-log-warning {
-    color: #ffb900;
-}
-
-.ccs-clear-logs {
-    margin-bottom: 15px;
-}
-
-#ccs-sync-status {
-    display: inline-block;
-    margin-left: 10px;
-    font-style: italic;
-    color: #666;
-}
-
-.ccs-course-list {
-    max-height: 400px;
-    overflow-y: auto;
-    border: 1px solid #ddd;
-    padding: 10px;
-    margin-bottom: 15px;
-    background: #fff;
-}
-
-.ccs-course-item {
-    padding: 8px;
-    border-bottom: 1px solid #eee;
-}
-
-.ccs-course-item:last-child {
-    border-bottom: none;
-}
-
-.ccs-course-checkbox {
-    margin-right: 10px !important;
-}
-
-.ccs-select-all {
-    margin-bottom: 10px;
-    padding: 8px;
-    background: #f8f8f8;
-    border-bottom: 1px solid #eee;
-}
-
-.ccs-progress-bar-container {
-    width: 100%;
-    height: 20px;
-    background-color: #f0f0f1;
-    border: 1px solid #c3c4c7;
-    border-radius: 4px;
-    margin: 10px 0;
-    overflow: hidden;
-}
-
-.ccs-progress-bar {
-    width: 0;
-    height: 100%;
-    background-color: #2271b1;
-    transition: width 0.3s ease-in-out;
-}
-
-@media screen and (max-width: 782px) {
-    .ccs-admin-container {
-        flex-direction: column;
-    }
-    
-    .ccs-admin-main,
-    .ccs-admin-sidebar {
-        min-width: 100%;
-        margin-right: 0;
-    }
+.ccs-error {
+    color: #d63638;
+    font-weight: 500;
 }

@@ -2,8 +2,6 @@
 <?php
 /**
  * Canvas Course Sync Admin Page
- *
- * @package Canvas_Course_Sync
  */
 
 // Exit if accessed directly
@@ -11,122 +9,116 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-// Include admin component files first
-require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-admin-menu.php';
+// Include components
 require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-api-settings.php';
+require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-email-settings.php';
 require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-sync-controls.php';
 require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-logs-display.php';
 
-// Then include handlers, which contain the AJAX handlers
-require_once CCS_PLUGIN_DIR . 'includes/handlers/index.php';
-
-// Finally include the admin index file with additional AJAX handlers
-require_once CCS_PLUGIN_DIR . 'includes/admin/index.php';
-
-/**
- * Admin Page class
- */
 class CCS_Admin_Page {
     /**
-     * Logger instance
+     * API Settings instance
      *
-     * @var CCS_Logger
+     * @var CCS_API_Settings
      */
-    private $logger;
+    private $api_settings;
 
     /**
-     * Component instances
+     * Email Settings instance
+     *
+     * @var CCS_Email_Settings
      */
-    private $admin_menu;
-    private $api_settings;
+    private $email_settings;
+
+    /**
+     * Sync Controls instance
+     *
+     * @var CCS_Sync_Controls
+     */
     private $sync_controls;
+
+    /**
+     * Logs Display instance
+     *
+     * @var CCS_Logs_Display
+     */
     private $logs_display;
 
     /**
      * Constructor
      */
     public function __construct() {
-        global $canvas_course_sync;
-        
-        // Get the logger from the global instance or create a new one
-        if (isset($canvas_course_sync) && isset($canvas_course_sync->logger)) {
-            $this->logger = $canvas_course_sync->logger;
-        } else {
-            $this->logger = new CCS_Logger();
-        }
-        
-        // Initialize components
-        $this->admin_menu = new CCS_Admin_Menu();
         $this->api_settings = new CCS_API_Settings();
+        $this->email_settings = new CCS_Email_Settings();
         $this->sync_controls = new CCS_Sync_Controls();
-        $this->logs_display = new CCS_Logs_Display($this->logger);
-        
-        // Add admin menu - explicitly call the add_menu method
-        $this->admin_menu->add_menu();
-        
+        $this->logs_display = new CCS_Logs_Display();
+
         // Register settings
-        add_action('admin_init', array($this->api_settings, 'register_settings'));
+        add_action('admin_init', array($this, 'register_settings'));
         
-        // Add admin scripts and styles
-        add_action('admin_enqueue_scripts', array($this, 'enqueue_scripts'));
-        
-        // Register component rendering hooks
-        add_action('ccs_render_api_settings', array($this->api_settings, 'render'));
-        add_action('ccs_render_sync_controls', array($this->sync_controls, 'render'));
-        add_action('ccs_render_logs_display', array($this->logs_display, 'render'));
-        
-        // Debug log
-        $this->logger->log('Admin page initialized', 'info');
+        // Enqueue admin scripts and styles
+        add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_assets'));
+    }
+
+    /**
+     * Register all settings
+     */
+    public function register_settings() {
+        $this->api_settings->register_settings();
+        $this->email_settings->register_settings();
+    }
+
+    /**
+     * Render the admin page
+     */
+    public function render() {
+        ?>
+        <div class="wrap">
+            <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
+            
+            <div class="ccs-admin-container">
+                <?php $this->api_settings->render(); ?>
+                <?php $this->email_settings->render(); ?>
+                <?php $this->sync_controls->render(); ?>
+                <?php $this->logs_display->render(); ?>
+            </div>
+        </div>
+        <?php
     }
 
     /**
      * Enqueue admin scripts and styles
-     *
-     * @param string $hook Current admin page
      */
-    public function enqueue_scripts($hook) {
-        $this->logger->log('Enqueuing scripts for hook: ' . $hook);
-        
-        if ('toplevel_page_canvas-course-sync' !== $hook) {
+    public function enqueue_admin_assets($hook) {
+        // Only load on our admin page
+        if (strpos($hook, 'canvas-course-sync') === false) {
             return;
         }
-        
-        // Enqueue admin CSS
+
+        wp_enqueue_script(
+            'ccs-admin',
+            CCS_PLUGIN_URL . 'assets/js/admin.js',
+            array('jquery'),
+            CCS_VERSION,
+            true
+        );
+
         wp_enqueue_style(
-            'ccs-admin-css',
+            'ccs-admin',
             CCS_PLUGIN_URL . 'assets/css/admin.css',
             array(),
             CCS_VERSION
         );
-        
-        // Enqueue jQuery first
-        wp_enqueue_script('jquery');
-        
-        // Enqueue admin JS
-        wp_enqueue_script(
-            'ccs-admin-js',
-            CCS_PLUGIN_URL . 'assets/js/admin.js',
-            array('jquery'),
-            CCS_VERSION . '.' . time(), // Force no cache with timestamp
-            true
-        );
-        
-        // Localize script with data and all necessary nonces
-        wp_localize_script(
-            'ccs-admin-js',
-            'ccsData',
-            array(
-                'ajaxUrl' => admin_url('admin-ajax.php'),
-                'syncNonce' => wp_create_nonce('ccs_sync_nonce'),
-                'testConnectionNonce' => wp_create_nonce('ccs_test_connection_nonce'),
-                'clearLogsNonce' => wp_create_nonce('ccs_clear_logs_nonce'),
-                'getCoursesNonce' => wp_create_nonce('ccs_get_courses_nonce'),
-                'syncStatusNonce' => wp_create_nonce('ccs_sync_status_nonce'),
-                'pluginUrl' => CCS_PLUGIN_URL,
-                'pluginVersion' => CCS_VERSION
-            )
-        );
-        
-        $this->logger->log('Admin scripts enqueued for hook: ' . $hook);
+
+        // Localize script with AJAX data
+        wp_localize_script('ccs-admin', 'ccsData', array(
+            'ajaxUrl' => admin_url('admin-ajax.php'),
+            'syncNonce' => wp_create_nonce('ccs_sync_nonce'),
+            'testConnectionNonce' => wp_create_nonce('ccs_test_connection_nonce'),
+            'getCoursesNonce' => wp_create_nonce('ccs_get_courses_nonce'),
+            'clearLogsNonce' => wp_create_nonce('ccs_clear_logs_nonce'),
+            'syncStatusNonce' => wp_create_nonce('ccs_sync_status_nonce'),
+            'autoSyncNonce' => wp_create_nonce('ccs_auto_sync_nonce')
+        ));
     }
 }

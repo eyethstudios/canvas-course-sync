@@ -28,6 +28,7 @@ require_once CCS_PLUGIN_DIR . 'includes/logger.php';
 require_once CCS_PLUGIN_DIR . 'includes/canvas-api.php';
 require_once CCS_PLUGIN_DIR . 'includes/importer.php';
 require_once CCS_PLUGIN_DIR . 'includes/admin-page.php';
+require_once CCS_PLUGIN_DIR . 'includes/class-ccs-scheduler.php';
 
 /**
  * Main plugin class
@@ -62,6 +63,13 @@ class Canvas_Course_Sync {
     public $importer;
 
     /**
+     * Scheduler instance
+     *
+     * @var CCS_Scheduler
+     */
+    public $scheduler;
+
+    /**
      * Constructor
      */
     public function __construct() {
@@ -69,6 +77,7 @@ class Canvas_Course_Sync {
         $this->logger = new CCS_Logger();
         $this->api = new CCS_Canvas_API();
         $this->importer = new CCS_Importer();
+        $this->scheduler = new CCS_Scheduler();
         
         // Register activation hook
         register_activation_hook(__FILE__, array($this, 'activate_plugin'));
@@ -83,9 +92,14 @@ class Canvas_Course_Sync {
         add_action('wp_ajax_ccs_sync_courses', array($this, 'ajax_sync_courses'));
         add_action('wp_ajax_ccs_test_connection', array($this, 'ajax_test_connection'));
         add_action('wp_ajax_ccs_sync_status', array($this, 'ajax_sync_status'));
+        add_action('wp_ajax_ccs_run_auto_sync', array($this, 'ajax_run_auto_sync'));
         
         // Register metabox for course link
         add_action('add_meta_boxes', array($this, 'register_course_metaboxes'));
+        
+        // Add sync status column to courses list
+        add_filter('manage_courses_posts_columns', array($this, 'add_sync_status_column'));
+        add_action('manage_courses_posts_custom_column', array($this, 'display_sync_status_column'), 10, 2);
     }
 
     /**
@@ -150,6 +164,28 @@ class Canvas_Course_Sync {
             'side',
             'default'
         );
+    }
+
+    /**
+     * Add sync status column to courses list
+     */
+    public function add_sync_status_column($columns) {
+        $columns['sync_status'] = __('Sync Status', 'canvas-course-sync');
+        return $columns;
+    }
+
+    /**
+     * Display sync status in courses list
+     */
+    public function display_sync_status_column($column, $post_id) {
+        if ($column === 'sync_status') {
+            $canvas_id = get_post_meta($post_id, 'canvas_course_id', true);
+            if (!empty($canvas_id)) {
+                echo '<span class="ccs-badge ccs-badge-synced">' . __('Synced', 'canvas-course-sync') . '</span>';
+            } else {
+                echo '<span class="ccs-badge ccs-badge-manual">' . __('Manual', 'canvas-course-sync') . '</span>';
+            }
+        }
     }
 
     /**
@@ -249,6 +285,33 @@ class Canvas_Course_Sync {
                 wp_send_json_success($status);
             } else {
                 wp_send_json_error('No sync currently in progress');
+            }
+        } catch (Exception $e) {
+            wp_send_json_error('Error: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * AJAX handler for running auto-sync
+     */
+    public function ajax_run_auto_sync() {
+        // Check nonce for security
+        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'ccs_auto_sync_nonce')) {
+            wp_send_json_error('Security check failed');
+        }
+        
+        // Check user capabilities
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Permission denied');
+        }
+        
+        try {
+            $result = $this->scheduler->run_auto_sync();
+            
+            if ($result) {
+                wp_send_json_success(array('message' => 'Auto-sync completed successfully'));
+            } else {
+                wp_send_json_error('Auto-sync failed. Check logs for details.');
             }
         } catch (Exception $e) {
             wp_send_json_error('Error: ' . $e->getMessage());
