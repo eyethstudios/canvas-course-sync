@@ -42,25 +42,3 @@ function ccs_update_sync_status($message, $data = array()) {
 function ccs_clear_sync_status() {
     delete_transient('ccs_sync_status');
 }
-
-/**
- * Add admin menu for Canvas Course Sync
- */
-function ccs_add_admin_menu() {
-    add_options_page(
-        __('Canvas Course Sync', 'canvas-course-sync'),
-        __('Canvas Course Sync', 'canvas-course-sync'),
-        'manage_options',
-        'canvas-course-sync',
-        'ccs_admin_page_display'
-    );
-}
-add_action('admin_menu', 'ccs_add_admin_menu');
-
-/**
- * Display admin page
- */
-function ccs_admin_page_display() {
-    $admin_page = ccs_init_admin_page();
-    $admin_page->render();
-}

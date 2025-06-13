@@ -46,11 +46,18 @@ class Canvas_Course_Sync {
     protected static $instance = null;
 
     /**
-     * Plugin file path
+     * Plugin file path - required by WordPress
      *
      * @var string
      */
     public $plugin = '';
+
+    /**
+     * Plugin basename - required by WordPress
+     *
+     * @var string
+     */
+    public $plugin_basename = '';
 
     /**
      * Logger instance
@@ -84,8 +91,9 @@ class Canvas_Course_Sync {
      * Constructor
      */
     public function __construct() {
-        // Set plugin file path to prevent undefined property warnings
+        // Set required plugin properties
         $this->plugin = __FILE__;
+        $this->plugin_basename = plugin_basename(__FILE__);
         
         // Initialize WordPress hooks first
         $this->init_hooks();

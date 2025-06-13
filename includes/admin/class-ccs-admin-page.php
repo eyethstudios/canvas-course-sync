@@ -2,6 +2,8 @@
 <?php
 /**
  * Canvas Course Sync Admin Page
+ *
+ * @package Canvas_Course_Sync
  */
 
 // Exit if accessed directly
@@ -9,165 +11,164 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-// Include components only if files exist
-$components = array(
-    'class-ccs-api-settings.php',
-    'class-ccs-email-settings.php', 
-    'class-ccs-sync-controls.php',
-    'class-ccs-logs-display.php'
-);
-
-foreach ($components as $component) {
-    $file_path = CCS_PLUGIN_DIR . 'includes/admin/' . $component;
-    if (file_exists($file_path)) {
-        require_once $file_path;
-    }
-}
-
+/**
+ * Admin Page class
+ */
 class CCS_Admin_Page {
     /**
-     * API Settings instance
+     * Logger instance
      *
-     * @var CCS_API_Settings
+     * @var CCS_Logger
      */
-    private $api_settings;
-
-    /**
-     * Email Settings instance
-     *
-     * @var CCS_Email_Settings
-     */
-    private $email_settings;
-
-    /**
-     * Sync Controls instance
-     *
-     * @var CCS_Sync_Controls
-     */
-    private $sync_controls;
-
-    /**
-     * Logs Display instance
-     *
-     * @var CCS_Logs_Display
-     */
-    private $logs_display;
+    private $logger;
 
     /**
      * Constructor
      */
     public function __construct() {
-        // Initialize components if classes exist
-        if (class_exists('CCS_API_Settings')) {
-            $this->api_settings = new CCS_API_Settings();
-        }
-        if (class_exists('CCS_Email_Settings')) {
-            $this->email_settings = new CCS_Email_Settings();
-        }
-        if (class_exists('CCS_Sync_Controls')) {
-            $this->sync_controls = new CCS_Sync_Controls();
-        }
-        if (class_exists('CCS_Logs_Display')) {
-            $this->logs_display = new CCS_Logs_Display();
-        }
-
-        // Register settings
-        add_action('admin_init', array($this, 'register_settings'));
-        
-        // Enqueue admin scripts and styles
-        add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_assets'));
-    }
-
-    /**
-     * Register all settings
-     */
-    public function register_settings() {
-        if ($this->api_settings && method_exists($this->api_settings, 'register_settings')) {
-            $this->api_settings->register_settings();
-        }
-        if ($this->email_settings && method_exists($this->email_settings, 'register_settings')) {
-            $this->email_settings->register_settings();
-        }
+        $canvas_course_sync = canvas_course_sync();
+        $this->logger = ($canvas_course_sync && isset($canvas_course_sync->logger)) ? $canvas_course_sync->logger : null;
     }
 
     /**
      * Render the admin page
      */
     public function render() {
-        $canvas_course_sync = canvas_course_sync();
-        if ($canvas_course_sync && isset($canvas_course_sync->logger)) {
-            $canvas_course_sync->logger->log('Rendering admin page components');
+        // Check user permissions
+        if (!current_user_can('manage_options')) {
+            wp_die(__('You do not have sufficient permissions to access this page.', 'canvas-course-sync'));
         }
-        
+
+        // Get current settings
+        $api_domain = get_option('ccs_api_domain', '');
+        $api_token = get_option('ccs_api_token', '');
+        $notification_email = get_option('ccs_notification_email', '');
+        $auto_sync_enabled = get_option('ccs_auto_sync_enabled', false);
+
         ?>
-        <div class="ccs-admin-container">
-            <?php if ($this->api_settings) { 
-                $this->api_settings->render(); 
-            } else {
-                echo '<div class="notice notice-warning"><p>API Settings component not loaded</p></div>';
-            } ?>
+        <div class="wrap">
+            <h1><?php echo esc_html__('Canvas Course Sync', 'canvas-course-sync'); ?></h1>
             
-            <?php if ($this->email_settings) { 
-                $this->email_settings->render(); 
-            } else {
-                echo '<div class="notice notice-warning"><p>Email Settings component not loaded</p></div>';
-            } ?>
+            <?php $this->display_notices(); ?>
             
-            <?php if ($this->sync_controls) { 
-                $this->sync_controls->render(); 
-            } else {
-                echo '<div class="notice notice-warning"><p>Sync Controls component not loaded</p></div>';
-            } ?>
-            
-            <?php if ($this->logs_display) { 
-                $this->logs_display->render(); 
-            } else {
-                echo '<div class="notice notice-warning"><p>Logs Display component not loaded</p></div>';
-            } ?>
+            <div class="ccs-admin-container">
+                <div class="ccs-settings-section">
+                    <h2><?php echo esc_html__('API Settings', 'canvas-course-sync'); ?></h2>
+                    <form method="post" action="options.php">
+                        <?php
+                        settings_fields('ccs_api_settings');
+                        do_settings_sections('ccs_api_settings');
+                        ?>
+                        <table class="form-table">
+                            <tr>
+                                <th scope="row">
+                                    <label for="ccs_api_domain"><?php echo esc_html__('Canvas Domain', 'canvas-course-sync'); ?></label>
+                                </th>
+                                <td>
+                                    <input type="url" id="ccs_api_domain" name="ccs_api_domain" 
+                                           value="<?php echo esc_attr($api_domain); ?>" 
+                                           class="regular-text" 
+                                           placeholder="https://your-institution.instructure.com" />
+                                    <p class="description"><?php echo esc_html__('Your Canvas LMS domain URL', 'canvas-course-sync'); ?></p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">
+                                    <label for="ccs_api_token"><?php echo esc_html__('Canvas API Token', 'canvas-course-sync'); ?></label>
+                                </th>
+                                <td>
+                                    <input type="password" id="ccs_api_token" name="ccs_api_token" 
+                                           value="<?php echo esc_attr($api_token); ?>" 
+                                           class="regular-text" />
+                                    <p class="description"><?php echo esc_html__('Your Canvas API access token', 'canvas-course-sync'); ?></p>
+                                </td>
+                            </tr>
+                        </table>
+                        <?php submit_button(__('Save API Settings', 'canvas-course-sync')); ?>
+                    </form>
+                </div>
+
+                <div class="ccs-settings-section">
+                    <h2><?php echo esc_html__('Sync Controls', 'canvas-course-sync'); ?></h2>
+                    <div class="ccs-sync-controls">
+                        <button type="button" id="ccs-test-connection" class="button">
+                            <?php echo esc_html__('Test Connection', 'canvas-course-sync'); ?>
+                        </button>
+                        <button type="button" id="ccs-get-courses" class="button">
+                            <?php echo esc_html__('Load Courses', 'canvas-course-sync'); ?>
+                        </button>
+                        <button type="button" id="ccs-sync-selected" class="button button-primary" disabled>
+                            <?php echo esc_html__('Sync Selected Courses', 'canvas-course-sync'); ?>
+                        </button>
+                    </div>
+                    <div id="ccs-courses-list" style="margin-top: 20px;"></div>
+                    <div id="ccs-sync-status" style="margin-top: 20px;"></div>
+                </div>
+
+                <div class="ccs-settings-section">
+                    <h2><?php echo esc_html__('Email Settings', 'canvas-course-sync'); ?></h2>
+                    <form method="post" action="options.php">
+                        <?php
+                        settings_fields('ccs_email_settings');
+                        do_settings_sections('ccs_email_settings');
+                        ?>
+                        <table class="form-table">
+                            <tr>
+                                <th scope="row">
+                                    <label for="ccs_notification_email"><?php echo esc_html__('Notification Email', 'canvas-course-sync'); ?></label>
+                                </th>
+                                <td>
+                                    <input type="email" id="ccs_notification_email" name="ccs_notification_email" 
+                                           value="<?php echo esc_attr($notification_email); ?>" 
+                                           class="regular-text" />
+                                    <p class="description"><?php echo esc_html__('Email address for sync notifications', 'canvas-course-sync'); ?></p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">
+                                    <label for="ccs_auto_sync_enabled"><?php echo esc_html__('Enable Auto Sync', 'canvas-course-sync'); ?></label>
+                                </th>
+                                <td>
+                                    <input type="checkbox" id="ccs_auto_sync_enabled" name="ccs_auto_sync_enabled" 
+                                           value="1" <?php checked($auto_sync_enabled, true); ?> />
+                                    <p class="description"><?php echo esc_html__('Automatically sync new courses weekly', 'canvas-course-sync'); ?></p>
+                                </td>
+                            </tr>
+                        </table>
+                        <?php submit_button(__('Save Email Settings', 'canvas-course-sync')); ?>
+                    </form>
+                </div>
+            </div>
         </div>
+
         <?php
+        // Add nonces for AJAX calls
+        wp_nonce_field('ccs_test_connection_nonce', 'ccs_test_connection_nonce');
+        wp_nonce_field('ccs_get_courses_nonce', 'ccs_get_courses_nonce');
+        wp_nonce_field('ccs_sync_nonce', 'ccs_sync_nonce');
+        wp_nonce_field('ccs_sync_status_nonce', 'ccs_sync_status_nonce');
     }
 
     /**
-     * Enqueue admin scripts and styles
+     * Display admin notices
      */
-    public function enqueue_admin_assets($hook) {
-        // Only load on our admin page
-        if (strpos($hook, 'canvas-course-sync') === false) {
+    private function display_notices() {
+        // Check if courses post type exists
+        if (!post_type_exists('courses')) {
+            echo '<div class="notice notice-error"><p>';
+            echo esc_html__('Error: Custom post type "courses" does not exist. Please register this post type to use this plugin.', 'canvas-course-sync');
+            echo '</p></div>';
             return;
         }
 
-        $js_file = CCS_PLUGIN_URL . 'assets/js/admin.js';
-        $css_file = CCS_PLUGIN_URL . 'assets/css/admin.css';
+        // Check if API is configured
+        $domain = get_option('ccs_api_domain', '');
+        $token = get_option('ccs_api_token', '');
 
-        if (file_exists(CCS_PLUGIN_DIR . 'assets/js/admin.js')) {
-            wp_enqueue_script(
-                'ccs-admin',
-                $js_file,
-                array('jquery'),
-                CCS_VERSION,
-                true
-            );
-
-            // Localize script with AJAX data
-            wp_localize_script('ccs-admin', 'ccsData', array(
-                'ajaxUrl' => admin_url('admin-ajax.php'),
-                'syncNonce' => wp_create_nonce('ccs_sync_nonce'),
-                'testConnectionNonce' => wp_create_nonce('ccs_test_connection_nonce'),
-                'getCoursesNonce' => wp_create_nonce('ccs_get_courses_nonce'),
-                'clearLogsNonce' => wp_create_nonce('ccs_clear_logs_nonce'),
-                'syncStatusNonce' => wp_create_nonce('ccs_sync_status_nonce'),
-                'autoSyncNonce' => wp_create_nonce('ccs_auto_sync_nonce')
-            ));
-        }
-
-        if (file_exists(CCS_PLUGIN_DIR . 'assets/css/admin.css')) {
-            wp_enqueue_style(
-                'ccs-admin',
-                $css_file,
-                array(),
-                CCS_VERSION
-            );
+        if (empty($domain) || empty($token)) {
+            echo '<div class="notice notice-warning"><p>';
+            echo esc_html__('Please configure your Canvas API settings below to begin syncing courses.', 'canvas-course-sync');
+            echo '</p></div>';
         }
     }
 }

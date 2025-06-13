@@ -1,7 +1,7 @@
 
 <?php
 /**
- * Canvas Course Sync Admin Menu Registration
+ * Canvas Course Sync Admin Menu Handler
  *
  * @package Canvas_Course_Sync
  */
@@ -12,73 +12,57 @@ if (!defined('ABSPATH')) {
 }
 
 /**
- * Admin Menu Registration class
+ * Admin Menu class
  */
 class CCS_Admin_Menu {
+    /**
+     * Logger instance
+     *
+     * @var CCS_Logger
+     */
+    private $logger;
+
     /**
      * Constructor
      */
     public function __construct() {
-        // Constructor doesn't need to do anything
+        $canvas_course_sync = canvas_course_sync();
+        $this->logger = ($canvas_course_sync && isset($canvas_course_sync->logger)) ? $canvas_course_sync->logger : null;
     }
-    
+
     /**
      * Add admin menu
      */
     public function add_menu() {
-        // Debug log
-        $canvas_course_sync = canvas_course_sync();
-        if ($canvas_course_sync && isset($canvas_course_sync->logger)) {
-            $canvas_course_sync->logger->log('Adding admin menu page');
-        }
-        
-        add_menu_page(
-            __('Canvas Course Sync', 'canvas-course-sync'),     // Page title
-            __('Course Sync', 'canvas-course-sync'),            // Menu title
-            'manage_options',                                    // Capability
-            'canvas-course-sync',                               // Menu slug
-            array($this, 'display_admin_page'),                // Callback function
-            'dashicons-update',                                 // Icon
-            30                                                  // Position
+        // Add main menu page
+        add_options_page(
+            __('Canvas Course Sync', 'canvas-course-sync'),
+            __('Canvas Course Sync', 'canvas-course-sync'),
+            'manage_options',
+            'canvas-course-sync',
+            array($this, 'display_admin_page')
         );
+
+        if ($this->logger) {
+            $this->logger->log('Admin menu page added successfully');
+        }
     }
 
     /**
-     * Display the admin page
+     * Display admin page
      */
     public function display_admin_page() {
-        // Check permissions
-        if (!current_user_can('manage_options')) {
-            wp_die(__('You do not have sufficient permissions to access this page.'));
+        // Check if admin page class exists
+        if (class_exists('CCS_Admin_Page')) {
+            $admin_page = new CCS_Admin_Page();
+            $admin_page->render();
+        } else {
+            echo '<div class="wrap">';
+            echo '<h1>' . esc_html__('Canvas Course Sync', 'canvas-course-sync') . '</h1>';
+            echo '<div class="notice notice-error"><p>';
+            echo esc_html__('Admin page class not found. Please check plugin installation.', 'canvas-course-sync');
+            echo '</p></div>';
+            echo '</div>';
         }
-        
-        // Check if the required post type exists
-        $post_type_exists = post_type_exists('courses');
-        ?>
-        <div class="wrap">
-            <h1><?php _e('Canvas Course Sync', 'canvas-course-sync'); ?></h1>
-            
-            <?php if (!$post_type_exists) : ?>
-                <div class="notice notice-error">
-                    <p><?php _e('Error: Custom post type "courses" does not exist. Please register this post type to use this plugin.', 'canvas-course-sync'); ?></p>
-                </div>
-                <?php return; ?>
-            <?php endif; ?>
-            
-            <div class="ccs-admin-container">
-                <div class="ccs-admin-main">
-                    <?php 
-                    // Initialize and render admin page components
-                    if (class_exists('CCS_Admin_Page')) {
-                        $admin_page = new CCS_Admin_Page();
-                        $admin_page->render();
-                    } else {
-                        echo '<p>Admin page components not loaded properly.</p>';
-                    }
-                    ?>
-                </div>
-            </div>
-        </div>
-        <?php
     }
 }
