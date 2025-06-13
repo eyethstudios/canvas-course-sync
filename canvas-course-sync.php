@@ -24,6 +24,11 @@ define('CCS_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('CCS_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('CCS_PLUGIN_BASENAME', plugin_basename(__FILE__));
 
+// Prevent multiple initializations
+if (class_exists('Canvas_Course_Sync')) {
+    return;
+}
+
 // Include required files
 require_once CCS_PLUGIN_DIR . 'includes/functions.php';
 require_once CCS_PLUGIN_DIR . 'includes/logger.php';
@@ -39,7 +44,7 @@ class Canvas_Course_Sync {
     /**
      * Instance of this class
      *
-     * @var object
+     * @var Canvas_Course_Sync
      */
     protected static $instance = null;
 
@@ -75,12 +80,31 @@ class Canvas_Course_Sync {
      * Constructor
      */
     public function __construct() {
-        // Initialize components
-        $this->logger = new CCS_Logger();
-        $this->api = new CCS_Canvas_API();
-        $this->importer = new CCS_Importer();
-        $this->scheduler = new CCS_Scheduler();
+        // Initialize components with error checking
+        if (class_exists('CCS_Logger')) {
+            $this->logger = new CCS_Logger();
+        }
         
+        if (class_exists('CCS_Canvas_API')) {
+            $this->api = new CCS_Canvas_API();
+        }
+        
+        if (class_exists('CCS_Importer')) {
+            $this->importer = new CCS_Importer();
+        }
+        
+        if (class_exists('CCS_Scheduler')) {
+            $this->scheduler = new CCS_Scheduler();
+        }
+        
+        // Register hooks
+        $this->init_hooks();
+    }
+
+    /**
+     * Initialize WordPress hooks
+     */
+    private function init_hooks() {
         // Register activation hook
         register_activation_hook(__FILE__, array($this, 'activate_plugin'));
 
@@ -104,11 +128,11 @@ class Canvas_Course_Sync {
     /**
      * Return an instance of this class
      *
-     * @return object A single instance of this class
+     * @return Canvas_Course_Sync A single instance of this class
      */
     public static function get_instance() {
-        if (null == self::$instance) {
-            self::$instance = new self;
+        if (null === self::$instance) {
+            self::$instance = new self();
         }
         return self::$instance;
     }
@@ -119,7 +143,10 @@ class Canvas_Course_Sync {
     public function init_admin() {
         if (is_admin()) {
             // Include AJAX handlers
-            require_once CCS_PLUGIN_DIR . 'includes/admin/index.php';
+            $admin_handlers_file = CCS_PLUGIN_DIR . 'includes/admin/index.php';
+            if (file_exists($admin_handlers_file)) {
+                require_once $admin_handlers_file;
+            }
         }
     }
 
@@ -130,7 +157,9 @@ class Canvas_Course_Sync {
         // Check if courses post type exists
         if (!post_type_exists('courses')) {
             // Log error and deactivate plugin
-            $this->logger->log('Error: Custom post type "courses" does not exist. Plugin cannot be activated.', 'error');
+            if ($this->logger) {
+                $this->logger->log('Error: Custom post type "courses" does not exist. Plugin cannot be activated.', 'error');
+            }
             deactivate_plugins(plugin_basename(__FILE__));
             wp_die('This plugin requires a custom post type named "courses" to be registered. Please register this post type before activating the plugin.');
         }
@@ -166,14 +195,16 @@ class Canvas_Course_Sync {
      * Register metaboxes for courses post type
      */
     public function register_course_metaboxes() {
-        add_meta_box(
-            'ccs_course_link',
-            'Canvas Course Link',
-            array($this->importer, 'display_course_link_metabox'),
-            'courses',
-            'side',
-            'default'
-        );
+        if ($this->importer && method_exists($this->importer, 'display_course_link_metabox')) {
+            add_meta_box(
+                'ccs_course_link',
+                'Canvas Course Link',
+                array($this->importer, 'display_course_link_metabox'),
+                'courses',
+                'side',
+                'default'
+            );
+        }
     }
 
     /**
@@ -199,15 +230,22 @@ class Canvas_Course_Sync {
     }
 }
 
-// Make the plugin globally accessible
-global $canvas_course_sync;
-
-// Initialize the plugin
-function canvas_course_sync() {
+// Initialize the plugin after all plugins are loaded
+function canvas_course_sync_init() {
     global $canvas_course_sync;
-    $canvas_course_sync = Canvas_Course_Sync::get_instance();
+    
+    if (!isset($canvas_course_sync)) {
+        $canvas_course_sync = Canvas_Course_Sync::get_instance();
+    }
+    
     return $canvas_course_sync;
 }
 
-// Start the plugin
-add_action('plugins_loaded', 'canvas_course_sync');
+// Hook into plugins_loaded with priority 10
+add_action('plugins_loaded', 'canvas_course_sync_init', 10);
+
+// Make the plugin globally accessible
+function canvas_course_sync() {
+    global $canvas_course_sync;
+    return $canvas_course_sync;
+}
