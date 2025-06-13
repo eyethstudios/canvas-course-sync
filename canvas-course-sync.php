@@ -24,6 +24,7 @@ define('CCS_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('CCS_PLUGIN_BASENAME', plugin_basename(__FILE__));
 
 // Include required files
+require_once CCS_PLUGIN_DIR . 'includes/functions.php';
 require_once CCS_PLUGIN_DIR . 'includes/logger.php';
 require_once CCS_PLUGIN_DIR . 'includes/canvas-api.php';
 require_once CCS_PLUGIN_DIR . 'includes/importer.php';
@@ -93,6 +94,8 @@ class Canvas_Course_Sync {
         add_action('wp_ajax_ccs_test_connection', array($this, 'ajax_test_connection'));
         add_action('wp_ajax_ccs_sync_status', array($this, 'ajax_sync_status'));
         add_action('wp_ajax_ccs_run_auto_sync', array($this, 'ajax_run_auto_sync'));
+        add_action('wp_ajax_ccs_get_courses', array($this, 'ajax_get_courses'));
+        add_action('wp_ajax_ccs_clear_logs', array($this, 'ajax_clear_logs'));
         
         // Register metabox for course link
         add_action('add_meta_boxes', array($this, 'register_course_metaboxes'));
@@ -313,6 +316,62 @@ class Canvas_Course_Sync {
             } else {
                 wp_send_json_error('Auto-sync failed. Check logs for details.');
             }
+        } catch (Exception $e) {
+            wp_send_json_error('Error: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * AJAX handler for getting courses from Canvas
+     */
+    public function ajax_get_courses() {
+        // Check nonce for security
+        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'ccs_get_courses_nonce')) {
+            wp_send_json_error('Security check failed');
+        }
+        
+        // Check user capabilities
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Permission denied');
+        }
+        
+        try {
+            $courses = $this->api->get_courses();
+            
+            if (is_wp_error($courses)) {
+                wp_send_json_error($courses->get_error_message());
+            }
+            
+            wp_send_json_success($courses);
+            
+        } catch (Exception $e) {
+            wp_send_json_error('Error: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * AJAX handler for clearing logs
+     */
+    public function ajax_clear_logs() {
+        // Check nonce for security
+        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'ccs_clear_logs_nonce')) {
+            wp_send_json_error('Security check failed');
+        }
+        
+        // Check user capabilities
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Permission denied');
+        }
+        
+        try {
+            $result = $this->logger->clear_logs();
+            
+            if ($result) {
+                wp_send_json_success('Logs cleared successfully');
+            } else {
+                wp_send_json_error('Failed to clear logs');
+            }
+            
         } catch (Exception $e) {
             wp_send_json_error('Error: ' . $e->getMessage());
         }

@@ -31,5 +31,4 @@ function ccs_init_admin_page() {
     return $admin_page;
 }
 
-// Hook the admin page initialization to admin_menu instead of admin_init
-add_action('admin_menu', 'ccs_init_admin_page', 9);
+// Don't auto-hook the admin page initialization - it's called from functions.php
