@@ -1,3 +1,4 @@
+
 <?php
 /**
  * Plugin Name: Canvas Course Sync
@@ -129,12 +130,14 @@ class Canvas_Course_Sync {
         // Load text domain
         add_action('plugins_loaded', array($this, 'load_textdomain'));
         
-        // Initialize admin functionality only in admin
+        // Initialize admin functionality only in admin - moved to later hook
         if (is_admin()) {
-            add_action('admin_menu', array($this, 'add_admin_menu'));
             add_action('admin_init', array($this, 'init_admin'));
             add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_assets'));
-            add_filter('plugin_action_links_' . plugin_basename(__FILE__), array($this, 'add_settings_link'));
+            // Add settings link immediately
+            add_filter('plugin_action_links_' . CCS_PLUGIN_BASENAME, array($this, 'add_settings_link'));
+            // Add admin menu after all plugins are loaded
+            add_action('admin_menu', array($this, 'add_admin_menu'), 20);
         }
         
         // Register metabox for course link
