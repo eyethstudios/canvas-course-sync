@@ -35,7 +35,6 @@ $required_files = array(
     'includes/logger.php',
     'includes/canvas-api.php',
     'includes/importer.php',
-    'includes/admin-page.php',
     'includes/class-ccs-scheduler.php'
 );
 
@@ -43,6 +42,14 @@ foreach ($required_files as $file) {
     $file_path = CCS_PLUGIN_DIR . $file;
     if (file_exists($file_path)) {
         require_once $file_path;
+    }
+}
+
+// Include admin page files only in admin
+if (is_admin()) {
+    $admin_file = CCS_PLUGIN_DIR . 'includes/admin-page.php';
+    if (file_exists($admin_file)) {
+        require_once $admin_file;
     }
 }
 
