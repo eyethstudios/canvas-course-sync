@@ -1,4 +1,3 @@
-
 <?php
 /**
  * Plugin Name: Canvas Course Sync
@@ -11,6 +10,10 @@
  * Domain Path: /languages
  * License: GPL v2 or later
  * License URI: http://www.gnu.org/licenses/gpl-2.0.txt
+ * Network: false
+ * Requires at least: 5.0
+ * Tested up to: 6.4
+ * Requires PHP: 7.4
  */
 
 // Exit if accessed directly
@@ -65,6 +68,13 @@ class Canvas_Course_Sync {
     protected static $instance = null;
 
     /**
+     * Plugin file path
+     *
+     * @var string
+     */
+    public $plugin = '';
+
+    /**
      * Logger instance
      *
      * @var CCS_Logger
@@ -96,6 +106,9 @@ class Canvas_Course_Sync {
      * Constructor
      */
     public function __construct() {
+        // Set plugin file path to prevent undefined property warnings
+        $this->plugin = __FILE__;
+        
         // Initialize components with error checking
         if (class_exists('CCS_Logger')) {
             $this->logger = new CCS_Logger();
