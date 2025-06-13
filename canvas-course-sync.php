@@ -1,3 +1,4 @@
+
 <?php
 /**
  * Plugin Name: Canvas Course Sync
@@ -88,14 +89,6 @@ class Canvas_Course_Sync {
 
         // Load text domain
         add_action('plugins_loaded', array($this, 'load_textdomain'));
-
-        // Register AJAX handlers
-        add_action('wp_ajax_ccs_sync_courses', array($this, 'ajax_sync_courses'));
-        add_action('wp_ajax_ccs_test_connection', array($this, 'ajax_test_connection'));
-        add_action('wp_ajax_ccs_sync_status', array($this, 'ajax_sync_status'));
-        add_action('wp_ajax_ccs_run_auto_sync', array($this, 'ajax_run_auto_sync'));
-        add_action('wp_ajax_ccs_get_courses', array($this, 'ajax_get_courses'));
-        add_action('wp_ajax_ccs_clear_logs', array($this, 'ajax_clear_logs'));
         
         // Register metabox for course link
         add_action('add_meta_boxes', array($this, 'register_course_metaboxes'));
@@ -145,7 +138,8 @@ class Canvas_Course_Sync {
      * Deactivate the plugin
      */
     public function deactivate_plugin() {
-        // Nothing specific to do here
+        // Clear any scheduled events
+        wp_clear_scheduled_hook('ccs_weekly_sync');
     }
 
     /**
@@ -188,192 +182,6 @@ class Canvas_Course_Sync {
             } else {
                 echo '<span class="ccs-badge ccs-badge-manual">' . __('Not Yet Synced', 'canvas-course-sync') . '</span>';
             }
-        }
-    }
-
-    /**
-     * AJAX handler for syncing courses
-     */
-    public function ajax_sync_courses() {
-        // Check nonce for security
-        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'ccs_sync_nonce')) {
-            wp_send_json_error('Security check failed');
-        }
-        
-        // Check user capabilities
-        if (!current_user_can('manage_options')) {
-            wp_send_json_error('Permission denied');
-        }
-        
-        try {
-            // Get course IDs from POST data and ensure it's an array
-            $course_ids = isset($_POST['course_ids']) ? $_POST['course_ids'] : array();
-            
-            // Handle case when only one course is selected (not an array)
-            if (!is_array($course_ids)) {
-                $course_ids = array($course_ids);
-            }
-            
-            // Sanitize all IDs
-            $course_ids = array_map('sanitize_text_field', $course_ids);
-            
-            if (empty($course_ids)) {
-                $this->logger->log('No course IDs provided for sync', 'error');
-                wp_send_json_error('No courses selected for sync');
-            }
-            
-            // Start the import process
-            $this->logger->log('Starting course sync process for ' . count($course_ids) . ' courses');
-            $result = $this->importer->import_courses($course_ids);
-            
-            wp_send_json_success(array(
-                'message' => $result['message'],
-                'imported' => $result['imported'],
-                'skipped' => $result['skipped'],
-                'errors' => $result['errors'],
-                'total' => $result['total']
-            ));
-            
-        } catch (Exception $e) {
-            $this->logger->log('Error in sync process: ' . $e->getMessage(), 'error');
-            wp_send_json_error('Error: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * AJAX handler for testing API connection
-     */
-    public function ajax_test_connection() {
-        // Check nonce for security
-        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'ccs_test_connection_nonce')) {
-            wp_send_json_error('Security check failed');
-        }
-        
-        // Check user capabilities
-        if (!current_user_can('manage_options')) {
-            wp_send_json_error('Permission denied');
-        }
-        
-        try {
-            $result = $this->api->test_connection();
-            
-            if ($result) {
-                wp_send_json_success('Connection successful!');
-            } else {
-                wp_send_json_error('Connection failed. Please check your API settings.');
-            }
-        } catch (Exception $e) {
-            wp_send_json_error('Error: ' . $e->getMessage());
-        }
-    }
-    
-    /**
-     * AJAX handler for getting sync status
-     */
-    public function ajax_sync_status() {
-        // Check nonce for security
-        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'ccs_sync_status_nonce')) {
-            wp_send_json_error('Security check failed');
-        }
-        
-        // Check user capabilities
-        if (!current_user_can('manage_options')) {
-            wp_send_json_error('Permission denied');
-        }
-        
-        try {
-            $status = ccs_get_sync_status();
-            
-            if ($status) {
-                wp_send_json_success($status);
-            } else {
-                wp_send_json_error('No sync currently in progress');
-            }
-        } catch (Exception $e) {
-            wp_send_json_error('Error: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * AJAX handler for running auto-sync
-     */
-    public function ajax_run_auto_sync() {
-        // Check nonce for security
-        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'ccs_auto_sync_nonce')) {
-            wp_send_json_error('Security check failed');
-        }
-        
-        // Check user capabilities
-        if (!current_user_can('manage_options')) {
-            wp_send_json_error('Permission denied');
-        }
-        
-        try {
-            $result = $this->scheduler->run_auto_sync();
-            
-            if ($result) {
-                wp_send_json_success(array('message' => 'Auto-sync completed successfully'));
-            } else {
-                wp_send_json_error('Auto-sync failed. Check logs for details.');
-            }
-        } catch (Exception $e) {
-            wp_send_json_error('Error: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * AJAX handler for getting courses from Canvas
-     */
-    public function ajax_get_courses() {
-        // Check nonce for security
-        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'ccs_get_courses_nonce')) {
-            wp_send_json_error('Security check failed');
-        }
-        
-        // Check user capabilities
-        if (!current_user_can('manage_options')) {
-            wp_send_json_error('Permission denied');
-        }
-        
-        try {
-            $courses = $this->api->get_courses();
-            
-            if (is_wp_error($courses)) {
-                wp_send_json_error($courses->get_error_message());
-            }
-            
-            wp_send_json_success($courses);
-            
-        } catch (Exception $e) {
-            wp_send_json_error('Error: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * AJAX handler for clearing logs
-     */
-    public function ajax_clear_logs() {
-        // Check nonce for security
-        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'ccs_clear_logs_nonce')) {
-            wp_send_json_error('Security check failed');
-        }
-        
-        // Check user capabilities
-        if (!current_user_can('manage_options')) {
-            wp_send_json_error('Permission denied');
-        }
-        
-        try {
-            $result = $this->logger->clear_logs();
-            
-            if ($result) {
-                wp_send_json_success('Logs cleared successfully');
-            } else {
-                wp_send_json_error('Failed to clear logs');
-            }
-            
-        } catch (Exception $e) {
-            wp_send_json_error('Error: ' . $e->getMessage());
         }
     }
 }

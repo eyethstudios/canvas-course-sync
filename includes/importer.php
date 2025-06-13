@@ -1,3 +1,4 @@
+
 <?php
 /**
  * Handles importing courses from Canvas into WP.
@@ -10,10 +11,17 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-// Include handlers
-require_once plugin_dir_path(__FILE__) . 'handlers/index.php';
-require_once plugin_dir_path(__FILE__) . 'handlers/class-ccs-content-handler.php';
-require_once plugin_dir_path(__FILE__) . 'handlers/class-ccs-media-handler.php';
+// Include handlers only if the files exist
+$handlers_dir = plugin_dir_path(__FILE__) . 'handlers/';
+if (file_exists($handlers_dir . 'index.php')) {
+    require_once $handlers_dir . 'index.php';
+}
+if (file_exists($handlers_dir . 'class-ccs-content-handler.php')) {
+    require_once $handlers_dir . 'class-ccs-content-handler.php';
+}
+if (file_exists($handlers_dir . 'class-ccs-media-handler.php')) {
+    require_once $handlers_dir . 'class-ccs-media-handler.php';
+}
 
 /**
  * Importer class
@@ -54,8 +62,14 @@ class CCS_Importer {
         global $canvas_course_sync;
         $this->logger = $canvas_course_sync->logger ?? new CCS_Logger();
         $this->api = $canvas_course_sync->api ?? new CCS_Canvas_API();
-        $this->content_handler = new CCS_Content_Handler();
-        $this->media_handler = new CCS_Media_Handler();
+        
+        // Initialize handlers if classes exist
+        if (class_exists('CCS_Content_Handler')) {
+            $this->content_handler = new CCS_Content_Handler();
+        }
+        if (class_exists('CCS_Media_Handler')) {
+            $this->media_handler = new CCS_Media_Handler();
+        }
     }
 
     /**
@@ -153,13 +167,14 @@ class CCS_Importer {
                 continue;
             }
             
-            // Ensure course details include created_at timestamp
-            if (!isset($course_details->created_at)) {
-                $this->logger->log('Warning: No creation date found for course ' . $course_id, 'warning');
+            // Process content using the content handler if available
+            $post_content = '';
+            if ($this->content_handler) {
+                $post_content = $this->content_handler->prepare_course_content($course_details);
+            } else {
+                // Fallback content preparation
+                $post_content = $this->prepare_basic_course_content($course_details);
             }
-            
-            // Process content using the content handler
-            $post_content = $this->content_handler->prepare_course_content($course_details);
             
             // For debugging
             $this->logger->log('Post content length: ' . strlen($post_content) . ' characters');
@@ -191,8 +206,8 @@ class CCS_Importer {
                 update_post_meta($post_id, 'link', esc_url_raw($canvas_course_link));
             }
             
-            // Handle featured image using the media handler
-            if (!empty($course_details->image_download_url)) {
+            // Handle featured image using the media handler if available
+            if ($this->media_handler && !empty($course_details->image_download_url)) {
                 $this->logger->log('Course has image at URL: ' . $course_details->image_download_url);
                 
                 $result = $this->media_handler->set_featured_image($post_id, $course_details->image_download_url, $course_name);
@@ -226,6 +241,34 @@ class CCS_Importer {
             'total'    => $total_courses,
             'message'  => $final_status
         );
+    }
+
+    /**
+     * Prepare basic course content when content handler is not available
+     *
+     * @param object $course_details Course details from Canvas
+     * @return string Prepared content
+     */
+    private function prepare_basic_course_content($course_details) {
+        $content = '';
+        
+        if (!empty($course_details->course_code)) {
+            $content .= '<p><strong>Course Code:</strong> ' . esc_html($course_details->course_code) . '</p>';
+        }
+        
+        if (!empty($course_details->term) && !empty($course_details->term->name)) {
+            $content .= '<p><strong>Term:</strong> ' . esc_html($course_details->term->name) . '</p>';
+        }
+        
+        if (!empty($course_details->total_students)) {
+            $content .= '<p><strong>Total Students:</strong> ' . intval($course_details->total_students) . '</p>';
+        }
+        
+        if (!empty($course_details->created_at)) {
+            $content .= '<p><strong>Created:</strong> ' . esc_html($course_details->created_at) . '</p>';
+        }
+        
+        return $content;
     }
 
     /**
