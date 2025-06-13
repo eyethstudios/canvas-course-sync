@@ -1,62 +1,125 @@
+
 /* Canvas Course Sync Admin Styles */
 
-/* Sync Status Badges */
-.ccs-badge {
-    display: inline-block;
-    padding: 3px 8px;
-    border-radius: 3px;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+.ccs-admin-container {
+    max-width: 1200px;
+    margin: 20px 0;
 }
 
-.ccs-badge-synced {
-    background-color: #00a32a;
-    color: white;
-}
-
-.ccs-badge-manual {
-    background-color: #dba617;
-    color: white;
-}
-
-.ccs-panel {
+.ccs-settings-section {
     background: #fff;
     border: 1px solid #ccd0d4;
-    border-radius: 4px;
+    box-shadow: 0 1px 1px rgba(0,0,0,.04);
+    margin: 20px 0;
     padding: 20px;
-    margin-bottom: 20px;
 }
 
-.ccs-panel h2 {
+.ccs-settings-section h2 {
     margin-top: 0;
     padding-bottom: 10px;
     border-bottom: 1px solid #eee;
 }
 
-.ccs-spinner {
-    display: inline-block;
-    width: 16px;
-    height: 16px;
-    border: 2px solid #ddd;
-    border-top: 2px solid #0073aa;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
+.ccs-sync-controls {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+}
+
+.ccs-sync-controls .button {
+    min-width: 120px;
+}
+
+.courses-list {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    padding: 15px;
+    background: #f9f9f9;
+}
+
+.course-item {
+    padding: 8px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.course-item:last-child {
+    border-bottom: none;
+}
+
+.course-item label {
+    cursor: pointer;
+    display: block;
+}
+
+.course-checkbox {
     margin-right: 8px;
 }
 
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+.sync-results {
+    background: #f0f8ff;
+    border: 1px solid #0073aa;
+    border-radius: 4px;
+    padding: 15px;
+    margin: 15px 0;
 }
 
-.ccs-success {
-    color: #00a32a;
-    font-weight: 500;
+.sync-results h3 {
+    margin-top: 0;
+    color: #0073aa;
 }
 
-.ccs-error {
-    color: #d63638;
-    font-weight: 500;
+.sync-results ul {
+    list-style: none;
+    padding: 0;
+    margin: 10px 0;
+}
+
+.sync-results li {
+    padding: 3px 0;
+}
+
+.ccs-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.ccs-badge-synced {
+    background: #46b450;
+    color: white;
+}
+
+.ccs-badge-manual {
+    background: #ffb900;
+    color: white;
+}
+
+/* Form styling */
+.form-table th {
+    width: 200px;
+}
+
+.form-table input[type="url"],
+.form-table input[type="password"],
+.form-table input[type="email"] {
+    width: 400px;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .ccs-sync-controls {
+        flex-direction: column;
+    }
+    
+    .form-table input[type="url"],
+    .form-table input[type="password"],
+    .form-table input[type="email"] {
+        width: 100%;
+        max-width: 400px;
+    }
 }

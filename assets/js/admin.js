@@ -1,225 +1,148 @@
 
-/**
- * Canvas Course Sync Admin JavaScript
- */
+(function($) {
+    'use strict';
 
-jQuery(document).ready(function($) {
-    // Connection testing functionality
-    function initConnectionTester() {
-        $('#ccs-test-connection').on('click', function() {
-            const button = $(this);
-            const resultContainer = $('#ccs-connection-result');
+    // Admin functionality for Canvas Course Sync
+    $(document).ready(function() {
+        // Test Connection button
+        $('#ccs-test-connection').on('click', function(e) {
+            e.preventDefault();
+            var button = $(this);
+            var originalText = button.text();
             
-            button.attr('disabled', true);
-            resultContainer.html('<div class="ccs-spinner"></div> Testing connection...');
+            button.prop('disabled', true).text('Testing...');
             
             $.ajax({
-                url: ccsData.ajaxUrl,
+                url: ajaxurl,
                 type: 'POST',
                 data: {
                     action: 'ccs_test_connection',
-                    nonce: ccsData.testConnectionNonce
+                    nonce: $('#ccs_test_connection_nonce').val()
                 },
                 success: function(response) {
-                    button.attr('disabled', false);
-                    
-                    console.log('Connection test response:', response);
-                    
                     if (response.success) {
-                        resultContainer.html('<div class="ccs-success">' + response.data + '</div>');
+                        alert('Success: ' + response.data);
                     } else {
-                        const errorMsg = response.data || 'Unknown error occurred';
-                        resultContainer.html('<div class="ccs-error">Connection failed: ' + errorMsg + '</div>');
-                        console.error('Connection test failed:', errorMsg);
+                        alert('Error: ' + response.data);
                     }
                 },
-                error: function(xhr, status, error) {
-                    button.attr('disabled', false);
-                    console.error('Connection test AJAX error:', {status, error, responseText: xhr.responseText});
-                    resultContainer.html('<div class="ccs-error">Connection error: ' + error + '</div>');
+                error: function() {
+                    alert('Error: Failed to test connection');
                 },
-                timeout: 30000 // 30 second timeout
+                complete: function() {
+                    button.prop('disabled', false).text(originalText);
+                }
             });
         });
-    }
 
-    // Sync functionality
-    function initSyncManager() {
-        $('#ccs-sync-selected').on('click', function() {
-            const button = $(this);
-            const resultContainer = $('#ccs-sync-result');
-            const selectedCourses = [];
+        // Get Courses button
+        $('#ccs-get-courses').on('click', function(e) {
+            e.preventDefault();
+            var button = $(this);
+            var originalText = button.text();
             
-            $('input[name="selected_courses[]"]:checked').each(function() {
+            button.prop('disabled', true).text('Loading...');
+            
+            $.ajax({
+                url: ajaxurl,
+                type: 'POST',
+                data: {
+                    action: 'ccs_get_courses',
+                    nonce: $('#ccs_get_courses_nonce').val()
+                },
+                success: function(response) {
+                    if (response.success && response.data) {
+                        displayCoursesList(response.data);
+                        $('#ccs-sync-selected').prop('disabled', false);
+                    } else {
+                        alert('Error: ' + (response.data || 'Failed to load courses'));
+                    }
+                },
+                error: function() {
+                    alert('Error: Failed to load courses');
+                },
+                complete: function() {
+                    button.prop('disabled', false).text(originalText);
+                }
+            });
+        });
+
+        // Sync Selected Courses button
+        $('#ccs-sync-selected').on('click', function(e) {
+            e.preventDefault();
+            var selectedCourses = [];
+            $('.course-checkbox:checked').each(function() {
                 selectedCourses.push($(this).val());
             });
             
             if (selectedCourses.length === 0) {
-                resultContainer.html('<div class="ccs-error">Please select at least one course to sync.</div>');
+                alert('Please select at least one course to sync.');
                 return;
             }
             
-            button.attr('disabled', true);
-            resultContainer.html('<div class="ccs-spinner"></div> Syncing courses...');
+            var button = $(this);
+            var originalText = button.text();
+            
+            button.prop('disabled', true).text('Syncing...');
             
             $.ajax({
-                url: ccsData.ajaxUrl,
+                url: ajaxurl,
                 type: 'POST',
                 data: {
                     action: 'ccs_sync_courses',
-                    nonce: ccsData.syncNonce,
+                    nonce: $('#ccs_sync_nonce').val(),
                     course_ids: selectedCourses
                 },
                 success: function(response) {
-                    button.attr('disabled', false);
-                    
                     if (response.success) {
-                        const data = response.data;
-                        resultContainer.html('<div class="ccs-success">' + data.message + '</div>');
+                        displaySyncResults(response.data);
                     } else {
-                        const errorMsg = response.data || 'Sync failed';
-                        resultContainer.html('<div class="ccs-error">' + errorMsg + '</div>');
+                        alert('Error: ' + response.data);
                     }
                 },
-                error: function(xhr, status, error) {
-                    button.attr('disabled', false);
-                    resultContainer.html('<div class="ccs-error">Error: ' + error + '</div>');
+                error: function() {
+                    alert('Error: Failed to sync courses');
                 },
-                timeout: 120000 // 2 minute timeout for sync
-            });
-        });
-    }
-
-    // Course loading functionality
-    function initCoursesLoader() {
-        $('#ccs-load-courses').on('click', function() {
-            const button = $(this);
-            const container = $('#ccs-courses-list');
-            
-            button.attr('disabled', true);
-            container.html('<div class="ccs-spinner"></div> Loading courses...');
-            
-            $.ajax({
-                url: ccsData.ajaxUrl,
-                type: 'POST',
-                data: {
-                    action: 'ccs_get_courses',
-                    nonce: ccsData.getCoursesNonce
-                },
-                success: function(response) {
-                    button.attr('disabled', false);
-                    
-                    if (response.success && response.data) {
-                        let html = '<div class="ccs-courses-selection">';
-                        html += '<p><label><input type="checkbox" id="ccs-select-all"> Select All</label></p>';
-                        
-                        response.data.forEach(function(course) {
-                            html += '<p><label>';
-                            html += '<input type="checkbox" name="selected_courses[]" value="' + course.id + '"> ';
-                            html += course.name;
-                            html += '</label></p>';
-                        });
-                        
-                        html += '</div>';
-                        container.html(html);
-                        
-                        // Add select all functionality
-                        $('#ccs-select-all').on('change', function() {
-                            $('input[name="selected_courses[]"]').prop('checked', this.checked);
-                        });
-                    } else {
-                        const errorMsg = response.data || 'Failed to load courses';
-                        container.html('<div class="ccs-error">' + errorMsg + '</div>');
-                    }
-                },
-                error: function(xhr, status, error) {
-                    button.attr('disabled', false);
-                    container.html('<div class="ccs-error">Error loading courses: ' + error + '</div>');
-                },
-                timeout: 30000
-            });
-        });
-    }
-
-    // Logs management functionality
-    function initLogsManager() {
-        $('#ccs-clear-logs').on('click', function() {
-            const button = $(this);
-            const resultContainer = $('#ccs-logs-result');
-            
-            if (!confirm('Are you sure you want to clear all logs?')) {
-                return;
-            }
-            
-            button.attr('disabled', true);
-            resultContainer.html('<div class="ccs-spinner"></div> Clearing logs...');
-            
-            $.ajax({
-                url: ccsData.ajaxUrl,
-                type: 'POST',
-                data: {
-                    action: 'ccs_clear_logs',
-                    nonce: ccsData.clearLogsNonce
-                },
-                success: function(response) {
-                    button.attr('disabled', false);
-                    
-                    if (response.success) {
-                        resultContainer.html('<div class="ccs-success">' + response.data + '</div>');
-                        // Refresh logs display
-                        $('#ccs-logs-display').html('<p>Logs cleared.</p>');
-                    } else {
-                        const errorMsg = response.data || 'Failed to clear logs';
-                        resultContainer.html('<div class="ccs-error">' + errorMsg + '</div>');
-                    }
-                },
-                error: function(xhr, status, error) {
-                    button.attr('disabled', false);
-                    resultContainer.html('<div class="ccs-error">Error: ' + error + '</div>');
+                complete: function() {
+                    button.prop('disabled', false).text(originalText);
                 }
             });
         });
-    }
 
-    // Auto-sync functionality
-    function initAutoSync() {
-        $('#ccs-trigger-auto-sync').on('click', function() {
-            const button = $(this);
-            const resultContainer = $('#ccs-auto-sync-result');
+        function displayCoursesList(courses) {
+            var html = '<h3>Available Courses</h3>';
+            html += '<div class="courses-list">';
             
-            button.attr('disabled', true);
-            resultContainer.html('<div class="ccs-spinner"></div> Running auto-sync...');
+            if (courses && courses.length > 0) {
+                courses.forEach(function(course) {
+                    html += '<div class="course-item">';
+                    html += '<label>';
+                    html += '<input type="checkbox" class="course-checkbox" value="' + course.id + '"> ';
+                    html += course.name + ' (' + course.course_code + ')';
+                    html += '</label>';
+                    html += '</div>';
+                });
+            } else {
+                html += '<p>No courses found.</p>';
+            }
             
-            $.ajax({
-                url: ccsData.ajaxUrl,
-                type: 'POST',
-                data: {
-                    action: 'ccs_run_auto_sync',
-                    nonce: ccsData.autoSyncNonce
-                },
-                success: function(response) {
-                    button.attr('disabled', false);
-                    
-                    if (response.success) {
-                        resultContainer.html('<div class="ccs-success">' + response.data.message + '</div>');
-                    } else {
-                        const errorMsg = response.data || 'Auto-sync failed';
-                        resultContainer.html('<div class="ccs-error">' + errorMsg + '</div>');
-                    }
-                },
-                error: function(xhr, status, error) {
-                    button.attr('disabled', false);
-                    resultContainer.html('<div class="ccs-error">Error: ' + error + '</div>');
-                },
-                timeout: 60000 // 60 second timeout for auto-sync
-            });
-        });
-    }
+            html += '</div>';
+            $('#ccs-courses-list').html(html);
+        }
 
-    // Initialize all functionality
-    initConnectionTester();
-    initSyncManager();
-    initCoursesLoader();
-    initLogsManager();
-    initAutoSync();
-});
+        function displaySyncResults(results) {
+            var html = '<div class="sync-results">';
+            html += '<h3>Sync Results</h3>';
+            html += '<p>' + results.message + '</p>';
+            html += '<ul>';
+            html += '<li>Imported: ' + results.imported + '</li>';
+            html += '<li>Skipped: ' + results.skipped + '</li>';
+            html += '<li>Errors: ' + results.errors + '</li>';
+            html += '<li>Total: ' + results.total + '</li>';
+            html += '</ul>';
+            html += '</div>';
+            $('#ccs-sync-status').html(html);
+        }
+    });
+
+})(jQuery);

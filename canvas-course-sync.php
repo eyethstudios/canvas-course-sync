@@ -1,4 +1,3 @@
-
 <?php
 /**
  * Plugin Name: Canvas Course Sync
@@ -133,6 +132,7 @@ class Canvas_Course_Sync {
         // Initialize admin functionality only in admin
         if (is_admin()) {
             add_action('admin_init', array($this, 'init_admin'));
+            add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_assets'));
         }
         
         // Register metabox for course link
@@ -173,6 +173,28 @@ class Canvas_Course_Sync {
             } else {
                 error_log('Canvas Course Sync: Missing admin file - includes/admin-page.php');
             }
+        }
+    }
+
+    /**
+     * Enqueue admin assets
+     */
+    public function enqueue_admin_assets($hook) {
+        // Only load on our admin page
+        if (strpos($hook, 'canvas-course-sync') === false) {
+            return;
+        }
+        
+        // Enqueue CSS
+        $css_file = CCS_PLUGIN_URL . 'assets/css/admin.css';
+        if (file_exists(CCS_PLUGIN_DIR . 'assets/css/admin.css')) {
+            wp_enqueue_style('ccs-admin-css', $css_file, array(), CCS_VERSION);
+        }
+        
+        // Enqueue JavaScript
+        $js_file = CCS_PLUGIN_URL . 'assets/js/admin.js';
+        if (file_exists(CCS_PLUGIN_DIR . 'assets/js/admin.js')) {
+            wp_enqueue_script('ccs-admin-js', $js_file, array('jquery'), CCS_VERSION, true);
         }
     }
 
