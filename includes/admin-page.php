@@ -30,13 +30,20 @@ foreach ($admin_files as $file) {
     }
 }
 
-// Initialize admin settings
-add_action('admin_init', 'ccs_init_admin_settings');
+// Initialize admin settings only once
+add_action('admin_init', 'ccs_init_admin_settings', 5);
 
 /**
  * Initialize admin settings
  */
 function ccs_init_admin_settings() {
+    // Prevent multiple registrations
+    static $settings_registered = false;
+    if ($settings_registered) {
+        return;
+    }
+    $settings_registered = true;
+    
     // Register settings for API configuration
     register_setting(
         'ccs_api_settings',
@@ -80,7 +87,7 @@ function ccs_init_admin_settings() {
     );
 }
 
-// Add admin notices for important messages
+// Add admin notices for important messages - only on our admin page
 add_action('admin_notices', 'ccs_admin_notices');
 
 /**
@@ -90,6 +97,11 @@ function ccs_admin_notices() {
     // Check if on our admin page
     $screen = get_current_screen();
     if (!$screen || strpos($screen->id, 'canvas-course-sync') === false) {
+        return;
+    }
+    
+    // Check if user has permissions
+    if (!current_user_can('manage_options')) {
         return;
     }
     

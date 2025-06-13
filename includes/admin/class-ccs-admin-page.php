@@ -1,3 +1,4 @@
+
 <?php
 /**
  * Canvas Course Sync Admin Page
@@ -78,7 +79,8 @@ class CCS_Admin_Page {
                                 <td>
                                     <input type="password" id="ccs_api_token" name="ccs_api_token" 
                                            value="<?php echo esc_attr($api_token); ?>" 
-                                           class="regular-text" />
+                                           class="regular-text" 
+                                           autocomplete="off" />
                                     <p class="description"><?php echo esc_html__('Your Canvas API access token', 'canvas-course-sync'); ?></p>
                                 </td>
                             </tr>
@@ -141,15 +143,17 @@ class CCS_Admin_Page {
         </div>
 
         <?php
-        // Create nonces for AJAX calls - properly output as hidden fields
-        wp_nonce_field('ccs_test_connection_nonce', 'ccs_test_connection_nonce', false);
-        wp_nonce_field('ccs_get_courses_nonce', 'ccs_get_courses_nonce', false);
-        wp_nonce_field('ccs_sync_nonce', 'ccs_sync_nonce', false);
-        wp_nonce_field('ccs_sync_status_nonce', 'ccs_sync_status_nonce', false);
+        // Create nonces for AJAX calls
+        $nonces = array(
+            'test_connection' => wp_create_nonce('ccs_test_connection_nonce'),
+            'get_courses' => wp_create_nonce('ccs_get_courses_nonce'),
+            'sync_courses' => wp_create_nonce('ccs_sync_nonce'),
+            'sync_status' => wp_create_nonce('ccs_sync_status_nonce')
+        );
         ?>
         <script type="text/javascript">
-            // Make ajaxurl available for our admin script
-            window.ajaxurl = '<?php echo admin_url('admin-ajax.php'); ?>';
+            window.ccsNonces = <?php echo wp_json_encode($nonces); ?>;
+            window.ajaxurl = '<?php echo esc_url(admin_url('admin-ajax.php')); ?>';
         </script>
         <?php
     }

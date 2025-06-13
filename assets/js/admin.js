@@ -4,6 +4,12 @@
 
     // Admin functionality for Canvas Course Sync
     $(document).ready(function() {
+        // Check if required variables are available
+        if (typeof window.ccsNonces === 'undefined' || typeof window.ajaxurl === 'undefined') {
+            console.error('CCS Admin: Required variables not found');
+            return;
+        }
+
         // Test Connection button
         $('#ccs-test-connection').on('click', function(e) {
             e.preventDefault();
@@ -13,21 +19,22 @@
             button.prop('disabled', true).text('Testing...');
             
             $.ajax({
-                url: ajaxurl,
+                url: window.ajaxurl,
                 type: 'POST',
                 data: {
                     action: 'ccs_test_connection',
-                    nonce: $('#ccs_test_connection_nonce').val()
+                    nonce: window.ccsNonces.test_connection
                 },
                 success: function(response) {
                     if (response.success) {
-                        alert('Success: ' + response.data);
+                        showNotice('Success: ' + response.data, 'success');
                     } else {
-                        alert('Error: ' + response.data);
+                        showNotice('Error: ' + response.data, 'error');
                     }
                 },
-                error: function() {
-                    alert('Error: Failed to test connection');
+                error: function(xhr, status, error) {
+                    console.error('Connection test error:', error);
+                    showNotice('Error: Failed to test connection', 'error');
                 },
                 complete: function() {
                     button.prop('disabled', false).text(originalText);
@@ -44,22 +51,24 @@
             button.prop('disabled', true).text('Loading...');
             
             $.ajax({
-                url: ajaxurl,
+                url: window.ajaxurl,
                 type: 'POST',
                 data: {
                     action: 'ccs_get_courses',
-                    nonce: $('#ccs_get_courses_nonce').val()
+                    nonce: window.ccsNonces.get_courses
                 },
                 success: function(response) {
                     if (response.success && response.data) {
                         displayCoursesList(response.data);
                         $('#ccs-sync-selected').prop('disabled', false);
+                        showNotice('Loaded ' + response.data.length + ' courses', 'success');
                     } else {
-                        alert('Error: ' + (response.data || 'Failed to load courses'));
+                        showNotice('Error: ' + (response.data || 'Failed to load courses'), 'error');
                     }
                 },
-                error: function() {
-                    alert('Error: Failed to load courses');
+                error: function(xhr, status, error) {
+                    console.error('Get courses error:', error);
+                    showNotice('Error: Failed to load courses', 'error');
                 },
                 complete: function() {
                     button.prop('disabled', false).text(originalText);
@@ -76,7 +85,7 @@
             });
             
             if (selectedCourses.length === 0) {
-                alert('Please select at least one course to sync.');
+                showNotice('Please select at least one course to sync.', 'warning');
                 return;
             }
             
@@ -86,22 +95,24 @@
             button.prop('disabled', true).text('Syncing...');
             
             $.ajax({
-                url: ajaxurl,
+                url: window.ajaxurl,
                 type: 'POST',
                 data: {
                     action: 'ccs_sync_courses',
-                    nonce: $('#ccs_sync_nonce').val(),
+                    nonce: window.ccsNonces.sync_courses,
                     course_ids: selectedCourses
                 },
                 success: function(response) {
                     if (response.success) {
                         displaySyncResults(response.data);
+                        showNotice('Sync completed successfully', 'success');
                     } else {
-                        alert('Error: ' + response.data);
+                        showNotice('Error: ' + response.data, 'error');
                     }
                 },
-                error: function() {
-                    alert('Error: Failed to sync courses');
+                error: function(xhr, status, error) {
+                    console.error('Sync courses error:', error);
+                    showNotice('Error: Failed to sync courses', 'error');
                 },
                 complete: function() {
                     button.prop('disabled', false).text(originalText);
@@ -114,11 +125,15 @@
             html += '<div class="courses-list">';
             
             if (courses && courses.length > 0) {
+                html += '<div style="margin-bottom: 10px;">';
+                html += '<label><input type="checkbox" id="select-all-courses"> Select All</label>';
+                html += '</div>';
+                
                 courses.forEach(function(course) {
                     html += '<div class="course-item">';
                     html += '<label>';
-                    html += '<input type="checkbox" class="course-checkbox" value="' + course.id + '"> ';
-                    html += course.name + ' (' + course.course_code + ')';
+                    html += '<input type="checkbox" class="course-checkbox" value="' + escapeHtml(course.id) + '"> ';
+                    html += escapeHtml(course.name) + ' (' + escapeHtml(course.course_code) + ')';
                     html += '</label>';
                     html += '</div>';
                 });
@@ -128,20 +143,51 @@
             
             html += '</div>';
             $('#ccs-courses-list').html(html);
+            
+            // Add select all functionality
+            $('#select-all-courses').on('change', function() {
+                $('.course-checkbox').prop('checked', $(this).prop('checked'));
+            });
         }
 
         function displaySyncResults(results) {
             var html = '<div class="sync-results">';
             html += '<h3>Sync Results</h3>';
-            html += '<p>' + results.message + '</p>';
+            html += '<p>' + escapeHtml(results.message || 'Sync completed') + '</p>';
             html += '<ul>';
-            html += '<li>Imported: ' + results.imported + '</li>';
-            html += '<li>Skipped: ' + results.skipped + '</li>';
-            html += '<li>Errors: ' + results.errors + '</li>';
-            html += '<li>Total: ' + results.total + '</li>';
+            html += '<li>Imported: ' + parseInt(results.imported || 0) + '</li>';
+            html += '<li>Skipped: ' + parseInt(results.skipped || 0) + '</li>';
+            html += '<li>Errors: ' + parseInt(results.errors || 0) + '</li>';
+            html += '<li>Total: ' + parseInt(results.total || 0) + '</li>';
             html += '</ul>';
             html += '</div>';
             $('#ccs-sync-status').html(html);
+        }
+        
+        function showNotice(message, type) {
+            var noticeClass = 'notice-info';
+            if (type === 'success') noticeClass = 'notice-success';
+            if (type === 'error') noticeClass = 'notice-error';
+            if (type === 'warning') noticeClass = 'notice-warning';
+            
+            var notice = $('<div class="notice ' + noticeClass + ' is-dismissible"><p>' + escapeHtml(message) + '</p></div>');
+            $('.wrap h1').after(notice);
+            
+            // Auto-dismiss after 5 seconds
+            setTimeout(function() {
+                notice.fadeOut();
+            }, 5000);
+        }
+        
+        function escapeHtml(text) {
+            var map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.toString().replace(/[&<>"']/g, function(m) { return map[m]; });
         }
     });
 

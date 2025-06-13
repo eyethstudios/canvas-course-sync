@@ -120,18 +120,18 @@ class Canvas_Course_Sync {
         register_deactivation_hook(__FILE__, array($this, 'deactivate_plugin'));
 
         // Load text domain
-        add_action('plugins_loaded', array($this, 'load_textdomain'));
+        add_action('plugins_loaded', array($this, 'load_textdomain'), 5);
         
         // Load dependencies and initialize components
         add_action('plugins_loaded', array($this, 'load_dependencies'), 10);
         add_action('plugins_loaded', array($this, 'init_components'), 15);
         
-        // Admin hooks
+        // Admin hooks - only if in admin and user has permissions
         if (is_admin()) {
             add_action('admin_init', array($this, 'init_admin'));
             add_action('admin_menu', array($this, 'add_admin_menu'));
             add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_assets'));
-            add_filter('plugin_action_links_' . plugin_basename(__FILE__), array($this, 'add_settings_link'));
+            add_filter('plugin_action_links_' . $this->plugin_basename, array($this, 'add_settings_link'));
         }
         
         // Post type hooks
@@ -218,6 +218,11 @@ class Canvas_Course_Sync {
      * Initialize admin functionality
      */
     public function init_admin() {
+        // Only proceed if user has permissions
+        if (!current_user_can('manage_options')) {
+            return;
+        }
+
         $admin_handlers_file = CCS_PLUGIN_DIR . 'includes/admin/index.php';
         if (file_exists($admin_handlers_file)) {
             require_once $admin_handlers_file;
@@ -266,9 +271,11 @@ class Canvas_Course_Sync {
      * Add settings link to plugin actions
      */
     public function add_settings_link($links) {
-        $settings_link = '<a href="' . esc_url(admin_url('options-general.php?page=canvas-course-sync')) . '">' . 
-                        esc_html__('Settings', 'canvas-course-sync') . '</a>';
-        array_unshift($links, $settings_link);
+        if (current_user_can('manage_options')) {
+            $settings_link = '<a href="' . esc_url(admin_url('options-general.php?page=canvas-course-sync')) . '">' . 
+                            esc_html__('Settings', 'canvas-course-sync') . '</a>';
+            array_unshift($links, $settings_link);
+        }
         return $links;
     }
 
@@ -288,6 +295,12 @@ class Canvas_Course_Sync {
         $js_file = CCS_PLUGIN_URL . 'assets/js/admin.js';
         if (file_exists(CCS_PLUGIN_DIR . 'assets/js/admin.js')) {
             wp_enqueue_script('ccs-admin-js', $js_file, array('jquery'), CCS_VERSION, true);
+            
+            // Localize script for AJAX
+            wp_localize_script('ccs-admin-js', 'ccsAjax', array(
+                'ajaxurl' => admin_url('admin-ajax.php'),
+                'nonce' => wp_create_nonce('ccs_admin_nonce')
+            ));
         }
     }
 
@@ -306,9 +319,10 @@ class Canvas_Course_Sync {
             wp_die(__('Canvas Course Sync requires WordPress 5.0 or higher.', 'canvas-course-sync'));
         }
 
+        // Check if courses post type exists - warn but don't fail
         if (!post_type_exists('courses')) {
-            deactivate_plugins(plugin_basename(__FILE__));
-            wp_die(__('This plugin requires a custom post type named "courses".', 'canvas-course-sync'));
+            // Log warning but allow activation
+            error_log('Canvas Course Sync: Warning - Custom post type "courses" does not exist. Plugin may not function properly.');
         }
         
         // Create log directory
