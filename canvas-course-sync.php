@@ -99,6 +99,7 @@ class Canvas_Course_Sync {
         // Initialize components with error checking
         if (class_exists('CCS_Logger')) {
             $this->logger = new CCS_Logger();
+            $this->logger->log('Canvas Course Sync plugin initializing');
         }
         
         if (class_exists('CCS_Canvas_API')) {
@@ -195,6 +196,12 @@ class Canvas_Course_Sync {
         if ($this->logger) {
             $this->logger->log('Canvas Course Sync plugin activated successfully');
         }
+        
+        // Clear any transients or cached data to prevent authorization errors
+        delete_transient('ccs_auth_test');
+        
+        // Force refresh admin menu registration on next admin load
+        delete_option('ccs_admin_menu_registered');
     }
 
     /**
@@ -203,6 +210,10 @@ class Canvas_Course_Sync {
     public function deactivate_plugin() {
         // Clear any scheduled events
         wp_clear_scheduled_hook('ccs_weekly_sync');
+        
+        // Clear transients
+        delete_transient('ccs_auth_test');
+        delete_option('ccs_admin_menu_registered');
         
         // Log deactivation
         if ($this->logger) {
@@ -221,7 +232,7 @@ class Canvas_Course_Sync {
      * Register metaboxes for courses post type
      */
     public function register_course_metaboxes() {
-        if ($this->importer && method_exists($this->importer, 'display_course_link_metabox')) {
+        if (post_type_exists('courses') && $this->importer && method_exists($this->importer, 'display_course_link_metabox')) {
             add_meta_box(
                 'ccs_course_link',
                 'Canvas Course Link',
@@ -237,7 +248,9 @@ class Canvas_Course_Sync {
      * Add sync status column to courses list
      */
     public function add_sync_status_column($columns) {
-        $columns['sync_status'] = __('Sync Status', 'canvas-course-sync');
+        if (post_type_exists('courses')) {
+            $columns['sync_status'] = __('Sync Status', 'canvas-course-sync');
+        }
         return $columns;
     }
 

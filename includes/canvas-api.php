@@ -1,4 +1,3 @@
-
 <?php
 /**
  * Handles API communication with Canvas LMS.
@@ -43,11 +42,16 @@ class CCS_Canvas_API {
         $this->domain = get_option('ccs_api_domain', '');
         $this->api_key = get_option('ccs_api_token', '');
         $canvas_course_sync = canvas_course_sync();
-        $this->logger = ($canvas_course_sync && isset($canvas_course_sync->logger)) ? $canvas_course_sync->logger : new CCS_Logger();
+        $this->logger = ($canvas_course_sync && isset($canvas_course_sync->logger)) ? $canvas_course_sync->logger : null;
         
-        // Validate and clean domain
+        // Only validate and clean domain if it's not empty
         if (!empty($this->domain)) {
             $this->domain = $this->clean_domain($this->domain);
+        }
+        
+        // Log initialization only if logger is available
+        if ($this->logger) {
+            $this->logger->log('Canvas API initialized - Domain: ' . ($this->domain ? 'configured' : 'not configured') . ', Token: ' . ($this->api_key ? 'configured' : 'not configured'));
         }
     }
 
@@ -68,11 +72,99 @@ class CCS_Canvas_API {
         
         // Validate URL format
         if (!filter_var($domain, FILTER_VALIDATE_URL)) {
-            $this->logger->log('Invalid domain format: ' . $domain, 'error');
+            if ($this->logger) {
+                $this->logger->log('Invalid domain format: ' . $domain, 'error');
+            }
             return '';
         }
         
         return $domain;
+    }
+
+    /**
+     * Test the API connection
+     *
+     * @return bool|string True on success, error message on failure
+     */
+    public function test_connection() {
+        // Check if API domain and key are set
+        if (empty($this->domain)) {
+            $error_msg = 'API domain not configured. Please enter your Canvas domain URL.';
+            if ($this->logger) {
+                $this->logger->log('API connection test failed: ' . $error_msg, 'error');
+            }
+            return $error_msg;
+        }
+
+        if (empty($this->api_key)) {
+            $error_msg = 'API token not configured. Please enter your Canvas API token.';
+            if ($this->logger) {
+                $this->logger->log('API connection test failed: ' . $error_msg, 'error');
+            }
+            return $error_msg;
+        }
+
+        // Validate domain format
+        if (!filter_var($this->domain, FILTER_VALIDATE_URL)) {
+            $error_msg = 'Invalid domain format. Please enter a valid URL (e.g., https://canvas.instructure.com)';
+            if ($this->logger) {
+                $this->logger->log('API connection test failed: ' . $error_msg, 'error');
+            }
+            return $error_msg;
+        }
+
+        $endpoint = 'users/self';
+        $params = array();
+        
+        if ($this->logger) {
+            $this->logger->log('Testing API connection to: ' . $this->domain);
+        }
+        
+        $response = $this->api_request($endpoint, $params);
+        
+        if (is_wp_error($response)) {
+            $error_message = $response->get_error_message();
+            if ($this->logger) {
+                $this->logger->log('API connection test failed: ' . $error_message, 'error');
+            }
+            
+            // Provide more specific error messages
+            if (strpos($error_message, 'HTTP Error: 401') !== false) {
+                return 'Authentication failed. Please check your API token.';
+            } elseif (strpos($error_message, 'HTTP Error: 404') !== false) {
+                return 'Canvas instance not found. Please check your domain URL.';
+            } elseif (strpos($error_message, 'HTTP Error: 403') !== false) {
+                return 'Access denied. Please check your API token permissions.';
+            } elseif (strpos($error_message, 'cURL error') !== false) {
+                return 'Connection failed. Please check your domain URL and network connectivity.';
+            }
+            
+            return $error_message;
+        }
+        
+        // Check if response is empty or null
+        if (empty($response)) {
+            $error_msg = 'Empty response received. Please check your API credentials and domain.';
+            if ($this->logger) {
+                $this->logger->log('API connection test failed: ' . $error_msg, 'error');
+            }
+            return $error_msg;
+        }
+        
+        // If we got a valid response object with an ID, it's successful
+        if (is_object($response) && isset($response->id)) {
+            $success_msg = 'Connection successful! Connected as user: ' . (isset($response->name) ? $response->name : 'User ID ' . $response->id);
+            if ($this->logger) {
+                $this->logger->log('API connection test successful. ' . $success_msg);
+            }
+            return true;
+        } else {
+            $error_msg = 'Invalid response format. Expected user object with ID.';
+            if ($this->logger) {
+                $this->logger->log('API connection test failed: ' . $error_msg, 'error');
+            }
+            return $error_msg;
+        }
     }
 
     /**
@@ -91,20 +183,28 @@ class CCS_Canvas_API {
             'per_page' => 100,
         );
         
-        $this->logger->log('Fetching courses from Canvas API');
+        if ($this->logger) {
+            $this->logger->log('Fetching courses from Canvas API');
+        }
         
         $courses = $this->api_request($endpoint, $params);
         
         if (is_wp_error($courses)) {
-            $this->logger->log('Error fetching courses: ' . $courses->get_error_message(), 'error');
+            if ($this->logger) {
+                $this->logger->log('Error fetching courses: ' . $courses->get_error_message(), 'error');
+            }
             return $courses;
         }
         
         // Log the first course to inspect its structure
         if (!empty($courses) && is_array($courses)) {
-            $this->logger->log('First course structure: ' . print_r($courses[0], true));
+            if ($this->logger) {
+                $this->logger->log('First course structure: ' . print_r($courses[0], true));
+            }
         } else {
-            $this->logger->log('No courses returned from API');
+            if ($this->logger) {
+                $this->logger->log('No courses returned from API');
+            }
         }
         
         return $courses;
@@ -123,12 +223,16 @@ class CCS_Canvas_API {
             'include[]' => 'course_image'
         );
         
-        $this->logger->log('Fetching details for course ID: ' . $course_id);
+        if ($this->logger) {
+            $this->logger->log('Fetching details for course ID: ' . $course_id);
+        }
         
         $course = $this->api_request($endpoint, $params);
         
         if (is_wp_error($course)) {
-            $this->logger->log('Failed to get details for course ' . $course_id . ': ' . $course->get_error_message(), 'error');
+            if ($this->logger) {
+                $this->logger->log('Failed to get details for course ' . $course_id . ': ' . $course->get_error_message(), 'error');
+            }
             return $course;
         }
         
@@ -149,7 +253,9 @@ class CCS_Canvas_API {
     public function get_file_download_url($file_id) {
         $endpoint = 'files/' . $file_id . '/download';
         
-        $this->logger->log('Fetching download URL for file ID: ' . $file_id);
+        if ($this->logger) {
+            $this->logger->log('Fetching download URL for file ID: ' . $file_id);
+        }
         
         $response = wp_remote_get($this->domain . '/api/v1/' . $endpoint, array(
             'headers' => array(
@@ -159,88 +265,22 @@ class CCS_Canvas_API {
         ));
         
         if (is_wp_error($response)) {
-            $this->logger->log('Failed to get download URL for file ' . $file_id . ': ' . $response->get_error_message(), 'error');
+            if ($this->logger) {
+                $this->logger->log('Failed to get download URL for file ' . $file_id . ': ' . $response->get_error_message(), 'error');
+            }
             return $response;
         }
         
         $redirect_url = wp_remote_retrieve_header($response, 'location');
         
         if (empty($redirect_url)) {
-            $this->logger->log('No redirect URL found for file ' . $file_id, 'warning');
+            if ($this->logger) {
+                $this->logger->log('No redirect URL found for file ' . $file_id, 'warning');
+            }
             return false;
         }
         
         return $redirect_url;
-    }
-
-    /**
-     * Test the API connection
-     *
-     * @return bool|string True on success, error message on failure
-     */
-    public function test_connection() {
-        // Check if API domain and key are set
-        if (empty($this->domain)) {
-            $error_msg = 'API domain not configured. Please enter your Canvas domain URL.';
-            $this->logger->log('API connection test failed: ' . $error_msg, 'error');
-            return $error_msg;
-        }
-
-        if (empty($this->api_key)) {
-            $error_msg = 'API token not configured. Please enter your Canvas API token.';
-            $this->logger->log('API connection test failed: ' . $error_msg, 'error');
-            return $error_msg;
-        }
-
-        // Validate domain format
-        if (!filter_var($this->domain, FILTER_VALIDATE_URL)) {
-            $error_msg = 'Invalid domain format. Please enter a valid URL (e.g., https://canvas.instructure.com)';
-            $this->logger->log('API connection test failed: ' . $error_msg, 'error');
-            return $error_msg;
-        }
-
-        $endpoint = 'users/self';
-        $params = array();
-        
-        $this->logger->log('Testing API connection to: ' . $this->domain);
-        
-        $response = $this->api_request($endpoint, $params);
-        
-        if (is_wp_error($response)) {
-            $error_message = $response->get_error_message();
-            $this->logger->log('API connection test failed: ' . $error_message, 'error');
-            
-            // Provide more specific error messages
-            if (strpos($error_message, 'HTTP Error: 401') !== false) {
-                return 'Authentication failed. Please check your API token.';
-            } elseif (strpos($error_message, 'HTTP Error: 404') !== false) {
-                return 'Canvas instance not found. Please check your domain URL.';
-            } elseif (strpos($error_message, 'HTTP Error: 403') !== false) {
-                return 'Access denied. Please check your API token permissions.';
-            } elseif (strpos($error_message, 'cURL error') !== false) {
-                return 'Connection failed. Please check your domain URL and network connectivity.';
-            }
-            
-            return $error_message;
-        }
-        
-        // Check if response is empty or null
-        if (empty($response)) {
-            $error_msg = 'Empty response received. Please check your API credentials and domain.';
-            $this->logger->log('API connection test failed: ' . $error_msg, 'error');
-            return $error_msg;
-        }
-        
-        // If we got a valid response object with an ID, it's successful
-        if (is_object($response) && isset($response->id)) {
-            $success_msg = 'Connection successful! Connected as user: ' . (isset($response->name) ? $response->name : 'User ID ' . $response->id);
-            $this->logger->log('API connection test successful. ' . $success_msg);
-            return true;
-        } else {
-            $error_msg = 'Invalid response format. Expected user object with ID.';
-            $this->logger->log('API connection test failed: ' . $error_msg, 'error');
-            return $error_msg;
-        }
     }
 
     /**
@@ -267,7 +307,9 @@ class CCS_Canvas_API {
             $url = add_query_arg($params, $url);
         }
         
-        $this->logger->log('API Request URL: ' . $url);
+        if ($this->logger) {
+            $this->logger->log('API Request URL: ' . $url);
+        }
         
         // Make the request
         $response = wp_remote_get($url, array(
@@ -276,13 +318,15 @@ class CCS_Canvas_API {
                 'Content-Type' => 'application/json',
                 'User-Agent' => 'WordPress-Canvas-Course-Sync/' . CCS_VERSION
             ),
-            'sslverify' => true, // Changed to true for better security
+            'sslverify' => true,
             'timeout' => 30,
         ));
         
         // Handle WordPress HTTP errors
         if (is_wp_error($response)) {
-            $this->logger->log('API request failed (WP Error): ' . $response->get_error_message(), 'error');
+            if ($this->logger) {
+                $this->logger->log('API request failed (WP Error): ' . $response->get_error_message(), 'error');
+            }
             return $response;
         }
         
@@ -290,7 +334,9 @@ class CCS_Canvas_API {
         $status_code = wp_remote_retrieve_response_code($response);
         $body = wp_remote_retrieve_body($response);
         
-        $this->logger->log('API Response Status: ' . $status_code);
+        if ($this->logger) {
+            $this->logger->log('API Response Status: ' . $status_code);
+        }
         
         // Handle HTTP error status codes
         if ($status_code !== 200) {
@@ -310,25 +356,33 @@ class CCS_Canvas_API {
                 }
             }
             
-            $this->logger->log('API request returned error status: ' . $error_msg, 'error');
+            if ($this->logger) {
+                $this->logger->log('API request returned error status: ' . $error_msg, 'error');
+            }
             return new WP_Error('api_error', $error_msg);
         }
         
         // Handle empty response
         if (empty($body)) {
-            $this->logger->log('API request returned empty body', 'error');
+            if ($this->logger) {
+                $this->logger->log('API request returned empty body', 'error');
+            }
             return new WP_Error('empty_response', 'Empty response body received from API');
         }
         
         // Log response (truncated for large responses)
-        $this->logger->log('API Response Body: ' . substr($body, 0, 500) . (strlen($body) > 500 ? '...' : ''));
+        if ($this->logger) {
+            $this->logger->log('API Response Body: ' . substr($body, 0, 500) . (strlen($body) > 500 ? '...' : ''));
+        }
         
         // Decode JSON response
         $data = json_decode($body);
         
         if (json_last_error() !== JSON_ERROR_NONE) {
             $json_error = json_last_error_msg();
-            $this->logger->log('Failed to decode JSON response: ' . $json_error, 'error');
+            if ($this->logger) {
+                $this->logger->log('Failed to decode JSON response: ' . $json_error, 'error');
+            }
             return new WP_Error('json_decode_failed', 'Failed to decode JSON response: ' . $json_error . ' - Raw response: ' . substr($body, 0, 255));
         }
         
