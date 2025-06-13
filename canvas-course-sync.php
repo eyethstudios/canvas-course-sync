@@ -90,6 +90,9 @@ class Canvas_Course_Sync {
         // Load text domain
         add_action('plugins_loaded', array($this, 'load_textdomain'));
         
+        // Initialize admin functionality
+        add_action('init', array($this, 'init_admin'));
+        
         // Register metabox for course link
         add_action('add_meta_boxes', array($this, 'register_course_metaboxes'));
         
@@ -108,6 +111,16 @@ class Canvas_Course_Sync {
             self::$instance = new self;
         }
         return self::$instance;
+    }
+
+    /**
+     * Initialize admin functionality
+     */
+    public function init_admin() {
+        if (is_admin()) {
+            // Include AJAX handlers
+            require_once CCS_PLUGIN_DIR . 'includes/admin/index.php';
+        }
     }
 
     /**

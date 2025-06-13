@@ -43,7 +43,6 @@ function ccs_ajax_clear_logs() {
         wp_send_json_error('Failed to clear logs');
     }
 }
-// Register the AJAX action
 add_action('wp_ajax_ccs_clear_logs', 'ccs_ajax_clear_logs');
 
 /**
@@ -163,3 +162,92 @@ function ccs_ajax_test_connection() {
     }
 }
 add_action('wp_ajax_ccs_test_connection', 'ccs_ajax_test_connection');
+
+/**
+ * AJAX handler for syncing selected courses
+ */
+function ccs_ajax_sync_courses() {
+    global $canvas_course_sync;
+    
+    // Debug log
+    if (isset($canvas_course_sync) && isset($canvas_course_sync->logger)) {
+        $canvas_course_sync->logger->log('Sync courses AJAX request received');
+    }
+    
+    // Check nonce for security
+    if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'ccs_sync_nonce')) {
+        wp_send_json_error('Security check failed');
+        return;
+    }
+    
+    // Check user capabilities
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error('Permission denied');
+        return;
+    }
+    
+    if (!isset($canvas_course_sync->importer)) {
+        wp_send_json_error('Importer not initialized');
+        return;
+    }
+    
+    // Get course IDs from request
+    $course_ids = isset($_POST['course_ids']) ? array_map('intval', $_POST['course_ids']) : array();
+    
+    if (empty($course_ids)) {
+        wp_send_json_error('No course IDs provided');
+        return;
+    }
+    
+    try {
+        $result = $canvas_course_sync->importer->import_courses($course_ids);
+        wp_send_json_success($result);
+    } catch (Exception $e) {
+        $canvas_course_sync->logger->log('Exception during course sync: ' . $e->getMessage(), 'error');
+        wp_send_json_error('Sync failed: ' . $e->getMessage());
+    }
+}
+add_action('wp_ajax_ccs_sync_courses', 'ccs_ajax_sync_courses');
+
+/**
+ * AJAX handler for running auto-sync
+ */
+function ccs_ajax_run_auto_sync() {
+    global $canvas_course_sync;
+    
+    // Debug log
+    if (isset($canvas_course_sync) && isset($canvas_course_sync->logger)) {
+        $canvas_course_sync->logger->log('Auto-sync AJAX request received');
+    }
+    
+    // Check nonce for security
+    if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'ccs_auto_sync_nonce')) {
+        wp_send_json_error('Security check failed');
+        return;
+    }
+    
+    // Check user capabilities
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error('Permission denied');
+        return;
+    }
+    
+    if (!isset($canvas_course_sync->scheduler)) {
+        wp_send_json_error('Scheduler not initialized');
+        return;
+    }
+    
+    try {
+        $result = $canvas_course_sync->scheduler->run_auto_sync();
+        
+        if ($result) {
+            wp_send_json_success(array('message' => 'Auto-sync completed successfully'));
+        } else {
+            wp_send_json_error('Auto-sync failed. Check logs for details.');
+        }
+    } catch (Exception $e) {
+        $canvas_course_sync->logger->log('Exception during auto-sync: ' . $e->getMessage(), 'error');
+        wp_send_json_error('Auto-sync failed: ' . $e->getMessage());
+    }
+}
+add_action('wp_ajax_ccs_run_auto_sync', 'ccs_ajax_run_auto_sync');
