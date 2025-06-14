@@ -1,4 +1,3 @@
-
 <?php
 /**
  * Plugin Name: Canvas Course Sync
@@ -41,17 +40,17 @@ class Canvas_Course_Sync {
     /**
      * Logger instance
      */
-    private $logger = null;
+    public $logger = null;
     
     /**
      * Canvas API instance
      */
-    private $api = null;
+    public $api = null;
     
     /**
      * Importer instance
      */
-    private $importer = null;
+    public $importer = null;
 
     /**
      * Get single instance
@@ -158,7 +157,7 @@ class Canvas_Course_Sync {
      */
     public function enqueue_admin_assets($hook) {
         // Only load on our admin page
-        if ($hook !== 'settings_page_canvas-course-sync') {
+        if ($hook !== 'toplevel_page_canvas-course-sync') {
             return;
         }
 
@@ -181,9 +180,9 @@ class Canvas_Course_Sync {
 
         // Localize script with nonces and ajax URL
         wp_localize_script('ccs-admin-js', 'ccsNonces', array(
-            'test_connection' => wp_create_nonce('ccs_test_connection'),
-            'get_courses' => wp_create_nonce('ccs_get_courses'),
-            'sync_courses' => wp_create_nonce('ccs_sync_courses')
+            'test_connection' => wp_create_nonce('ccs_test_connection_nonce'),
+            'get_courses' => wp_create_nonce('ccs_get_courses_nonce'),
+            'sync_courses' => wp_create_nonce('ccs_sync_nonce')
         ));
     }
 
@@ -191,21 +190,17 @@ class Canvas_Course_Sync {
      * Initialize AJAX handlers
      */
     private function init_ajax_handlers() {
-        if (class_exists('CCS_Ajax_Handler')) {
-            new CCS_Ajax_Handler();
+        // Load the admin AJAX handlers
+        if (is_admin()) {
+            require_once CCS_PLUGIN_DIR . 'includes/admin/index.php';
         }
-
-        // Legacy AJAX handlers for backward compatibility
-        add_action('wp_ajax_ccs_test_connection', array($this, 'ajax_test_connection'));
-        add_action('wp_ajax_ccs_get_courses', array($this, 'ajax_get_courses'));
-        add_action('wp_ajax_ccs_sync_courses', array($this, 'ajax_sync_courses'));
     }
 
     /**
      * AJAX handler for testing connection
      */
     public function ajax_test_connection() {
-        check_ajax_referer('ccs_test_connection', 'nonce');
+        check_ajax_referer('ccs_test_connection_nonce', 'nonce');
         
         if (!current_user_can('manage_options')) {
             wp_die('Unauthorized');
@@ -227,7 +222,7 @@ class Canvas_Course_Sync {
      * AJAX handler for getting courses
      */
     public function ajax_get_courses() {
-        check_ajax_referer('ccs_get_courses', 'nonce');
+        check_ajax_referer('ccs_get_courses_nonce', 'nonce');
         
         if (!current_user_can('manage_options')) {
             wp_die('Unauthorized');
@@ -249,7 +244,7 @@ class Canvas_Course_Sync {
      * AJAX handler for syncing courses
      */
     public function ajax_sync_courses() {
-        check_ajax_referer('ccs_sync_courses', 'nonce');
+        check_ajax_referer('ccs_sync_nonce', 'nonce');
         
         if (!current_user_can('manage_options')) {
             wp_die('Unauthorized');
