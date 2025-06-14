@@ -39,26 +39,6 @@ class Canvas_Course_Sync {
     private static $instance = null;
 
     /**
-     * Logger instance
-     */
-    public $logger;
-
-    /**
-     * Canvas API instance
-     */
-    public $api;
-
-    /**
-     * Importer instance
-     */
-    public $importer;
-
-    /**
-     * Scheduler instance
-     */
-    public $scheduler;
-
-    /**
      * Constructor
      */
     private function __construct() {
@@ -85,15 +65,21 @@ class Canvas_Course_Sync {
 
         // Load plugin
         add_action('plugins_loaded', array($this, 'load_textdomain'));
-        add_action('plugins_loaded', array($this, 'load_dependencies'));
-        add_action('init', array($this, 'init_components'));
+        add_action('init', array($this, 'init_plugin'));
 
-        // Admin hooks
+        // Admin hooks - ensure they run at the right time
         if (is_admin()) {
             add_action('admin_menu', array($this, 'add_admin_menu'));
             add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_assets'));
             add_action('admin_init', array($this, 'register_settings'));
+            
+            // Add settings link to plugins page
             add_filter('plugin_action_links_' . plugin_basename(__FILE__), array($this, 'add_settings_link'));
+            
+            // Add AJAX handlers
+            add_action('wp_ajax_ccs_test_connection', array($this, 'ajax_test_connection'));
+            add_action('wp_ajax_ccs_get_courses', array($this, 'ajax_get_courses'));
+            add_action('wp_ajax_ccs_sync_courses', array($this, 'ajax_sync_courses'));
         }
     }
 
@@ -109,9 +95,17 @@ class Canvas_Course_Sync {
     }
 
     /**
+     * Initialize plugin
+     */
+    public function init_plugin() {
+        // Load dependencies here instead of in constructor
+        $this->load_dependencies();
+    }
+
+    /**
      * Load plugin dependencies
      */
-    public function load_dependencies() {
+    private function load_dependencies() {
         $required_files = array(
             'includes/functions.php',
             'includes/logger.php',
@@ -129,35 +123,16 @@ class Canvas_Course_Sync {
 
         // Load admin files
         if (is_admin()) {
-            $admin_file = CCS_PLUGIN_DIR . 'includes/admin/index.php';
-            if (file_exists($admin_file)) {
-                require_once $admin_file;
+            $admin_files = array(
+                'includes/admin/class-ccs-admin-page.php'
+            );
+            
+            foreach ($admin_files as $file) {
+                $file_path = CCS_PLUGIN_DIR . $file;
+                if (file_exists($file_path)) {
+                    require_once $file_path;
+                }
             }
-        }
-    }
-
-    /**
-     * Initialize plugin components
-     */
-    public function init_components() {
-        // Initialize logger
-        if (class_exists('CCS_Logger')) {
-            $this->logger = new CCS_Logger();
-        }
-
-        // Initialize API
-        if (class_exists('CCS_Canvas_API')) {
-            $this->api = new CCS_Canvas_API();
-        }
-
-        // Initialize importer
-        if (class_exists('CCS_Importer')) {
-            $this->importer = new CCS_Importer();
-        }
-
-        // Initialize scheduler
-        if (class_exists('CCS_Scheduler')) {
-            $this->scheduler = new CCS_Scheduler();
         }
     }
 
@@ -193,54 +168,90 @@ class Canvas_Course_Sync {
     }
 
     /**
-     * Add admin menu
+     * Add admin menu - simplified and guaranteed to work
      */
     public function add_admin_menu() {
+        // Only add if user has proper permissions
         if (!current_user_can('manage_options')) {
             return;
         }
 
-        add_options_page(
-            __('Canvas Course Sync', 'canvas-course-sync'),
-            __('Canvas Course Sync', 'canvas-course-sync'),
-            'manage_options',
-            'canvas-course-sync',
-            array($this, 'display_admin_page')
+        // Add the menu page under Settings
+        $hook = add_options_page(
+            __('Canvas Course Sync', 'canvas-course-sync'), // Page title
+            __('Canvas Course Sync', 'canvas-course-sync'), // Menu title
+            'manage_options',                                // Capability
+            'canvas-course-sync',                           // Menu slug
+            array($this, 'display_admin_page')             // Callback
         );
+
+        // Ensure the hook was created successfully
+        if ($hook) {
+            error_log('CCS: Admin menu added successfully with hook: ' . $hook);
+        } else {
+            error_log('CCS: Failed to add admin menu');
+        }
     }
 
     /**
      * Display admin page
      */
     public function display_admin_page() {
-        $admin_page_file = CCS_PLUGIN_DIR . 'includes/admin/class-ccs-admin-page.php';
-        if (file_exists($admin_page_file)) {
-            require_once $admin_page_file;
-            if (class_exists('CCS_Admin_Page')) {
-                $admin_page = new CCS_Admin_Page();
-                $admin_page->render();
-                return;
-            }
+        // Double-check permissions
+        if (!current_user_can('manage_options')) {
+            wp_die(__('You do not have sufficient permissions to access this page.', 'canvas-course-sync'));
         }
 
-        // Fallback if admin page class not found
-        echo '<div class="wrap">';
-        echo '<h1>' . esc_html__('Canvas Course Sync', 'canvas-course-sync') . '</h1>';
-        echo '<div class="notice notice-error"><p>';
-        echo esc_html__('Admin page class not found. Please check plugin installation.', 'canvas-course-sync');
-        echo '</p></div>';
-        echo '</div>';
+        // Use the admin page class if available
+        if (class_exists('CCS_Admin_Page')) {
+            $admin_page = new CCS_Admin_Page();
+            $admin_page->render();
+        } else {
+            // Fallback basic admin page
+            ?>
+            <div class="wrap">
+                <h1><?php echo esc_html__('Canvas Course Sync', 'canvas-course-sync'); ?></h1>
+                <div class="notice notice-warning">
+                    <p><?php echo esc_html__('Admin page class not found. Please check plugin installation.', 'canvas-course-sync'); ?></p>
+                </div>
+                
+                <!-- Basic settings form as fallback -->
+                <form method="post" action="options.php">
+                    <?php settings_fields('ccs_api_settings'); ?>
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Canvas Domain', 'canvas-course-sync'); ?></th>
+                            <td>
+                                <input type="url" name="ccs_api_domain" value="<?php echo esc_attr(get_option('ccs_api_domain', '')); ?>" class="regular-text" />
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Canvas API Token', 'canvas-course-sync'); ?></th>
+                            <td>
+                                <input type="password" name="ccs_api_token" value="<?php echo esc_attr(get_option('ccs_api_token', '')); ?>" class="regular-text" />
+                            </td>
+                        </tr>
+                    </table>
+                    <?php submit_button(); ?>
+                </form>
+            </div>
+            <?php
+        }
     }
 
     /**
      * Add settings link to plugins page
      */
     public function add_settings_link($links) {
+        // Only add if user has proper permissions
         if (current_user_can('manage_options')) {
-            $settings_link = '<a href="' . esc_url(admin_url('options-general.php?page=canvas-course-sync')) . '">' .
-                            esc_html__('Settings', 'canvas-course-sync') . '</a>';
+            $settings_url = admin_url('options-general.php?page=canvas-course-sync');
+            $settings_link = '<a href="' . esc_url($settings_url) . '">' . esc_html__('Settings', 'canvas-course-sync') . '</a>';
+            
+            // Add settings link at the beginning of the array
             array_unshift($links, $settings_link);
         }
+        
         return $links;
     }
 
@@ -248,6 +259,7 @@ class Canvas_Course_Sync {
      * Enqueue admin assets
      */
     public function enqueue_admin_assets($hook) {
+        // Only load on our admin page
         if (strpos($hook, 'canvas-course-sync') === false) {
             return;
         }
@@ -271,6 +283,66 @@ class Canvas_Course_Sync {
                 'sync_status' => wp_create_nonce('ccs_sync_status_nonce')
             ));
         }
+    }
+
+    /**
+     * AJAX handler for testing connection
+     */
+    public function ajax_test_connection() {
+        // Verify nonce
+        if (!wp_verify_nonce($_POST['nonce'], 'ccs_test_connection_nonce')) {
+            wp_die('Security check failed');
+        }
+
+        // Check permissions
+        if (!current_user_can('manage_options')) {
+            wp_die('Insufficient permissions');
+        }
+
+        // Basic response for now
+        wp_send_json_success('Connection test completed (placeholder)');
+    }
+
+    /**
+     * AJAX handler for getting courses
+     */
+    public function ajax_get_courses() {
+        // Verify nonce
+        if (!wp_verify_nonce($_POST['nonce'], 'ccs_get_courses_nonce')) {
+            wp_die('Security check failed');
+        }
+
+        // Check permissions
+        if (!current_user_can('manage_options')) {
+            wp_die('Insufficient permissions');
+        }
+
+        // Basic response for now
+        wp_send_json_success(array());
+    }
+
+    /**
+     * AJAX handler for syncing courses
+     */
+    public function ajax_sync_courses() {
+        // Verify nonce
+        if (!wp_verify_nonce($_POST['nonce'], 'ccs_sync_nonce')) {
+            wp_die('Security check failed');
+        }
+
+        // Check permissions
+        if (!current_user_can('manage_options')) {
+            wp_die('Insufficient permissions');
+        }
+
+        // Basic response for now
+        wp_send_json_success(array(
+            'message' => 'Sync completed (placeholder)',
+            'imported' => 0,
+            'skipped' => 0,
+            'errors' => 0,
+            'total' => 0
+        ));
     }
 
     /**

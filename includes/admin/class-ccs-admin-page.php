@@ -19,7 +19,7 @@ class CCS_Admin_Page {
      * Render the admin page
      */
     public function render() {
-        // Check user permissions
+        // Double-check user permissions
         if (!current_user_can('manage_options')) {
             wp_die(__('You do not have sufficient permissions to access this page.', 'canvas-course-sync'));
         }
@@ -127,6 +127,25 @@ class CCS_Admin_Page {
                         <?php submit_button(__('Save Email Settings', 'canvas-course-sync')); ?>
                     </form>
                 </div>
+
+                <!-- Plugin Info Section -->
+                <div class="ccs-settings-section">
+                    <h2><?php echo esc_html__('Plugin Information', 'canvas-course-sync'); ?></h2>
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Plugin Version', 'canvas-course-sync'); ?></th>
+                            <td><?php echo esc_html(CCS_VERSION); ?></td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('WordPress Version', 'canvas-course-sync'); ?></th>
+                            <td><?php echo esc_html(get_bloginfo('version')); ?></td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('PHP Version', 'canvas-course-sync'); ?></th>
+                            <td><?php echo esc_html(PHP_VERSION); ?></td>
+                        </tr>
+                    </table>
+                </div>
             </div>
         </div>
         <?php
@@ -151,6 +170,10 @@ class CCS_Admin_Page {
         if (empty($domain) || empty($token)) {
             echo '<div class="notice notice-warning"><p>';
             echo esc_html__('Please configure your Canvas API settings below to begin syncing courses.', 'canvas-course-sync');
+            echo '</p></div>';
+        } else {
+            echo '<div class="notice notice-info"><p>';
+            echo esc_html__('Plugin is configured and ready to use.', 'canvas-course-sync');
             echo '</p></div>';
         }
     }
