@@ -60,13 +60,22 @@ export function initCourseManager($) {
                                 statusText = ' <span class="ccs-status-badge ccs-exists-title">(Already exists)</span>';
                             }
                             checkboxChecked = ''; // Don't check existing courses by default
+                        } else {
+                            // Course doesn't exist in WordPress - show "New" badge
+                            statusText = ' <span class="ccs-status-badge ccs-new-course">(New)</span>';
+                        }
+                        
+                        // Add course code if available
+                        let courseDisplayName = course.name;
+                        if (course.course_code && course.course_code !== course.name) {
+                            courseDisplayName += ' (' + course.course_code + ')';
                         }
                         
                         html += '<div class="ccs-course-item ' + statusClass + '">' +
                             '<label>' +
                             '<input type="checkbox" class="ccs-course-checkbox" ' +
                             'value="' + course.id + '" ' + checkboxChecked + '> ' +
-                            course.name + statusText + '</label>' +
+                            courseDisplayName + statusText + '</label>' +
                             '</div>';
                     });
                     

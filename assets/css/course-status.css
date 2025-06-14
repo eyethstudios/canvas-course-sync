@@ -24,6 +24,11 @@
     color: #92400e;
 }
 
+.ccs-new-course {
+    background-color: #dbeafe;
+    color: #1e40af;
+}
+
 .ccs-course-list {
     max-height: 400px;
     overflow-y: auto;
