@@ -5,8 +5,8 @@
  * Plugin URI: https://github.com/yourusername/canvas-course-sync
  * Description: A WordPress plugin to synchronize courses from Canvas LMS to a WordPress custom post type.
  * Version: 2.3.0
- * Author: Your Name
- * Author URI: https://yourwebsite.com
+ * Author: Eyeth Studios
+ * Author URI: http://eyethstudios.com
  * License: GPL v2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: canvas-course-sync
