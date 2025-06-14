@@ -168,7 +168,7 @@ class Canvas_Course_Sync {
     }
 
     /**
-     * Add admin menu - simplified and guaranteed to work
+     * Add admin menu - now as top-level menu
      */
     public function add_admin_menu() {
         // Only add if user has proper permissions
@@ -176,25 +176,27 @@ class Canvas_Course_Sync {
             return;
         }
 
-        // Add the menu page under Settings
-        $hook = add_options_page(
+        // Add top-level menu page
+        $hook = add_menu_page(
             __('Canvas Course Sync', 'canvas-course-sync'), // Page title
-            __('Canvas Course Sync', 'canvas-course-sync'), // Menu title
+            __('Canvas Sync', 'canvas-course-sync'),         // Menu title
             'manage_options',                                // Capability
             'canvas-course-sync',                           // Menu slug
-            array($this, 'display_admin_page')             // Callback
+            array($this, 'display_admin_page'),             // Callback
+            'dashicons-update',                             // Icon
+            30                                              // Position
         );
 
         // Ensure the hook was created successfully
         if ($hook) {
-            error_log('CCS: Admin menu added successfully with hook: ' . $hook);
+            error_log('CCS: Top-level admin menu added successfully with hook: ' . $hook);
         } else {
             error_log('CCS: Failed to add admin menu');
         }
     }
 
     /**
-     * Display admin page
+     * Display admin page with tabs
      */
     public function display_admin_page() {
         // Double-check permissions
@@ -202,41 +204,155 @@ class Canvas_Course_Sync {
             wp_die(__('You do not have sufficient permissions to access this page.', 'canvas-course-sync'));
         }
 
+        // Get current tab
+        $current_tab = isset($_GET['tab']) ? sanitize_text_field($_GET['tab']) : 'settings';
+
+        ?>
+        <div class="wrap">
+            <h1><?php echo esc_html__('Canvas Course Sync', 'canvas-course-sync'); ?></h1>
+            
+            <!-- Tab Navigation -->
+            <nav class="nav-tab-wrapper">
+                <a href="<?php echo admin_url('admin.php?page=canvas-course-sync&tab=settings'); ?>" 
+                   class="nav-tab <?php echo $current_tab === 'settings' ? 'nav-tab-active' : ''; ?>">
+                    <?php _e('Settings', 'canvas-course-sync'); ?>
+                </a>
+                <a href="<?php echo admin_url('admin.php?page=canvas-course-sync&tab=logs'); ?>" 
+                   class="nav-tab <?php echo $current_tab === 'logs' ? 'nav-tab-active' : ''; ?>">
+                    <?php _e('Logs', 'canvas-course-sync'); ?>
+                </a>
+            </nav>
+
+            <!-- Tab Content -->
+            <div class="tab-content">
+                <?php
+                switch ($current_tab) {
+                    case 'logs':
+                        $this->display_logs_tab();
+                        break;
+                    case 'settings':
+                    default:
+                        $this->display_settings_tab();
+                        break;
+                }
+                ?>
+            </div>
+        </div>
+        <?php
+    }
+
+    /**
+     * Display settings tab
+     */
+    private function display_settings_tab() {
         // Use the admin page class if available
         if (class_exists('CCS_Admin_Page')) {
             $admin_page = new CCS_Admin_Page();
             $admin_page->render();
         } else {
-            // Fallback basic admin page
-            ?>
-            <div class="wrap">
-                <h1><?php echo esc_html__('Canvas Course Sync', 'canvas-course-sync'); ?></h1>
-                <div class="notice notice-warning">
-                    <p><?php echo esc_html__('Admin page class not found. Please check plugin installation.', 'canvas-course-sync'); ?></p>
-                </div>
-                
-                <!-- Basic settings form as fallback -->
-                <form method="post" action="options.php">
-                    <?php settings_fields('ccs_api_settings'); ?>
-                    <table class="form-table">
-                        <tr>
-                            <th scope="row"><?php echo esc_html__('Canvas Domain', 'canvas-course-sync'); ?></th>
-                            <td>
-                                <input type="url" name="ccs_api_domain" value="<?php echo esc_attr(get_option('ccs_api_domain', '')); ?>" class="regular-text" />
-                            </td>
-                        </tr>
-                        <tr>
-                            <th scope="row"><?php echo esc_html__('Canvas API Token', 'canvas-course-sync'); ?></th>
-                            <td>
-                                <input type="password" name="ccs_api_token" value="<?php echo esc_attr(get_option('ccs_api_token', '')); ?>" class="regular-text" />
-                            </td>
-                        </tr>
-                    </table>
-                    <?php submit_button(); ?>
-                </form>
-            </div>
-            <?php
+            $this->display_fallback_settings();
         }
+    }
+
+    /**
+     * Display logs tab
+     */
+    private function display_logs_tab() {
+        ?>
+        <div class="ccs-logs-section" style="margin-top: 20px;">
+            <div style="margin-bottom: 15px;">
+                <button id="ccs-clear-logs" class="button button-secondary">
+                    <?php _e('Clear Logs', 'canvas-course-sync'); ?>
+                </button>
+                <button id="ccs-refresh-logs" class="button" onclick="location.reload();">
+                    <?php _e('Refresh', 'canvas-course-sync'); ?>
+                </button>
+            </div>
+            
+            <div class="ccs-log-container" style="background: #fff; border: 1px solid #ccd0d4; padding: 15px; max-height: 500px; overflow-y: auto;">
+                <?php
+                // Get logs using logger class
+                if (class_exists('CCS_Logger')) {
+                    $logger = new CCS_Logger();
+                    $recent_logs = $logger->get_recent_logs(50);
+                    
+                    if (!empty($recent_logs)) {
+                        foreach ($recent_logs as $log_entry) {
+                            $entry_class = '';
+                            if (strpos($log_entry, '[ERROR]') !== false) {
+                                $entry_class = 'color: #d63638;';
+                            } elseif (strpos($log_entry, '[WARNING]') !== false) {
+                                $entry_class = 'color: #dba617;';
+                            } elseif (strpos($log_entry, '[INFO]') !== false) {
+                                $entry_class = 'color: #2271b1;';
+                            }
+                            
+                            echo '<div class="ccs-log-entry" style="margin-bottom: 8px; font-family: monospace; font-size: 12px;">';
+                            echo '<pre style="margin: 0; white-space: pre-wrap; ' . $entry_class . '">' . esc_html($log_entry) . '</pre>';
+                            echo '</div>';
+                        }
+                    } else {
+                        echo '<p>' . __('No logs available yet.', 'canvas-course-sync') . '</p>';
+                    }
+                } else {
+                    echo '<p style="color: #d63638;">' . __('Logger class not found. Please check plugin installation.', 'canvas-course-sync') . '</p>';
+                }
+                ?>
+            </div>
+        </div>
+
+        <script>
+        jQuery(document).ready(function($) {
+            $('#ccs-clear-logs').on('click', function() {
+                if (!confirm('<?php echo esc_js(__('Are you sure you want to clear all logs?', 'canvas-course-sync')); ?>')) {
+                    return;
+                }
+                
+                $.post(ajaxurl, {
+                    action: 'ccs_clear_logs',
+                    nonce: '<?php echo wp_create_nonce('ccs_clear_logs_nonce'); ?>'
+                }, function(response) {
+                    if (response.success) {
+                        location.reload();
+                    } else {
+                        alert('<?php echo esc_js(__('Failed to clear logs', 'canvas-course-sync')); ?>: ' + response.data);
+                    }
+                });
+            });
+        });
+        </script>
+        <?php
+    }
+
+    /**
+     * Fallback settings display
+     */
+    private function display_fallback_settings() {
+        ?>
+        <div class="notice notice-warning">
+            <p><?php echo esc_html__('Admin page class not found. Please check plugin installation.', 'canvas-course-sync'); ?></p>
+        </div>
+        
+        <!-- Basic settings form as fallback -->
+        <form method="post" action="options.php">
+            <?php settings_fields('ccs_api_settings'); ?>
+            <table class="form-table">
+                <tr>
+                    <th scope="row"><?php echo esc_html__('Canvas Domain', 'canvas-course-sync'); ?></th>
+                    <td>
+                        <input type="url" name="ccs_api_domain" value="<?php echo esc_attr(get_option('ccs_api_domain', '')); ?>" class="regular-text" />
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><?php echo esc_html__('Canvas API Token', 'canvas-course-sync'); ?></th>
+                    <td>
+                        <input type="password" name="ccs_api_token" value="<?php echo esc_attr(get_option('ccs_api_token', '')); ?>" class="regular-text" />
+                    </td>
+                </tr>
+            </table>
+            <?php submit_button(); ?>
+        </form>
+        <?php
     }
 
     /**
@@ -245,8 +361,8 @@ class Canvas_Course_Sync {
     public function add_plugin_action_links($links) {
         // Only add if user has proper permissions
         if (current_user_can('manage_options')) {
-            $settings_url = admin_url('options-general.php?page=canvas-course-sync');
-            $logs_url = admin_url('options-general.php?page=canvas-course-sync&tab=logs');
+            $settings_url = admin_url('admin.php?page=canvas-course-sync&tab=settings');
+            $logs_url = admin_url('admin.php?page=canvas-course-sync&tab=logs');
             
             $settings_link = '<a href="' . esc_url($settings_url) . '">' . esc_html__('Settings', 'canvas-course-sync') . '</a>';
             $logs_link = '<a href="' . esc_url($logs_url) . '">' . esc_html__('Logs', 'canvas-course-sync') . '</a>';
