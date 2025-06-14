@@ -5,38 +5,35 @@
     $(document).ready(function() {
         console.log('CCS Admin script loaded');
         console.log('jQuery version:', $.fn.jquery);
-        console.log('Available global variables:', Object.keys(window));
         
         // Check if required variables are available
         if (typeof ccsAjax === 'undefined') {
             console.error('CCS Admin: ccsAjax variable not found');
-            console.log('Checking for alternative variable names...');
-            
-            // Check for other possible variable names
-            var possibleVars = ['ccsAjax', 'ccs_ajax', 'canvasCourseSync'];
-            possibleVars.forEach(function(varName) {
-                if (typeof window[varName] !== 'undefined') {
-                    console.log('Found alternative variable:', varName, window[varName]);
-                }
-            });
             return;
         }
         
         console.log('CCS Admin initialized successfully with:', ccsAjax);
         
         // Check if buttons exist
-        console.log('Test connection button exists:', $('#ccs-test-connection').length > 0);
-        console.log('Get courses button exists:', $('#ccs-get-courses').length > 0);
+        var testBtn = $('#ccs-test-connection');
+        var getCoursesBtn = $('#ccs-get-courses');
+        var syncBtn = $('#ccs-sync-selected');
+        
+        console.log('Test connection button exists:', testBtn.length > 0);
+        console.log('Get courses button exists:', getCoursesBtn.length > 0);
+        console.log('Sync button exists:', syncBtn.length > 0);
 
         // Test Connection button
-        $('#ccs-test-connection').on('click', function(e) {
+        testBtn.on('click', function(e) {
             e.preventDefault();
             console.log('Test connection button clicked');
             
             var button = $(this);
+            var resultDiv = $('#ccs-connection-result');
             var originalText = button.text();
             
             button.prop('disabled', true).text('Testing...');
+            resultDiv.html('<div class="spinner is-active" style="float:none;"></div> Testing connection...');
             
             $.ajax({
                 url: ccsAjax.ajaxUrl,
@@ -48,15 +45,30 @@
                 success: function(response) {
                     console.log('Test connection response:', response);
                     if (response.success) {
-                        showNotice('Success: ' + response.data, 'success');
+                        resultDiv.html('<div class="notice notice-success inline"><p>' + response.data + '</p></div>');
+                        showNotice('Connection test successful!', 'success');
                     } else {
-                        showNotice('Error: ' + response.data, 'error');
+                        var errorMsg = response.data || 'Unknown error occurred';
+                        resultDiv.html('<div class="notice notice-error inline"><p>Connection failed: ' + errorMsg + '</p></div>');
+                        showNotice('Connection test failed: ' + errorMsg, 'error');
                     }
                 },
                 error: function(xhr, status, error) {
                     console.error('Connection test error:', {xhr, status, error});
                     console.error('Response text:', xhr.responseText);
-                    showNotice('Error: Failed to test connection - ' + error, 'error');
+                    var errorMsg = 'AJAX Error: ' + error;
+                    if (xhr.responseText) {
+                        try {
+                            var errorData = JSON.parse(xhr.responseText);
+                            if (errorData.data) {
+                                errorMsg = errorData.data;
+                            }
+                        } catch (e) {
+                            errorMsg = xhr.responseText.substring(0, 100);
+                        }
+                    }
+                    resultDiv.html('<div class="notice notice-error inline"><p>Connection error: ' + errorMsg + '</p></div>');
+                    showNotice('Connection test failed: ' + errorMsg, 'error');
                 },
                 complete: function() {
                     button.prop('disabled', false).text(originalText);
@@ -65,14 +77,16 @@
         });
 
         // Get Courses button
-        $('#ccs-get-courses').on('click', function(e) {
+        getCoursesBtn.on('click', function(e) {
             e.preventDefault();
             console.log('Get courses button clicked');
             
             var button = $(this);
+            var coursesList = $('#ccs-courses-list');
             var originalText = button.text();
             
             button.prop('disabled', true).text('Loading...');
+            coursesList.html('<div class="spinner is-active" style="float:none;"></div> Loading courses...');
             
             $.ajax({
                 url: ccsAjax.ajaxUrl,
@@ -85,15 +99,29 @@
                     console.log('Get courses response:', response);
                     if (response.success) {
                         displayCourses(response.data);
-                        showNotice('Courses loaded successfully', 'success');
+                        showNotice('Courses loaded successfully!', 'success');
                     } else {
-                        showNotice('Error: ' + response.data, 'error');
+                        var errorMsg = response.data || 'Failed to load courses';
+                        coursesList.html('<div class="notice notice-error inline"><p>' + errorMsg + '</p></div>');
+                        showNotice('Failed to load courses: ' + errorMsg, 'error');
                     }
                 },
                 error: function(xhr, status, error) {
                     console.error('Get courses error:', {xhr, status, error});
                     console.error('Response text:', xhr.responseText);
-                    showNotice('Error: Failed to load courses - ' + error, 'error');
+                    var errorMsg = 'AJAX Error: ' + error;
+                    if (xhr.responseText) {
+                        try {
+                            var errorData = JSON.parse(xhr.responseText);
+                            if (errorData.data) {
+                                errorMsg = errorData.data;
+                            }
+                        } catch (e) {
+                            errorMsg = xhr.responseText.substring(0, 100);
+                        }
+                    }
+                    coursesList.html('<div class="notice notice-error inline"><p>Error loading courses: ' + errorMsg + '</p></div>');
+                    showNotice('Failed to load courses: ' + errorMsg, 'error');
                 },
                 complete: function() {
                     button.prop('disabled', false).text(originalText);
@@ -102,7 +130,7 @@
         });
 
         // Sync Selected Courses button
-        $('#ccs-sync-selected').on('click', function(e) {
+        syncBtn.on('click', function(e) {
             e.preventDefault();
             console.log('Sync selected button clicked');
             
@@ -111,15 +139,19 @@
                 selectedCourses.push($(this).val());
             });
             
+            console.log('Selected courses:', selectedCourses);
+            
             if (selectedCourses.length === 0) {
                 showNotice('Please select at least one course to sync.', 'warning');
                 return;
             }
             
             var button = $(this);
+            var statusDiv = $('#ccs-sync-status');
             var originalText = button.text();
             
             button.prop('disabled', true).text('Syncing...');
+            statusDiv.html('<div class="spinner is-active" style="float:none;"></div> Syncing courses...');
             
             $.ajax({
                 url: ccsAjax.ajaxUrl,
@@ -133,14 +165,29 @@
                     console.log('Sync response:', response);
                     if (response.success) {
                         displaySyncResults(response.data);
-                        showNotice('Sync completed successfully', 'success');
+                        showNotice('Courses synced successfully!', 'success');
                     } else {
-                        showNotice('Error: ' + response.data, 'error');
+                        var errorMsg = response.data || 'Sync failed';
+                        statusDiv.html('<div class="notice notice-error inline"><p>' + errorMsg + '</p></div>');
+                        showNotice('Sync failed: ' + errorMsg, 'error');
                     }
                 },
                 error: function(xhr, status, error) {
                     console.error('Sync courses error:', {xhr, status, error});
-                    showNotice('Error: Failed to sync courses - ' + error, 'error');
+                    console.error('Response text:', xhr.responseText);
+                    var errorMsg = 'AJAX Error: ' + error;
+                    if (xhr.responseText) {
+                        try {
+                            var errorData = JSON.parse(xhr.responseText);
+                            if (errorData.data) {
+                                errorMsg = errorData.data;
+                            }
+                        } catch (e) {
+                            errorMsg = xhr.responseText.substring(0, 100);
+                        }
+                    }
+                    statusDiv.html('<div class="notice notice-error inline"><p>Sync error: ' + errorMsg + '</p></div>');
+                    showNotice('Sync failed: ' + errorMsg, 'error');
                 },
                 complete: function() {
                     button.prop('disabled', false).text(originalText);
@@ -152,49 +199,70 @@
         function displayCourses(courses) {
             console.log('Displaying courses:', courses);
             
+            var coursesList = $('#ccs-courses-list');
+            
             if (!Array.isArray(courses) || courses.length === 0) {
-                $('#ccs-courses-list').html('<p>No courses found.</p>');
+                coursesList.html('<div class="notice notice-info inline"><p>No courses found.</p></div>');
                 return;
             }
 
-            var html = '<div class="ccs-courses"><h3>Select courses to sync:</h3>';
+            var html = '<div class="ccs-courses">';
+            html += '<h3>Select courses to sync:</h3>';
+            html += '<div class="ccs-course-checkboxes" style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; margin: 10px 0;">';
+            
             courses.forEach(function(course) {
-                var disabled = course.exists_in_wp ? 'disabled' : '';
-                var status = course.exists_in_wp ? ' (Already exists)' : '';
-                html += '<label><input type="checkbox" class="ccs-course-checkbox" value="' + 
-                        escapeHtml(course.id) + '" ' + disabled + '> ' + 
-                        escapeHtml(course.name) + status + '</label><br>';
+                var courseId = course.id || '';
+                var courseName = course.name || 'Unnamed Course';
+                var existsInWp = course.exists_in_wp || false;
+                var disabled = existsInWp ? 'disabled' : '';
+                var status = existsInWp ? ' (Already exists in WordPress)' : '';
+                
+                html += '<label style="display: block; margin: 5px 0;">';
+                html += '<input type="checkbox" class="ccs-course-checkbox" value="' + escapeHtml(courseId) + '" ' + disabled + '> ';
+                html += escapeHtml(courseName) + status;
+                html += '</label>';
             });
+            
+            html += '</div>';
             html += '</div>';
             
-            $('#ccs-courses-list').html(html);
+            coursesList.html(html);
             $('#ccs-sync-selected').show();
         }
 
         function displaySyncResults(results) {
             console.log('Displaying sync results:', results);
             
-            var html = '<div class="sync-results">';
+            var statusDiv = $('#ccs-sync-status');
+            var html = '<div class="ccs-sync-results">';
             html += '<h3>Sync Results</h3>';
-            html += '<p>' + escapeHtml(results.message || 'Sync completed') + '</p>';
-            html += '<ul>';
-            html += '<li>Imported: ' + parseInt(results.imported || 0) + '</li>';
-            html += '<li>Skipped: ' + parseInt(results.skipped || 0) + '</li>';
-            html += '<li>Errors: ' + parseInt(results.errors || 0) + '</li>';
-            html += '<li>Total: ' + parseInt(results.total || 0) + '</li>';
-            html += '</ul>';
+            
+            if (results.message) {
+                html += '<div class="notice notice-success inline"><p>' + escapeHtml(results.message) + '</p></div>';
+            }
+            
+            html += '<table class="widefat">';
+            html += '<tr><td><strong>Imported:</strong></td><td>' + parseInt(results.imported || 0) + '</td></tr>';
+            html += '<tr><td><strong>Skipped:</strong></td><td>' + parseInt(results.skipped || 0) + '</td></tr>';
+            html += '<tr><td><strong>Errors:</strong></td><td>' + parseInt(results.errors || 0) + '</td></tr>';
+            html += '<tr><td><strong>Total:</strong></td><td>' + parseInt(results.total || 0) + '</td></tr>';
+            html += '</table>';
             html += '</div>';
-            $('#ccs-sync-status').html(html);
+            
+            statusDiv.html(html);
         }
         
         function showNotice(message, type) {
-            var noticeClass = 'notice-info';
-            if (type === 'success') noticeClass = 'notice-success';
-            if (type === 'error') noticeClass = 'notice-error';
-            if (type === 'warning') noticeClass = 'notice-warning';
+            type = type || 'info';
+            var noticeClass = 'notice-' + type;
             
-            var notice = $('<div class="notice ' + noticeClass + ' is-dismissible"><p>' + escapeHtml(message) + '</p></div>');
+            var notice = $('<div class="notice ' + noticeClass + ' is-dismissible"><p>' + escapeHtml(message) + '</p><button type="button" class="notice-dismiss"><span class="screen-reader-text">Dismiss this notice.</span></button></div>');
             $('.wrap h1').after(notice);
+            
+            // Handle dismiss button
+            notice.find('.notice-dismiss').on('click', function() {
+                notice.fadeOut();
+            });
             
             // Auto-dismiss after 5 seconds
             setTimeout(function() {
@@ -203,6 +271,9 @@
         }
         
         function escapeHtml(text) {
+            if (typeof text !== 'string') {
+                text = String(text);
+            }
             var map = {
                 '&': '&amp;',
                 '<': '&lt;',
@@ -210,7 +281,7 @@
                 '"': '&quot;',
                 "'": '&#039;'
             };
-            return text.toString().replace(/[&<>"']/g, function(m) { return map[m]; });
+            return text.replace(/[&<>"']/g, function(m) { return map[m]; });
         }
     });
 
