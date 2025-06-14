@@ -19,20 +19,7 @@ class CCS_Admin_Page {
      * Constructor
      */
     public function __construct() {
-        add_action('admin_init', array($this, 'register_settings'));
-    }
-
-    /**
-     * Register settings
-     */
-    public function register_settings() {
-        // Register API settings
-        register_setting('ccs_api_settings', 'ccs_api_domain');
-        register_setting('ccs_api_settings', 'ccs_api_token');
-        
-        // Register email settings
-        register_setting('ccs_email_settings', 'ccs_notification_email');
-        register_setting('ccs_email_settings', 'ccs_auto_sync_enabled');
+        // No need for register_settings in this custom implementation
     }
 
     /**
@@ -45,7 +32,7 @@ class CCS_Admin_Page {
         }
 
         // Handle form submissions
-        if (isset($_POST['submit'])) {
+        if (isset($_POST['submit']) && isset($_POST['ccs_form_type'])) {
             $this->handle_form_submission();
         }
 
@@ -66,7 +53,7 @@ class CCS_Admin_Page {
                 <div class="ccs-settings-section">
                     <h2><?php echo esc_html__('API Settings', 'canvas-course-sync'); ?></h2>
                     <form method="post" action="">
-                        <?php wp_nonce_field('ccs_api_settings', 'ccs_api_nonce'); ?>
+                        <?php wp_nonce_field('ccs_api_settings_action', 'ccs_api_nonce'); ?>
                         <input type="hidden" name="ccs_form_type" value="api_settings" />
                         <table class="form-table">
                             <tr>
@@ -120,7 +107,7 @@ class CCS_Admin_Page {
                 <div class="ccs-settings-section">
                     <h2><?php echo esc_html__('Email Settings', 'canvas-course-sync'); ?></h2>
                     <form method="post" action="">
-                        <?php wp_nonce_field('ccs_email_settings', 'ccs_email_nonce'); ?>
+                        <?php wp_nonce_field('ccs_email_settings_action', 'ccs_email_nonce'); ?>
                         <input type="hidden" name="ccs_form_type" value="email_settings" />
                         <table class="form-table">
                             <tr>
@@ -176,20 +163,30 @@ class CCS_Admin_Page {
      * Handle form submissions
      */
     private function handle_form_submission() {
-        $form_type = isset($_POST['ccs_form_type']) ? $_POST['ccs_form_type'] : '';
+        $form_type = sanitize_text_field($_POST['ccs_form_type']);
         
-        if ($form_type === 'api_settings' && wp_verify_nonce($_POST['ccs_api_nonce'], 'ccs_api_settings')) {
-            update_option('ccs_api_domain', sanitize_url($_POST['ccs_api_domain']));
-            update_option('ccs_api_token', sanitize_text_field($_POST['ccs_api_token']));
+        if ($form_type === 'api_settings' && wp_verify_nonce($_POST['ccs_api_nonce'], 'ccs_api_settings_action')) {
+            $domain = isset($_POST['ccs_api_domain']) ? sanitize_url($_POST['ccs_api_domain']) : '';
+            $token = isset($_POST['ccs_api_token']) ? sanitize_text_field($_POST['ccs_api_token']) : '';
             
-            echo '<div class="notice notice-success"><p>' . esc_html__('API settings saved successfully.', 'canvas-course-sync') . '</p></div>';
+            update_option('ccs_api_domain', $domain);
+            update_option('ccs_api_token', $token);
+            
+            add_action('admin_notices', function() {
+                echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__('API settings saved successfully.', 'canvas-course-sync') . '</p></div>';
+            });
         }
         
-        if ($form_type === 'email_settings' && wp_verify_nonce($_POST['ccs_email_nonce'], 'ccs_email_settings')) {
-            update_option('ccs_notification_email', sanitize_email($_POST['ccs_notification_email']));
-            update_option('ccs_auto_sync_enabled', isset($_POST['ccs_auto_sync_enabled']) ? 1 : 0);
+        if ($form_type === 'email_settings' && wp_verify_nonce($_POST['ccs_email_nonce'], 'ccs_email_settings_action')) {
+            $email = isset($_POST['ccs_notification_email']) ? sanitize_email($_POST['ccs_notification_email']) : '';
+            $auto_sync = isset($_POST['ccs_auto_sync_enabled']) ? 1 : 0;
             
-            echo '<div class="notice notice-success"><p>' . esc_html__('Email settings saved successfully.', 'canvas-course-sync') . '</p></div>';
+            update_option('ccs_notification_email', $email);
+            update_option('ccs_auto_sync_enabled', $auto_sync);
+            
+            add_action('admin_notices', function() {
+                echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__('Email settings saved successfully.', 'canvas-course-sync') . '</p></div>';
+            });
         }
     }
 

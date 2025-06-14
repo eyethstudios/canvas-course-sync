@@ -9,7 +9,7 @@ import { initCourseManager } from './modules/courses.js';
         initCourseManager($);
         
         // Check if required variables are available
-        if (typeof window.ccsNonces === 'undefined' || typeof window.ajaxurl === 'undefined') {
+        if (typeof window.ccsAdmin === 'undefined') {
             console.error('CCS Admin: Required variables not found');
             return;
         }
@@ -23,11 +23,11 @@ import { initCourseManager } from './modules/courses.js';
             button.prop('disabled', true).text('Testing...');
             
             $.ajax({
-                url: window.ajaxurl,
+                url: window.ccsAdmin.ajaxUrl,
                 type: 'POST',
                 data: {
                     action: 'ccs_test_connection',
-                    nonce: window.ccsNonces.test_connection
+                    nonce: window.ccsAdmin.nonces.test_connection
                 },
                 success: function(response) {
                     if (response.success) {
@@ -39,6 +39,39 @@ import { initCourseManager } from './modules/courses.js';
                 error: function(xhr, status, error) {
                     console.error('Connection test error:', error);
                     showNotice('Error: Failed to test connection', 'error');
+                },
+                complete: function() {
+                    button.prop('disabled', false).text(originalText);
+                }
+            });
+        });
+
+        // Get Courses button
+        $('#ccs-get-courses').on('click', function(e) {
+            e.preventDefault();
+            var button = $(this);
+            var originalText = button.text();
+            
+            button.prop('disabled', true).text('Loading...');
+            
+            $.ajax({
+                url: window.ccsAdmin.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'ccs_get_courses',
+                    nonce: window.ccsAdmin.nonces.get_courses
+                },
+                success: function(response) {
+                    if (response.success) {
+                        displayCourses(response.data);
+                        showNotice('Courses loaded successfully', 'success');
+                    } else {
+                        showNotice('Error: ' + response.data, 'error');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('Get courses error:', error);
+                    showNotice('Error: Failed to load courses', 'error');
                 },
                 complete: function() {
                     button.prop('disabled', false).text(originalText);
@@ -65,11 +98,11 @@ import { initCourseManager } from './modules/courses.js';
             button.prop('disabled', true).text('Syncing...');
             
             $.ajax({
-                url: window.ajaxurl,
+                url: window.ccsAdmin.ajaxUrl,
                 type: 'POST',
                 data: {
                     action: 'ccs_sync_courses',
-                    nonce: window.ccsNonces.sync_courses,
+                    nonce: window.ccsAdmin.nonces.sync_courses,
                     course_ids: selectedCourses
                 },
                 success: function(response) {
@@ -89,6 +122,26 @@ import { initCourseManager } from './modules/courses.js';
                 }
             });
         });
+
+        function displayCourses(courses) {
+            if (!Array.isArray(courses) || courses.length === 0) {
+                $('#ccs-courses-list').html('<p>No courses found.</p>');
+                return;
+            }
+
+            var html = '<div class="ccs-courses"><h3>Select courses to sync:</h3>';
+            courses.forEach(function(course) {
+                var disabled = course.exists_in_wp ? 'disabled' : '';
+                var status = course.exists_in_wp ? ' (Already exists)' : '';
+                html += '<label><input type="checkbox" class="ccs-course-checkbox" value="' + 
+                        escapeHtml(course.id) + '" ' + disabled + '> ' + 
+                        escapeHtml(course.name) + status + '</label><br>';
+            });
+            html += '</div>';
+            
+            $('#ccs-courses-list').html(html);
+            $('#ccs-sync-selected').prop('disabled', false);
+        }
 
         function displaySyncResults(results) {
             var html = '<div class="sync-results">';

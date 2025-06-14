@@ -1,3 +1,4 @@
+
 <?php
 /**
  * Plugin Name: Canvas Course Sync
@@ -75,30 +76,11 @@ class Canvas_Course_Sync {
      * Initialize plugin
      */
     public function init_plugin() {
-        // Load dependencies here instead of in constructor
+        // Load dependencies
         $this->load_dependencies();
         
-        // Initialize logger after dependencies are loaded
-        if (class_exists('CCS_Logger')) {
-            $this->logger = new CCS_Logger();
-            $this->logger->log('Plugin initialized', 'info');
-        }
-
-        // Initialize API
-        if (class_exists('CCS_Canvas_API')) {
-            $this->api = new CCS_Canvas_API();
-            if ($this->logger) {
-                $this->logger->log('Canvas API initialized', 'info');
-            }
-        }
-
-        // Initialize importer
-        if (class_exists('CCS_Importer')) {
-            $this->importer = new CCS_Importer();
-            if ($this->logger) {
-                $this->logger->log('Importer initialized', 'info');
-            }
-        }
+        // Initialize components
+        $this->init_components();
 
         // Initialize admin functionality
         if (is_admin()) {
@@ -121,22 +103,42 @@ class Canvas_Course_Sync {
 
         // Admin includes
         if (is_admin()) {
-            require_once CCS_PLUGIN_DIR . 'includes/admin-page.php';
             require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-admin-menu.php';
             require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-admin-page.php';
-            require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-api-settings.php';
-            require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-email-settings.php';
-            require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-logs-display.php';
-            require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-sync-controls.php';
         }
 
         // Handler includes
         require_once CCS_PLUGIN_DIR . 'includes/handlers/class-ccs-ajax-handler.php';
-        require_once CCS_PLUGIN_DIR . 'includes/handlers/class-ccs-content-handler.php';
-        require_once CCS_PLUGIN_DIR . 'includes/handlers/class-ccs-media-handler.php';
 
         // Scheduler
         require_once CCS_PLUGIN_DIR . 'includes/class-ccs-scheduler.php';
+    }
+
+    /**
+     * Initialize components
+     */
+    private function init_components() {
+        // Initialize logger
+        if (class_exists('CCS_Logger')) {
+            $this->logger = new CCS_Logger();
+            $this->logger->log('Plugin initialized', 'info');
+        }
+
+        // Initialize API
+        if (class_exists('CCS_Canvas_API')) {
+            $this->api = new CCS_Canvas_API();
+            if ($this->logger) {
+                $this->logger->log('Canvas API initialized', 'info');
+            }
+        }
+
+        // Initialize importer
+        if (class_exists('CCS_Importer')) {
+            $this->importer = new CCS_Importer();
+            if ($this->logger) {
+                $this->logger->log('Importer initialized', 'info');
+            }
+        }
     }
 
     /**
@@ -179,10 +181,16 @@ class Canvas_Course_Sync {
         );
 
         // Localize script with nonces and ajax URL
-        wp_localize_script('ccs-admin-js', 'ccsNonces', array(
-            'test_connection' => wp_create_nonce('ccs_test_connection_nonce'),
-            'get_courses' => wp_create_nonce('ccs_get_courses_nonce'),
-            'sync_courses' => wp_create_nonce('ccs_sync_nonce')
+        wp_localize_script('ccs-admin-js', 'ccsAdmin', array(
+            'ajaxUrl' => admin_url('admin-ajax.php'),
+            'nonces' => array(
+                'test_connection' => wp_create_nonce('ccs_test_connection_nonce'),
+                'get_courses' => wp_create_nonce('ccs_get_courses_nonce'),
+                'sync_courses' => wp_create_nonce('ccs_sync_courses_nonce'),
+                'clear_logs' => wp_create_nonce('ccs_clear_logs_nonce'),
+                'sync_status' => wp_create_nonce('ccs_sync_status_nonce'),
+                'auto_sync' => wp_create_nonce('ccs_auto_sync_nonce')
+            )
         ));
     }
 
@@ -193,93 +201,6 @@ class Canvas_Course_Sync {
         // Load the admin AJAX handlers
         if (is_admin()) {
             require_once CCS_PLUGIN_DIR . 'includes/admin/index.php';
-        }
-    }
-
-    /**
-     * AJAX handler for testing connection
-     */
-    public function ajax_test_connection() {
-        check_ajax_referer('ccs_test_connection_nonce', 'nonce');
-        
-        if (!current_user_can('manage_options')) {
-            wp_die('Unauthorized');
-        }
-
-        if ($this->api) {
-            $result = $this->api->test_connection();
-            if ($result) {
-                wp_send_json_success('Connection successful');
-            } else {
-                wp_send_json_error('Connection failed');
-            }
-        } else {
-            wp_send_json_error('API not initialized');
-        }
-    }
-
-    /**
-     * AJAX handler for getting courses
-     */
-    public function ajax_get_courses() {
-        check_ajax_referer('ccs_get_courses_nonce', 'nonce');
-        
-        if (!current_user_can('manage_options')) {
-            wp_die('Unauthorized');
-        }
-
-        if ($this->api) {
-            $courses = $this->api->get_courses();
-            if ($courses !== false) {
-                wp_send_json_success($courses);
-            } else {
-                wp_send_json_error('Failed to fetch courses');
-            }
-        } else {
-            wp_send_json_error('API not initialized');
-        }
-    }
-
-    /**
-     * AJAX handler for syncing courses
-     */
-    public function ajax_sync_courses() {
-        check_ajax_referer('ccs_sync_nonce', 'nonce');
-        
-        if (!current_user_can('manage_options')) {
-            wp_die('Unauthorized');
-        }
-
-        $course_ids = isset($_POST['course_ids']) ? array_map('intval', $_POST['course_ids']) : array();
-        
-        if (empty($course_ids)) {
-            wp_send_json_error('No courses selected');
-            return;
-        }
-
-        if ($this->api && $this->importer) {
-            $courses = $this->api->get_courses();
-            if ($courses === false) {
-                wp_send_json_error('Failed to fetch courses from Canvas');
-                return;
-            }
-
-            // Filter courses to only the selected ones
-            $selected_courses = array_filter($courses, function($course) use ($course_ids) {
-                return in_array($course['id'], $course_ids);
-            });
-
-            if (empty($selected_courses)) {
-                wp_send_json_error('Selected courses not found');
-                return;
-            }
-
-            // Import the selected courses
-            $result = $this->importer->import_courses($selected_courses);
-            
-            wp_send_json_success($result);
-        } else {
-            wp_send_json_error('API or Importer not initialized');
         }
     }
 
