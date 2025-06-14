@@ -188,11 +188,14 @@ class CCS_Canvas_API {
         }
 
         $endpoint = 'courses';
+        
+        // Updated parameters to match Canvas API expectations
         $params = array(
-            'include[]' => array('term', 'total_students', 'course_image'),
-            'state[]' => 'available',
+            'include' => array('term', 'course_image', 'total_students'),
+            'state' => array('available', 'completed'),
             'per_page' => 100,
-            'enrollment_type' => 'teacher'
+            'enrollment_type' => 'teacher',
+            'enrollment_state' => 'active'
         );
         
         if ($this->logger) {
@@ -226,6 +229,11 @@ class CCS_Canvas_API {
                 if ($course_count > 1) {
                     $this->logger->log('Second course details: ' . print_r($courses[1], true));
                 }
+            } else {
+                $this->logger->log('No courses returned from API. This could mean:');
+                $this->logger->log('1. User has no courses assigned');
+                $this->logger->log('2. API token lacks proper permissions');
+                $this->logger->log('3. All courses are in non-available state');
             }
         }
         
@@ -325,23 +333,35 @@ class CCS_Canvas_API {
         // Build URL
         $url = trailingslashit($this->domain) . 'api/v1/' . $endpoint;
         
+        if ($this->logger) {
+            $this->logger->log('Base API URL: ' . $url);
+        }
+
+        // Build query string with proper array handling for Canvas API
+        $query_string = '';
         if (!empty($params)) {
-            // Handle array parameters properly for Canvas API
-            $query_params = array();
+            $query_parts = array();
             foreach ($params as $key => $value) {
                 if (is_array($value)) {
+                    // For Canvas API, array parameters need special formatting
                     foreach ($value as $v) {
-                        $query_params[] = $key . '=' . urlencode($v);
+                        if (strpos($key, '[]') === false) {
+                            $query_parts[] = $key . '[]=' . urlencode($v);
+                        } else {
+                            $query_parts[] = $key . '=' . urlencode($v);
+                        }
                     }
                 } else {
-                    $query_params[] = $key . '=' . urlencode($value);
+                    $query_parts[] = $key . '=' . urlencode($value);
                 }
             }
-            $url = $url . '?' . implode('&', $query_params);
+            $query_string = implode('&', $query_parts);
+            $url = $url . '?' . $query_string;
         }
         
         if ($this->logger) {
-            $this->logger->log('API Request URL: ' . $url);
+            $this->logger->log('Final API Request URL: ' . $url);
+            $this->logger->log('Query string: ' . $query_string);
         }
         
         // Make the request
@@ -366,10 +386,12 @@ class CCS_Canvas_API {
         // Get response details
         $status_code = wp_remote_retrieve_response_code($response);
         $body = wp_remote_retrieve_body($response);
+        $headers = wp_remote_retrieve_headers($response);
         
         if ($this->logger) {
             $this->logger->log('API Response Status: ' . $status_code);
-            $this->logger->log('API Response Body (first 1000 chars): ' . substr($body, 0, 1000));
+            $this->logger->log('API Response Headers: ' . print_r($headers, true));
+            $this->logger->log('API Response Body (first 2000 chars): ' . substr($body, 0, 2000));
         }
         
         // Handle HTTP error status codes
@@ -414,6 +436,15 @@ class CCS_Canvas_API {
                 $this->logger->log('Raw response body: ' . $body, 'error');
             }
             return new WP_Error('json_decode_failed', 'Failed to decode JSON response: ' . $json_error);
+        }
+        
+        if ($this->logger) {
+            $this->logger->log('Successfully decoded JSON response. Type: ' . gettype($data));
+            if (is_array($data)) {
+                $this->logger->log('Response is array with ' . count($data) . ' elements');
+            } elseif (is_object($data)) {
+                $this->logger->log('Response is object with properties: ' . implode(', ', array_keys((array)$data)));
+            }
         }
         
         return $data;

@@ -101,7 +101,9 @@ function ccs_ajax_get_courses() {
     
     // Debug log
     if (isset($canvas_course_sync->logger)) {
-        $canvas_course_sync->logger->log('Get courses AJAX request received');
+        $canvas_course_sync->logger->log('=== GET COURSES AJAX REQUEST STARTED ===');
+        $canvas_course_sync->logger->log('Domain configured: ' . (get_option('ccs_api_domain') ? 'YES' : 'NO'));
+        $canvas_course_sync->logger->log('Token configured: ' . (get_option('ccs_api_token') ? 'YES' : 'NO'));
     }
     
     try {
@@ -136,6 +138,7 @@ function ccs_ajax_get_courses() {
             $error_msg = 'Invalid courses response format. Expected array, got: ' . gettype($courses);
             if (isset($canvas_course_sync->logger)) {
                 $canvas_course_sync->logger->log($error_msg, 'error');
+                $canvas_course_sync->logger->log('Courses data dump: ' . print_r($courses, true), 'error');
             }
             wp_send_json_error($error_msg);
             return;
@@ -149,7 +152,14 @@ function ccs_ajax_get_courses() {
             // Log sample course data for debugging
             if ($count > 0) {
                 $sample_course = $courses[0];
-                $canvas_course_sync->logger->log('Sample course data: ID=' . (isset($sample_course->id) ? $sample_course->id : 'missing') . ', Name=' . (isset($sample_course->name) ? $sample_course->name : 'missing'));
+                $canvas_course_sync->logger->log('Sample course data: ' . print_r($sample_course, true));
+            } else {
+                $canvas_course_sync->logger->log('=== NO COURSES RETURNED - POSSIBLE REASONS ===');
+                $canvas_course_sync->logger->log('1. User may not have any courses assigned');
+                $canvas_course_sync->logger->log('2. API token may not have proper permissions');
+                $canvas_course_sync->logger->log('3. All courses may be in unavailable state');
+                $canvas_course_sync->logger->log('4. Canvas API parameters may need adjustment');
+                $canvas_course_sync->logger->log('=== END DEBUG INFO ===');
             }
         }
         
@@ -163,10 +173,15 @@ function ccs_ajax_get_courses() {
             }
         }
         
+        if (isset($canvas_course_sync->logger)) {
+            $canvas_course_sync->logger->log('Courses converted to array format. Final count: ' . count($courses_array));
+        }
+        
         wp_send_json_success($courses_array);
     } catch (Exception $e) {
         if (isset($canvas_course_sync->logger)) {
             $canvas_course_sync->logger->log('Exception getting courses: ' . $e->getMessage(), 'error');
+            $canvas_course_sync->logger->log('Exception stack trace: ' . $e->getTraceAsString(), 'error');
         }
         wp_send_json_error('Exception: ' . $e->getMessage());
     }
