@@ -6,12 +6,17 @@
         // Check if required variables are available
         if (typeof ccsAjax === 'undefined') {
             console.error('CCS Admin: Required AJAX variables not found');
+            console.log('Available variables:', window);
             return;
         }
+        
+        console.log('CCS Admin initialized with:', ccsAjax);
 
         // Test Connection button
         $('#ccs-test-connection').on('click', function(e) {
             e.preventDefault();
+            console.log('Test connection clicked');
+            
             var button = $(this);
             var originalText = button.text();
             
@@ -22,9 +27,10 @@
                 type: 'POST',
                 data: {
                     action: 'ccs_test_connection',
-                    nonce: ccsAjax.nonces.test_connection
+                    nonce: ccsAjax.testConnectionNonce
                 },
                 success: function(response) {
+                    console.log('Test connection response:', response);
                     if (response.success) {
                         showNotice('Success: ' + response.data, 'success');
                     } else {
@@ -32,8 +38,8 @@
                     }
                 },
                 error: function(xhr, status, error) {
-                    console.error('Connection test error:', error);
-                    showNotice('Error: Failed to test connection', 'error');
+                    console.error('Connection test error:', {xhr, status, error});
+                    showNotice('Error: Failed to test connection - ' + error, 'error');
                 },
                 complete: function() {
                     button.prop('disabled', false).text(originalText);
@@ -44,6 +50,8 @@
         // Get Courses button
         $('#ccs-get-courses').on('click', function(e) {
             e.preventDefault();
+            console.log('Get courses clicked');
+            
             var button = $(this);
             var originalText = button.text();
             
@@ -54,9 +62,10 @@
                 type: 'POST',
                 data: {
                     action: 'ccs_get_courses',
-                    nonce: ccsAjax.nonces.get_courses
+                    nonce: ccsAjax.getCoursesNonce
                 },
                 success: function(response) {
+                    console.log('Get courses response:', response);
                     if (response.success) {
                         displayCourses(response.data);
                         showNotice('Courses loaded successfully', 'success');
@@ -65,8 +74,8 @@
                     }
                 },
                 error: function(xhr, status, error) {
-                    console.error('Get courses error:', error);
-                    showNotice('Error: Failed to load courses', 'error');
+                    console.error('Get courses error:', {xhr, status, error});
+                    showNotice('Error: Failed to load courses - ' + error, 'error');
                 },
                 complete: function() {
                     button.prop('disabled', false).text(originalText);
@@ -97,7 +106,7 @@
                 type: 'POST',
                 data: {
                     action: 'ccs_sync_courses',
-                    nonce: ccsAjax.nonces.sync_courses,
+                    nonce: ccsAjax.syncCoursesNonce,
                     course_ids: selectedCourses
                 },
                 success: function(response) {
