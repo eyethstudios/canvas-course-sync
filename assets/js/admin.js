@@ -3,19 +3,35 @@
     'use strict';
 
     $(document).ready(function() {
+        console.log('CCS Admin script loaded');
+        console.log('jQuery version:', $.fn.jquery);
+        console.log('Available global variables:', Object.keys(window));
+        
         // Check if required variables are available
         if (typeof ccsAjax === 'undefined') {
-            console.error('CCS Admin: Required AJAX variables not found');
-            console.log('Available variables:', window);
+            console.error('CCS Admin: ccsAjax variable not found');
+            console.log('Checking for alternative variable names...');
+            
+            // Check for other possible variable names
+            var possibleVars = ['ccsAjax', 'ccs_ajax', 'canvasCourseSync'];
+            possibleVars.forEach(function(varName) {
+                if (typeof window[varName] !== 'undefined') {
+                    console.log('Found alternative variable:', varName, window[varName]);
+                }
+            });
             return;
         }
         
-        console.log('CCS Admin initialized with:', ccsAjax);
+        console.log('CCS Admin initialized successfully with:', ccsAjax);
+        
+        // Check if buttons exist
+        console.log('Test connection button exists:', $('#ccs-test-connection').length > 0);
+        console.log('Get courses button exists:', $('#ccs-get-courses').length > 0);
 
         // Test Connection button
         $('#ccs-test-connection').on('click', function(e) {
             e.preventDefault();
-            console.log('Test connection clicked');
+            console.log('Test connection button clicked');
             
             var button = $(this);
             var originalText = button.text();
@@ -39,6 +55,7 @@
                 },
                 error: function(xhr, status, error) {
                     console.error('Connection test error:', {xhr, status, error});
+                    console.error('Response text:', xhr.responseText);
                     showNotice('Error: Failed to test connection - ' + error, 'error');
                 },
                 complete: function() {
@@ -50,7 +67,7 @@
         // Get Courses button
         $('#ccs-get-courses').on('click', function(e) {
             e.preventDefault();
-            console.log('Get courses clicked');
+            console.log('Get courses button clicked');
             
             var button = $(this);
             var originalText = button.text();
@@ -75,6 +92,7 @@
                 },
                 error: function(xhr, status, error) {
                     console.error('Get courses error:', {xhr, status, error});
+                    console.error('Response text:', xhr.responseText);
                     showNotice('Error: Failed to load courses - ' + error, 'error');
                 },
                 complete: function() {
@@ -86,6 +104,8 @@
         // Sync Selected Courses button
         $('#ccs-sync-selected').on('click', function(e) {
             e.preventDefault();
+            console.log('Sync selected button clicked');
+            
             var selectedCourses = [];
             $('.ccs-course-checkbox:checked').each(function() {
                 selectedCourses.push($(this).val());
@@ -110,6 +130,7 @@
                     course_ids: selectedCourses
                 },
                 success: function(response) {
+                    console.log('Sync response:', response);
                     if (response.success) {
                         displaySyncResults(response.data);
                         showNotice('Sync completed successfully', 'success');
@@ -118,8 +139,8 @@
                     }
                 },
                 error: function(xhr, status, error) {
-                    console.error('Sync courses error:', error);
-                    showNotice('Error: Failed to sync courses', 'error');
+                    console.error('Sync courses error:', {xhr, status, error});
+                    showNotice('Error: Failed to sync courses - ' + error, 'error');
                 },
                 complete: function() {
                     button.prop('disabled', false).text(originalText);
@@ -127,7 +148,10 @@
             });
         });
 
+        // Helper functions
         function displayCourses(courses) {
+            console.log('Displaying courses:', courses);
+            
             if (!Array.isArray(courses) || courses.length === 0) {
                 $('#ccs-courses-list').html('<p>No courses found.</p>');
                 return;
@@ -144,10 +168,12 @@
             html += '</div>';
             
             $('#ccs-courses-list').html(html);
-            $('#ccs-sync-selected').prop('disabled', false);
+            $('#ccs-sync-selected').show();
         }
 
         function displaySyncResults(results) {
+            console.log('Displaying sync results:', results);
+            
             var html = '<div class="sync-results">';
             html += '<h3>Sync Results</h3>';
             html += '<p>' + escapeHtml(results.message || 'Sync completed') + '</p>';
