@@ -401,6 +401,12 @@ class Canvas_Course_Sync {
         if (file_exists(CCS_PLUGIN_DIR . 'assets/css/admin.css')) {
             wp_enqueue_style('ccs-admin-css', $css_file, array(), CCS_VERSION);
         }
+        
+        // Enqueue course status CSS
+        $course_css_file = CCS_PLUGIN_URL . 'assets/css/course-status.css';
+        if (file_exists(CCS_PLUGIN_DIR . 'assets/css/course-status.css')) {
+            wp_enqueue_style('ccs-course-status-css', $course_css_file, array(), CCS_VERSION);
+        }
 
         // Enqueue JS
         $js_file = CCS_PLUGIN_URL . 'assets/js/admin.js';
@@ -515,16 +521,59 @@ class Canvas_Course_Sync {
         // Get courses with Canvas API class if available
         if (class_exists('CCS_Canvas_API')) {
             $api = new CCS_Canvas_API($domain, $token);
-            $courses = $api->get_courses();
+            $canvas_courses = $api->get_courses();
             
             if ($this->logger) {
-                $this->logger->log('Courses fetched: ' . count($courses) . ' courses found', 'info');
-                if (!empty($courses)) {
-                    $this->logger->log('Sample course data: ' . print_r($courses[0], true), 'info');
+                $this->logger->log('Canvas courses fetched: ' . count($canvas_courses) . ' courses found', 'info');
+            }
+            
+            // Get existing WordPress courses for comparison
+            $existing_wp_courses = get_posts(array(
+                'post_type'      => 'courses',
+                'post_status'    => array('draft', 'publish', 'private', 'pending'),
+                'posts_per_page' => -1,
+                'fields'         => 'ids'
+            ));
+            
+            $existing_titles = array();
+            $existing_canvas_ids = array();
+            
+            foreach ($existing_wp_courses as $post_id) {
+                $title = get_the_title($post_id);
+                $canvas_id = get_post_meta($post_id, 'canvas_course_id', true);
+                
+                if (!empty($title)) {
+                    $existing_titles[] = strtolower(trim($title));
+                }
+                if (!empty($canvas_id)) {
+                    $existing_canvas_ids[] = $canvas_id;
                 }
             }
             
-            wp_send_json_success($courses);
+            if ($this->logger) {
+                $this->logger->log('Found ' . count($existing_wp_courses) . ' existing WordPress courses for comparison', 'info');
+            }
+            
+            // Add exists_in_wp flag to each Canvas course
+            foreach ($canvas_courses as &$course) {
+                $course->exists_in_wp = false;
+                $course->match_type = '';
+                
+                // Check by Canvas ID first (most reliable)
+                if (in_array($course->id, $existing_canvas_ids)) {
+                    $course->exists_in_wp = true;
+                    $course->match_type = 'canvas_id';
+                } else {
+                    // Check by title (case-insensitive)
+                    $course_title_lower = strtolower(trim($course->name));
+                    if (in_array($course_title_lower, $existing_titles)) {
+                        $course->exists_in_wp = true;
+                        $course->match_type = 'title';
+                    }
+                }
+            }
+            
+            wp_send_json_success($canvas_courses);
         } else {
             if ($this->logger) {
                 $this->logger->log('Canvas API class not found', 'error');

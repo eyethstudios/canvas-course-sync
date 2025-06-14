@@ -28,9 +28,6 @@ export function initCourseManager($) {
                     
                     // Sort courses by creation date (most recent first)
                     const sortedCourses = response.data.sort((a, b) => {
-                        // Debug creation dates
-                        console.log(`Course ${a.name}: created_at = ${a.created_at}`);
-                        console.log(`Course ${b.name}: created_at = ${b.created_at}`);
                         return new Date(b.created_at || 0) - new Date(a.created_at || 0);
                     });
                     
@@ -43,11 +40,25 @@ export function initCourseManager($) {
                         '</div>';
                         
                     sortedCourses.forEach(function(course) {
-                        html += '<div class="ccs-course-item">' +
+                        let statusClass = '';
+                        let statusText = '';
+                        let checkboxChecked = 'checked';
+                        
+                        if (course.exists_in_wp) {
+                            statusClass = 'ccs-course-exists';
+                            if (course.match_type === 'canvas_id') {
+                                statusText = ' <span class="ccs-status-badge ccs-exists-canvas-id">(Already synced)</span>';
+                            } else {
+                                statusText = ' <span class="ccs-status-badge ccs-exists-title">(Title exists in WP)</span>';
+                            }
+                            checkboxChecked = ''; // Don't check existing courses by default
+                        }
+                        
+                        html += '<div class="ccs-course-item ' + statusClass + '">' +
                             '<label>' +
                             '<input type="checkbox" class="ccs-course-checkbox" ' +
-                            'value="' + course.id + '" checked> ' +
-                            course.name + '</label>' +
+                            'value="' + course.id + '" ' + checkboxChecked + '> ' +
+                            course.name + statusText + '</label>' +
                             '</div>';
                     });
                     
