@@ -3,23 +3,27 @@
  * Course management functionality
  */
 export function initCourseManager($) {
-    // Load courses button handler
-    $('#ccs-load-courses').on('click', function() {
+    // Load courses button handler - support both old and new IDs
+    $('#ccs-load-courses, #ccs-get-courses').on('click', function() {
         const button = $(this);
-        const courseList = $('#ccs-course-list');
+        const courseList = $('#ccs-course-list, #ccs-courses-list');
         const loadingText = $('#ccs-loading-courses');
         const coursesWrapper = $('#ccs-courses-wrapper');
         
         button.attr('disabled', true);
-        loadingText.show();
+        if (loadingText.length) {
+            loadingText.show();
+        } else {
+            button.text('Loading...');
+        }
         courseList.html('');
         
         $.ajax({
-            url: ccsData.ajaxUrl,
+            url: window.ajaxurl || ccsData.ajaxUrl,
             type: 'POST',
             data: {
                 action: 'ccs_get_courses',
-                nonce: ccsData.getCoursesNonce
+                nonce: window.ccsNonces?.get_courses || ccsData.getCoursesNonce
             },
             success: function(response) {
                 console.log('Full AJAX response:', response);
@@ -101,28 +105,46 @@ export function initCourseManager($) {
                         
                         html += '<div class="ccs-course-item ' + statusClass + '" data-course-name="' + course.name + '" data-created-at="' + (course.created_at || '') + '" data-status="' + (course.exists_in_wp ? (course.match_type === 'canvas_id' ? 'synced' : 'exists') : 'new') + '">' +
                             '<label>' +
-                            '<input type="checkbox" class="ccs-course-checkbox" ' +
+                            '<input type="checkbox" class="ccs-course-checkbox course-checkbox" ' +
                             'value="' + course.id + '" ' + checkboxChecked + '> ' +
                             courseDisplayName + statusText + '</label>' +
                             '</div>';
                     });
                     
                     courseList.html(html);
-                    coursesWrapper.show();
+                    if (coursesWrapper.length) {
+                        coursesWrapper.show();
+                    }
+                    
+                    // Enable sync button
+                    $('#ccs-sync-selected').prop('disabled', false);
+                    
+                    // Show success notice if showNotice function exists
+                    if (typeof showNotice === 'function') {
+                        showNotice('Loaded ' + response.data.length + ' courses', 'success');
+                    }
                 } else {
                     const errorMessage = response.data || 'Error loading courses. Please try again.';
                     courseList.html('<p class="error">Error loading courses: ' + errorMessage + '</p>');
-                    coursesWrapper.show();
+                    if (coursesWrapper.length) {
+                        coursesWrapper.show();
+                    }
                 }
             },
             error: function(xhr, status, error) {
                 console.error('AJAX error:', xhr, status, error);
                 courseList.html('<p class="error">Connection error occurred. Please try again.</p>');
-                coursesWrapper.show();
+                if (coursesWrapper.length) {
+                    coursesWrapper.show();
+                }
             },
             complete: function() {
                 button.attr('disabled', false);
-                loadingText.hide();
+                if (loadingText.length) {
+                    loadingText.hide();
+                } else {
+                    button.text('Get Courses');
+                }
             }
         });
     });
@@ -168,7 +190,7 @@ export function initCourseManager($) {
         });
         
         // Re-append sorted items
-        const courseList = $('#ccs-course-list');
+        const courseList = $('#ccs-course-list, #ccs-courses-list');
         const selectAllDiv = courseList.find('.ccs-select-all');
         const sortControlsDiv = courseList.find('.ccs-sort-controls');
         

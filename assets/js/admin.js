@@ -1,7 +1,13 @@
+
+import { initCourseManager } from './modules/courses.js';
+
 (function($) {
     'use strict';
 
     $(document).ready(function() {
+        // Initialize course manager
+        initCourseManager($);
+        
         // Check if required variables are available
         if (typeof window.ccsNonces === 'undefined' || typeof window.ajaxurl === 'undefined') {
             console.error('CCS Admin: Required variables not found');
@@ -40,64 +46,11 @@
             });
         });
 
-        // Get Courses button
-        $('#ccs-get-courses').on('click', function(e) {
-            e.preventDefault();
-            var button = $(this);
-            var originalText = button.text();
-            
-            console.log('Get Courses button clicked');
-            button.prop('disabled', true).text('Loading...');
-            
-            $.ajax({
-                url: window.ajaxurl,
-                type: 'POST',
-                data: {
-                    action: 'ccs_get_courses',
-                    nonce: window.ccsNonces.get_courses
-                },
-                success: function(response) {
-                    console.log('Get courses response:', response);
-                    
-                    if (response.success && response.data) {
-                        console.log('Courses data type:', typeof response.data);
-                        console.log('Courses data length:', response.data.length);
-                        console.log('First course:', response.data[0]);
-                        
-                        if (Array.isArray(response.data) && response.data.length > 0) {
-                            displayCoursesList(response.data);
-                            $('#ccs-sync-selected').prop('disabled', false);
-                            showNotice('Loaded ' + response.data.length + ' courses', 'success');
-                        } else {
-                            console.log('No courses found in response');
-                            $('#ccs-courses-list').html('<p>No courses found. This could mean:</p><ul><li>You don\'t have any courses assigned to you</li><li>Your API token doesn\'t have the right permissions</li><li>All your courses are in a non-available state</li></ul>');
-                            showNotice('No courses found', 'warning');
-                        }
-                    } else {
-                        console.error('Error in response:', response);
-                        showNotice('Error: ' + (response.data || 'Failed to load courses'), 'error');
-                    }
-                },
-                error: function(xhr, status, error) {
-                    console.error('Get courses AJAX error:', {
-                        xhr: xhr,
-                        status: status,
-                        error: error,
-                        responseText: xhr.responseText
-                    });
-                    showNotice('Error: Failed to load courses. Check console for details.', 'error');
-                },
-                complete: function() {
-                    button.prop('disabled', false).text(originalText);
-                }
-            });
-        });
-
         // Sync Selected Courses button
         $('#ccs-sync-selected').on('click', function(e) {
             e.preventDefault();
             var selectedCourses = [];
-            $('.course-checkbox:checked').each(function() {
+            $('.ccs-course-checkbox:checked').each(function() {
                 selectedCourses.push($(this).val());
             });
             
@@ -136,47 +89,6 @@
                 }
             });
         });
-
-        function displayCoursesList(courses) {
-            console.log('Displaying courses list:', courses);
-            
-            var html = '<h3>Available Courses (' + courses.length + ')</h3>';
-            html += '<div class="courses-list">';
-            
-            if (courses && courses.length > 0) {
-                html += '<div style="margin-bottom: 10px;">';
-                html += '<label><input type="checkbox" id="select-all-courses"> Select All</label>';
-                html += '</div>';
-                
-                courses.forEach(function(course) {
-                    console.log('Processing course:', course);
-                    
-                    var courseId = course.id || 'unknown';
-                    var courseName = course.name || 'Unnamed Course';
-                    var courseCode = course.course_code || '';
-                    
-                    html += '<div class="course-item">';
-                    html += '<label>';
-                    html += '<input type="checkbox" class="course-checkbox" value="' + escapeHtml(courseId) + '"> ';
-                    html += escapeHtml(courseName);
-                    if (courseCode) {
-                        html += ' (' + escapeHtml(courseCode) + ')';
-                    }
-                    html += '</label>';
-                    html += '</div>';
-                });
-            } else {
-                html += '<p>No courses available.</p>';
-            }
-            
-            html += '</div>';
-            $('#ccs-courses-list').html(html);
-            
-            // Add select all functionality
-            $('#select-all-courses').on('change', function() {
-                $('.course-checkbox').prop('checked', $(this).prop('checked'));
-            });
-        }
 
         function displaySyncResults(results) {
             var html = '<div class="sync-results">';
