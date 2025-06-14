@@ -1,3 +1,4 @@
+
 <?php
 /**
  * Plugin Name: Canvas Course Sync
@@ -101,6 +102,7 @@ class Canvas_Course_Sync {
         if (is_admin()) {
             require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-admin-menu.php';
             require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-admin-page.php';
+            require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-logs-display.php';
             require_once CCS_PLUGIN_DIR . 'includes/admin/index.php';
         }
 
@@ -152,8 +154,8 @@ class Canvas_Course_Sync {
      * Enqueue admin assets
      */
     public function enqueue_admin_assets($hook) {
-        // Only load on our admin page
-        if ($hook !== 'toplevel_page_canvas-course-sync') {
+        // Load on our admin pages
+        if ($hook !== 'toplevel_page_canvas-course-sync' && $hook !== 'canvas-sync_page_canvas-course-sync-logs') {
             return;
         }
 

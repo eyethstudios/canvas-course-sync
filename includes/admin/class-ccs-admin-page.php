@@ -126,46 +126,8 @@ class CCS_Admin_Page {
                         <div id="ccs-sync-status" class="ccs-sync-status"></div>
                     </div>
                 </div>
-
-                <!-- Logs Panel -->
-                <div class="ccs-panel">
-                    <h2><?php _e('Activity Logs', 'canvas-course-sync'); ?></h2>
-                    <button type="button" id="ccs-clear-logs" class="button button-secondary">
-                        <?php _e('Clear Logs', 'canvas-course-sync'); ?>
-                    </button>
-                    <div id="ccs-logs-display" class="ccs-logs">
-                        <?php $this->display_recent_logs(); ?>
-                    </div>
-                </div>
             </div>
         </div>
         <?php
-    }
-
-    /**
-     * Display recent logs
-     */
-    private function display_recent_logs() {
-        if ($this->logger && method_exists($this->logger, 'get_recent_logs')) {
-            $logs = $this->logger->get_recent_logs(10);
-            if (!empty($logs)) {
-                echo '<ul class="ccs-log-list">';
-                foreach ($logs as $log) {
-                    $timestamp = isset($log['timestamp']) ? date('Y-m-d H:i:s', $log['timestamp']) : '';
-                    $level = isset($log['level']) ? $log['level'] : 'info';
-                    $message = isset($log['message']) ? $log['message'] : '';
-                    
-                    echo '<li class="ccs-log-' . esc_attr($level) . '">';
-                    echo '<span class="ccs-log-time">' . esc_html($timestamp) . '</span> ';
-                    echo '<span class="ccs-log-message">' . esc_html($message) . '</span>';
-                    echo '</li>';
-                }
-                echo '</ul>';
-            } else {
-                echo '<p>' . __('No recent logs found.', 'canvas-course-sync') . '</p>';
-            }
-        } else {
-            echo '<p>' . __('Logger not available.', 'canvas-course-sync') . '</p>';
-        }
     }
 }
