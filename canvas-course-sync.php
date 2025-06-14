@@ -1,4 +1,3 @@
-
 <?php
 /**
  * Plugin Name: Canvas Course Sync
@@ -86,9 +85,6 @@ class Canvas_Course_Sync {
         if (is_admin()) {
             $this->init_admin();
         }
-
-        // Add AJAX handlers
-        $this->init_ajax_handlers();
     }
 
     /**
@@ -105,10 +101,8 @@ class Canvas_Course_Sync {
         if (is_admin()) {
             require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-admin-menu.php';
             require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-admin-page.php';
+            require_once CCS_PLUGIN_DIR . 'includes/admin/index.php';
         }
-
-        // Handler includes
-        require_once CCS_PLUGIN_DIR . 'includes/handlers/class-ccs-ajax-handler.php';
 
         // Scheduler
         require_once CCS_PLUGIN_DIR . 'includes/class-ccs-scheduler.php';
@@ -180,28 +174,18 @@ class Canvas_Course_Sync {
             CCS_VERSION
         );
 
-        // Localize script with nonces and ajax URL
-        wp_localize_script('ccs-admin-js', 'ccsAdmin', array(
+        // Localize script with AJAX data
+        wp_localize_script('ccs-admin-js', 'ccsAjax', array(
             'ajaxUrl' => admin_url('admin-ajax.php'),
             'nonces' => array(
-                'test_connection' => wp_create_nonce('ccs_test_connection_nonce'),
-                'get_courses' => wp_create_nonce('ccs_get_courses_nonce'),
-                'sync_courses' => wp_create_nonce('ccs_sync_courses_nonce'),
-                'clear_logs' => wp_create_nonce('ccs_clear_logs_nonce'),
-                'sync_status' => wp_create_nonce('ccs_sync_status_nonce'),
-                'auto_sync' => wp_create_nonce('ccs_auto_sync_nonce')
+                'test_connection' => wp_create_nonce('ccs_test_connection'),
+                'get_courses' => wp_create_nonce('ccs_get_courses'),
+                'sync_courses' => wp_create_nonce('ccs_sync_courses'),
+                'clear_logs' => wp_create_nonce('ccs_clear_logs'),
+                'sync_status' => wp_create_nonce('ccs_sync_status'),
+                'auto_sync' => wp_create_nonce('ccs_auto_sync')
             )
         ));
-    }
-
-    /**
-     * Initialize AJAX handlers
-     */
-    private function init_ajax_handlers() {
-        // Load the admin AJAX handlers
-        if (is_admin()) {
-            require_once CCS_PLUGIN_DIR . 'includes/admin/index.php';
-        }
     }
 
     /**

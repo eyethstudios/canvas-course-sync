@@ -1,16 +1,11 @@
 
-import { initCourseManager } from './modules/courses.js';
-
 (function($) {
     'use strict';
 
     $(document).ready(function() {
-        // Initialize course manager
-        initCourseManager($);
-        
         // Check if required variables are available
-        if (typeof window.ccsAdmin === 'undefined') {
-            console.error('CCS Admin: Required variables not found');
+        if (typeof ccsAjax === 'undefined') {
+            console.error('CCS Admin: Required AJAX variables not found');
             return;
         }
 
@@ -23,11 +18,11 @@ import { initCourseManager } from './modules/courses.js';
             button.prop('disabled', true).text('Testing...');
             
             $.ajax({
-                url: window.ccsAdmin.ajaxUrl,
+                url: ccsAjax.ajaxUrl,
                 type: 'POST',
                 data: {
                     action: 'ccs_test_connection',
-                    nonce: window.ccsAdmin.nonces.test_connection
+                    nonce: ccsAjax.nonces.test_connection
                 },
                 success: function(response) {
                     if (response.success) {
@@ -55,11 +50,11 @@ import { initCourseManager } from './modules/courses.js';
             button.prop('disabled', true).text('Loading...');
             
             $.ajax({
-                url: window.ccsAdmin.ajaxUrl,
+                url: ccsAjax.ajaxUrl,
                 type: 'POST',
                 data: {
                     action: 'ccs_get_courses',
-                    nonce: window.ccsAdmin.nonces.get_courses
+                    nonce: ccsAjax.nonces.get_courses
                 },
                 success: function(response) {
                     if (response.success) {
@@ -98,11 +93,11 @@ import { initCourseManager } from './modules/courses.js';
             button.prop('disabled', true).text('Syncing...');
             
             $.ajax({
-                url: window.ccsAdmin.ajaxUrl,
+                url: ccsAjax.ajaxUrl,
                 type: 'POST',
                 data: {
                     action: 'ccs_sync_courses',
-                    nonce: window.ccsAdmin.nonces.sync_courses,
+                    nonce: ccsAjax.nonces.sync_courses,
                     course_ids: selectedCourses
                 },
                 success: function(response) {
