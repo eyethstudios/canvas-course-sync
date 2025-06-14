@@ -29,11 +29,19 @@ class CCS_Logger {
         $upload_dir = wp_upload_dir();
         $log_dir = $upload_dir['basedir'] . '/canvas-course-sync/logs';
         
+        // Ensure log directory exists
         if (!file_exists($log_dir)) {
             wp_mkdir_p($log_dir);
+            // Add .htaccess for security
+            file_put_contents($log_dir . '/.htaccess', "Order deny,allow\nDeny from all");
         }
         
         $this->log_file = $log_dir . '/canvas-sync.log';
+        
+        // Test write to ensure logging works
+        if (!file_exists($this->log_file)) {
+            $this->log('Logger initialized', 'info');
+        }
     }
 
     /**
@@ -46,7 +54,13 @@ class CCS_Logger {
         $timestamp = current_time('Y-m-d H:i:s');
         $log_entry = sprintf("[%s] [%s] %s\n", $timestamp, strtoupper($level), $message);
         
-        error_log($log_entry, 3, $this->log_file);
+        // Use file_put_contents with append flag for better reliability
+        $result = file_put_contents($this->log_file, $log_entry, FILE_APPEND | LOCK_EX);
+        
+        // Also log to WordPress error log for debugging
+        error_log("CCS Logger: " . trim($log_entry));
+        
+        return $result !== false;
     }
 
     /**
@@ -57,7 +71,8 @@ class CCS_Logger {
      */
     public function get_recent_logs($lines = 50) {
         if (!file_exists($this->log_file)) {
-            return array();
+            // Create initial log entry if file doesn't exist
+            $this->log('Log file created', 'info');
         }
         
         $file_content = file_get_contents($this->log_file);
@@ -78,7 +93,11 @@ class CCS_Logger {
      */
     public function clear_logs() {
         if (file_exists($this->log_file)) {
-            return unlink($this->log_file);
+            $result = unlink($this->log_file);
+            if ($result) {
+                $this->log('Logs cleared', 'info');
+            }
+            return $result;
         }
         return true;
     }
@@ -101,5 +120,14 @@ class CCS_Logger {
         }
         
         return round($size, 2) . ' ' . $units[$i];
+    }
+
+    /**
+     * Get log file path (for direct access if needed)
+     *
+     * @return string Log file path
+     */
+    public function get_log_file() {
+        return $this->log_file;
     }
 }

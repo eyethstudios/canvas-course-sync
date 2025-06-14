@@ -38,6 +38,11 @@ class Canvas_Course_Sync {
     private static $instance = null;
 
     /**
+     * Logger instance
+     */
+    public $logger = null;
+
+    /**
      * Constructor
      */
     private function __construct() {
@@ -100,6 +105,12 @@ class Canvas_Course_Sync {
     public function init_plugin() {
         // Load dependencies here instead of in constructor
         $this->load_dependencies();
+        
+        // Initialize logger after dependencies are loaded
+        if (class_exists('CCS_Logger')) {
+            $this->logger = new CCS_Logger();
+            $this->logger->log('Plugin initialized', 'info');
+        }
     }
 
     /**
@@ -187,11 +198,13 @@ class Canvas_Course_Sync {
             30                                              // Position
         );
 
-        // Ensure the hook was created successfully
-        if ($hook) {
-            error_log('CCS: Top-level admin menu added successfully with hook: ' . $hook);
-        } else {
-            error_log('CCS: Failed to add admin menu');
+        // Log menu creation
+        if ($this->logger) {
+            if ($hook) {
+                $this->logger->log('Top-level admin menu added successfully with hook: ' . $hook, 'info');
+            } else {
+                $this->logger->log('Failed to add admin menu', 'error');
+            }
         }
     }
 
@@ -411,16 +424,56 @@ class Canvas_Course_Sync {
     public function ajax_test_connection() {
         // Verify nonce
         if (!wp_verify_nonce($_POST['nonce'], 'ccs_test_connection_nonce')) {
+            if ($this->logger) {
+                $this->logger->log('Test connection failed - invalid nonce', 'error');
+            }
             wp_die('Security check failed');
         }
 
         // Check permissions
         if (!current_user_can('manage_options')) {
+            if ($this->logger) {
+                $this->logger->log('Test connection failed - insufficient permissions', 'error');
+            }
             wp_die('Insufficient permissions');
         }
 
-        // Basic response for now
-        wp_send_json_success('Connection test completed (placeholder)');
+        if ($this->logger) {
+            $this->logger->log('Testing Canvas API connection...', 'info');
+        }
+
+        // Get API settings
+        $domain = get_option('ccs_api_domain', '');
+        $token = get_option('ccs_api_token', '');
+
+        if (empty($domain) || empty($token)) {
+            if ($this->logger) {
+                $this->logger->log('Test connection failed - missing API settings', 'error');
+            }
+            wp_send_json_error('API domain and token are required');
+            return;
+        }
+
+        // Test API connection with Canvas API class if available
+        if (class_exists('CCS_Canvas_API')) {
+            $api = new CCS_Canvas_API($domain, $token);
+            $result = $api->test_connection();
+            
+            if ($this->logger) {
+                $this->logger->log('Connection test result: ' . ($result ? 'SUCCESS' : 'FAILED'), $result ? 'info' : 'error');
+            }
+            
+            if ($result) {
+                wp_send_json_success('Connection successful');
+            } else {
+                wp_send_json_error('Connection failed - please check your API settings');
+            }
+        } else {
+            if ($this->logger) {
+                $this->logger->log('Canvas API class not found', 'error');
+            }
+            wp_send_json_error('Canvas API class not found');
+        }
     }
 
     /**
@@ -429,16 +482,55 @@ class Canvas_Course_Sync {
     public function ajax_get_courses() {
         // Verify nonce
         if (!wp_verify_nonce($_POST['nonce'], 'ccs_get_courses_nonce')) {
+            if ($this->logger) {
+                $this->logger->log('Get courses failed - invalid nonce', 'error');
+            }
             wp_die('Security check failed');
         }
 
         // Check permissions
         if (!current_user_can('manage_options')) {
+            if ($this->logger) {
+                $this->logger->log('Get courses failed - insufficient permissions', 'error');
+            }
             wp_die('Insufficient permissions');
         }
 
-        // Basic response for now
-        wp_send_json_success(array());
+        if ($this->logger) {
+            $this->logger->log('Fetching courses from Canvas API...', 'info');
+        }
+
+        // Get API settings
+        $domain = get_option('ccs_api_domain', '');
+        $token = get_option('ccs_api_token', '');
+
+        if (empty($domain) || empty($token)) {
+            if ($this->logger) {
+                $this->logger->log('Get courses failed - missing API settings', 'error');
+            }
+            wp_send_json_error('API domain and token are required');
+            return;
+        }
+
+        // Get courses with Canvas API class if available
+        if (class_exists('CCS_Canvas_API')) {
+            $api = new CCS_Canvas_API($domain, $token);
+            $courses = $api->get_courses();
+            
+            if ($this->logger) {
+                $this->logger->log('Courses fetched: ' . count($courses) . ' courses found', 'info');
+                if (!empty($courses)) {
+                    $this->logger->log('Sample course data: ' . print_r($courses[0], true), 'info');
+                }
+            }
+            
+            wp_send_json_success($courses);
+        } else {
+            if ($this->logger) {
+                $this->logger->log('Canvas API class not found', 'error');
+            }
+            wp_send_json_error('Canvas API class not found');
+        }
     }
 
     /**
