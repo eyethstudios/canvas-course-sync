@@ -145,8 +145,46 @@ class Canvas_Course_Sync {
      */
     private function init_admin() {
         if (class_exists('CCS_Admin_Menu')) {
-            new CCS_Admin_Menu();
+            $admin_menu = new CCS_Admin_Menu();
+            add_action('admin_menu', array($admin_menu, 'add_menu'));
+            
+            // Enqueue admin scripts and styles
+            add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_assets'));
         }
+    }
+
+    /**
+     * Enqueue admin assets
+     */
+    public function enqueue_admin_assets($hook) {
+        // Only load on our admin page
+        if ($hook !== 'settings_page_canvas-course-sync') {
+            return;
+        }
+
+        // Enqueue admin JavaScript
+        wp_enqueue_script(
+            'ccs-admin-js',
+            CCS_PLUGIN_URL . 'assets/js/admin.js',
+            array('jquery'),
+            CCS_VERSION,
+            true
+        );
+
+        // Enqueue admin CSS
+        wp_enqueue_style(
+            'ccs-admin-css',
+            CCS_PLUGIN_URL . 'assets/css/admin.css',
+            array(),
+            CCS_VERSION
+        );
+
+        // Localize script with nonces and ajax URL
+        wp_localize_script('ccs-admin-js', 'ccsNonces', array(
+            'test_connection' => wp_create_nonce('ccs_test_connection'),
+            'get_courses' => wp_create_nonce('ccs_get_courses'),
+            'sync_courses' => wp_create_nonce('ccs_sync_courses')
+        ));
     }
 
     /**
