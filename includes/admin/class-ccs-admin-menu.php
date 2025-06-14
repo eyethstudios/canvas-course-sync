@@ -34,13 +34,15 @@ class CCS_Admin_Menu {
      * Add admin menu
      */
     public function add_menu() {
-        // Add main menu page
-        add_options_page(
-            __('Canvas Course Sync', 'canvas-course-sync'),
-            __('Canvas Course Sync', 'canvas-course-sync'),
-            'manage_options',
-            'canvas-course-sync',
-            array($this, 'display_admin_page')
+        // Add top-level menu page
+        add_menu_page(
+            __('Canvas Course Sync', 'canvas-course-sync'),  // Page title
+            __('Canvas Sync', 'canvas-course-sync'),         // Menu title
+            'manage_options',                                 // Capability
+            'canvas-course-sync',                            // Menu slug
+            array($this, 'display_admin_page'),              // Callback function
+            'dashicons-update',                              // Icon (sync/update icon)
+            30                                               // Position (after Comments)
         );
 
         if ($this->logger) {
