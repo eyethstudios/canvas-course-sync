@@ -1,4 +1,3 @@
-
 <?php
 /**
  * Plugin Name: Canvas Course Sync
@@ -73,13 +72,14 @@ class Canvas_Course_Sync {
             add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_assets'));
             add_action('admin_init', array($this, 'register_settings'));
             
-            // Add settings link to plugins page
-            add_filter('plugin_action_links_' . plugin_basename(__FILE__), array($this, 'add_settings_link'));
+            // Add settings and logs links to plugins page
+            add_filter('plugin_action_links_' . plugin_basename(__FILE__), array($this, 'add_plugin_action_links'));
             
             // Add AJAX handlers
             add_action('wp_ajax_ccs_test_connection', array($this, 'ajax_test_connection'));
             add_action('wp_ajax_ccs_get_courses', array($this, 'ajax_get_courses'));
             add_action('wp_ajax_ccs_sync_courses', array($this, 'ajax_sync_courses'));
+            add_action('wp_ajax_ccs_clear_logs', array($this, 'ajax_clear_logs'));
         }
     }
 
@@ -240,16 +240,19 @@ class Canvas_Course_Sync {
     }
 
     /**
-     * Add settings link to plugins page
+     * Add plugin action links (Settings and Logs links on plugins page)
      */
-    public function add_settings_link($links) {
+    public function add_plugin_action_links($links) {
         // Only add if user has proper permissions
         if (current_user_can('manage_options')) {
             $settings_url = admin_url('options-general.php?page=canvas-course-sync');
-            $settings_link = '<a href="' . esc_url($settings_url) . '">' . esc_html__('Settings', 'canvas-course-sync') . '</a>';
+            $logs_url = admin_url('options-general.php?page=canvas-course-sync&tab=logs');
             
-            // Add settings link at the beginning of the array
-            array_unshift($links, $settings_link);
+            $settings_link = '<a href="' . esc_url($settings_url) . '">' . esc_html__('Settings', 'canvas-course-sync') . '</a>';
+            $logs_link = '<a href="' . esc_url($logs_url) . '">' . esc_html__('Logs', 'canvas-course-sync') . '</a>';
+            
+            // Add links at the beginning of the array
+            array_unshift($links, $logs_link, $settings_link);
         }
         
         return $links;
@@ -280,7 +283,8 @@ class Canvas_Course_Sync {
                 'test_connection' => wp_create_nonce('ccs_test_connection_nonce'),
                 'get_courses' => wp_create_nonce('ccs_get_courses_nonce'),
                 'sync_courses' => wp_create_nonce('ccs_sync_nonce'),
-                'sync_status' => wp_create_nonce('ccs_sync_status_nonce')
+                'sync_status' => wp_create_nonce('ccs_sync_status_nonce'),
+                'clear_logs' => wp_create_nonce('ccs_clear_logs_nonce')
             ));
         }
     }
@@ -343,6 +347,35 @@ class Canvas_Course_Sync {
             'errors' => 0,
             'total' => 0
         ));
+    }
+
+    /**
+     * AJAX handler for clearing logs
+     */
+    public function ajax_clear_logs() {
+        // Verify nonce
+        if (!wp_verify_nonce($_POST['nonce'], 'ccs_clear_logs_nonce')) {
+            wp_die('Security check failed');
+        }
+
+        // Check permissions
+        if (!current_user_can('manage_options')) {
+            wp_die('Insufficient permissions');
+        }
+
+        // Clear logs using logger
+        if (class_exists('CCS_Logger')) {
+            $logger = new CCS_Logger();
+            $result = $logger->clear_logs();
+            
+            if ($result) {
+                wp_send_json_success('Logs cleared successfully');
+            } else {
+                wp_send_json_error('Failed to clear logs');
+            }
+        } else {
+            wp_send_json_error('Logger class not found');
+        }
     }
 
     /**
