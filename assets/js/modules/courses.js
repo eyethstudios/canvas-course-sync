@@ -22,6 +22,8 @@ export function initCourseManager($) {
                 nonce: ccsData.getCoursesNonce
             },
             success: function(response) {
+                console.log('Full AJAX response:', response);
+                
                 if (response.success && Array.isArray(response.data)) {
                     // Debug the data received from the API
                     console.log('Courses before sorting:', response.data);
@@ -44,12 +46,18 @@ export function initCourseManager($) {
                         let statusText = '';
                         let checkboxChecked = 'checked';
                         
-                        if (course.exists_in_wp) {
+                        console.log('Processing course:', course.name, 'exists_in_wp:', course.exists_in_wp, 'match_type:', course.match_type);
+                        
+                        // Check if course exists in WordPress
+                        if (course.exists_in_wp === true || course.exists_in_wp === 'true') {
                             statusClass = 'ccs-course-exists';
                             if (course.match_type === 'canvas_id') {
                                 statusText = ' <span class="ccs-status-badge ccs-exists-canvas-id">(Already synced)</span>';
-                            } else {
+                            } else if (course.match_type === 'title') {
                                 statusText = ' <span class="ccs-status-badge ccs-exists-title">(Title exists in WP)</span>';
+                            } else {
+                                // Fallback for any other match type
+                                statusText = ' <span class="ccs-status-badge ccs-exists-title">(Already exists)</span>';
                             }
                             checkboxChecked = ''; // Don't check existing courses by default
                         }
@@ -71,6 +79,7 @@ export function initCourseManager($) {
                 }
             },
             error: function(xhr, status, error) {
+                console.error('AJAX error:', xhr, status, error);
                 courseList.html('<p class="error">Connection error occurred. Please try again.</p>');
                 coursesWrapper.show();
             },
