@@ -1,3 +1,4 @@
+
 <?php
 /**
  * Handles API communication with Canvas LMS.
@@ -173,18 +174,29 @@ class CCS_Canvas_API {
      * @return array|WP_Error Array of courses or WP_Error on failure
      */
     public function get_courses() {
+        if ($this->logger) {
+            $this->logger->log('Starting get_courses() method');
+        }
+        
+        // Check if API is configured
+        if (empty($this->domain) || empty($this->api_key)) {
+            $error_msg = 'API not configured properly. Domain: ' . ($this->domain ? 'set' : 'empty') . ', Token: ' . ($this->api_key ? 'set' : 'empty');
+            if ($this->logger) {
+                $this->logger->log($error_msg, 'error');
+            }
+            return new WP_Error('api_not_configured', $error_msg);
+        }
+
         $endpoint = 'courses';
         $params = array(
-            'include[]' => 'term',
-            'include[]' => 'total_students',
-            'include[]' => 'course_image',
-            'include[]' => 'created_at',
+            'include[]' => array('term', 'total_students', 'course_image'),
             'state[]' => 'available',
             'per_page' => 100,
+            'enrollment_type' => 'teacher'
         );
         
         if ($this->logger) {
-            $this->logger->log('Fetching courses from Canvas API');
+            $this->logger->log('Making API request to fetch courses with params: ' . print_r($params, true));
         }
         
         $courses = $this->api_request($endpoint, $params);
@@ -196,14 +208,24 @@ class CCS_Canvas_API {
             return $courses;
         }
         
-        // Log the first course to inspect its structure
-        if (!empty($courses) && is_array($courses)) {
+        // Check if courses is an array
+        if (!is_array($courses)) {
             if ($this->logger) {
-                $this->logger->log('First course structure: ' . print_r($courses[0], true));
+                $this->logger->log('Courses response is not an array. Type: ' . gettype($courses) . ', Value: ' . print_r($courses, true), 'error');
             }
-        } else {
-            if ($this->logger) {
-                $this->logger->log('No courses returned from API');
+            return new WP_Error('invalid_response', 'Expected array of courses, got: ' . gettype($courses));
+        }
+        
+        $course_count = count($courses);
+        if ($this->logger) {
+            $this->logger->log('Successfully fetched ' . $course_count . ' courses from Canvas API');
+            
+            // Log details of first few courses for debugging
+            if ($course_count > 0) {
+                $this->logger->log('First course details: ' . print_r($courses[0], true));
+                if ($course_count > 1) {
+                    $this->logger->log('Second course details: ' . print_r($courses[1], true));
+                }
             }
         }
         
@@ -304,7 +326,18 @@ class CCS_Canvas_API {
         $url = trailingslashit($this->domain) . 'api/v1/' . $endpoint;
         
         if (!empty($params)) {
-            $url = add_query_arg($params, $url);
+            // Handle array parameters properly for Canvas API
+            $query_params = array();
+            foreach ($params as $key => $value) {
+                if (is_array($value)) {
+                    foreach ($value as $v) {
+                        $query_params[] = $key . '=' . urlencode($v);
+                    }
+                } else {
+                    $query_params[] = $key . '=' . urlencode($value);
+                }
+            }
+            $url = $url . '?' . implode('&', $query_params);
         }
         
         if ($this->logger) {
@@ -336,6 +369,7 @@ class CCS_Canvas_API {
         
         if ($this->logger) {
             $this->logger->log('API Response Status: ' . $status_code);
+            $this->logger->log('API Response Body (first 1000 chars): ' . substr($body, 0, 1000));
         }
         
         // Handle HTTP error status codes
@@ -370,11 +404,6 @@ class CCS_Canvas_API {
             return new WP_Error('empty_response', 'Empty response body received from API');
         }
         
-        // Log response (truncated for large responses)
-        if ($this->logger) {
-            $this->logger->log('API Response Body: ' . substr($body, 0, 500) . (strlen($body) > 500 ? '...' : ''));
-        }
-        
         // Decode JSON response
         $data = json_decode($body);
         
@@ -382,8 +411,9 @@ class CCS_Canvas_API {
             $json_error = json_last_error_msg();
             if ($this->logger) {
                 $this->logger->log('Failed to decode JSON response: ' . $json_error, 'error');
+                $this->logger->log('Raw response body: ' . $body, 'error');
             }
-            return new WP_Error('json_decode_failed', 'Failed to decode JSON response: ' . $json_error . ' - Raw response: ' . substr($body, 0, 255));
+            return new WP_Error('json_decode_failed', 'Failed to decode JSON response: ' . $json_error);
         }
         
         return $data;
