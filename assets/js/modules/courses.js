@@ -28,8 +28,26 @@ export function initCourseManager($) {
                     // Debug the data received from the API
                     console.log('Courses before sorting:', response.data);
                     
-                    // Sort courses by creation date (most recent first)
+                    // Sort courses by status priority and then by creation date
                     const sortedCourses = response.data.sort((a, b) => {
+                        // Define status priority (lower number = higher priority)
+                        const getStatusPriority = (course) => {
+                            if (course.exists_in_wp === true || course.exists_in_wp === 'true') {
+                                if (course.match_type === 'canvas_id') return 3; // Already synced
+                                return 2; // Title exists in WP
+                            }
+                            return 1; // New course (highest priority)
+                        };
+                        
+                        const priorityA = getStatusPriority(a);
+                        const priorityB = getStatusPriority(b);
+                        
+                        // First sort by status priority
+                        if (priorityA !== priorityB) {
+                            return priorityA - priorityB;
+                        }
+                        
+                        // Then sort by creation date (most recent first) within same status
                         return new Date(b.created_at || 0) - new Date(a.created_at || 0);
                     });
                     
@@ -39,6 +57,16 @@ export function initCourseManager($) {
                         '<label>' +
                         '<input type="checkbox" id="ccs-select-all-checkbox" checked> ' +
                         'Select/Deselect All</label>' +
+                        '</div>';
+                    
+                    // Add sorting controls
+                    html += '<div class="ccs-sort-controls">' +
+                        '<label for="ccs-sort-select">Sort by: </label>' +
+                        '<select id="ccs-sort-select" class="ccs-sort-dropdown">' +
+                        '<option value="status">Status (New → Existing → Synced)</option>' +
+                        '<option value="name">Course Name (A-Z)</option>' +
+                        '<option value="date">Creation Date (Newest First)</option>' +
+                        '</select>' +
                         '</div>';
                         
                     sortedCourses.forEach(function(course) {
@@ -71,7 +99,7 @@ export function initCourseManager($) {
                             courseDisplayName += ' (' + course.course_code + ')';
                         }
                         
-                        html += '<div class="ccs-course-item ' + statusClass + '">' +
+                        html += '<div class="ccs-course-item ' + statusClass + '" data-course-name="' + course.name + '" data-created-at="' + (course.created_at || '') + '" data-status="' + (course.exists_in_wp ? (course.match_type === 'canvas_id' ? 'synced' : 'exists') : 'new') + '">' +
                             '<label>' +
                             '<input type="checkbox" class="ccs-course-checkbox" ' +
                             'value="' + course.id + '" ' + checkboxChecked + '> ' +
@@ -102,5 +130,54 @@ export function initCourseManager($) {
     // Handle select all checkbox
     $(document).on('change', '#ccs-select-all-checkbox', function() {
         $('.ccs-course-checkbox').prop('checked', $(this).prop('checked'));
+    });
+    
+    // Handle sort dropdown change
+    $(document).on('change', '#ccs-sort-select', function() {
+        const sortBy = $(this).val();
+        const courseItems = $('.ccs-course-item').toArray();
+        
+        courseItems.sort(function(a, b) {
+            const $a = $(a);
+            const $b = $(b);
+            
+            switch(sortBy) {
+                case 'name':
+                    return $a.data('course-name').localeCompare($b.data('course-name'));
+                    
+                case 'date':
+                    const dateA = new Date($a.data('created-at') || 0);
+                    const dateB = new Date($b.data('created-at') || 0);
+                    return dateB - dateA; // Newest first
+                    
+                case 'status':
+                default:
+                    const statusPriority = { 'new': 1, 'exists': 2, 'synced': 3 };
+                    const priorityA = statusPriority[$a.data('status')] || 999;
+                    const priorityB = statusPriority[$b.data('status')] || 999;
+                    
+                    if (priorityA !== priorityB) {
+                        return priorityA - priorityB;
+                    }
+                    
+                    // Secondary sort by creation date for same status
+                    const dateA2 = new Date($a.data('created-at') || 0);
+                    const dateB2 = new Date($b.data('created-at') || 0);
+                    return dateB2 - dateA2;
+            }
+        });
+        
+        // Re-append sorted items
+        const courseList = $('#ccs-course-list');
+        const selectAllDiv = courseList.find('.ccs-select-all');
+        const sortControlsDiv = courseList.find('.ccs-sort-controls');
+        
+        courseList.empty();
+        courseList.append(selectAllDiv);
+        courseList.append(sortControlsDiv);
+        
+        courseItems.forEach(function(item) {
+            courseList.append(item);
+        });
     });
 }

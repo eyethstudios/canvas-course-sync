@@ -54,3 +54,35 @@
     border: 1px solid #dee2e6;
     font-weight: bold;
 }
+
+.ccs-sort-controls {
+    background-color: #f1f3f4;
+    padding: 8px 10px;
+    margin-bottom: 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ccs-sort-controls label {
+    font-weight: 500;
+    margin: 0;
+    font-size: 13px;
+}
+
+.ccs-sort-dropdown {
+    padding: 4px 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 3px;
+    background: white;
+    font-size: 13px;
+    min-width: 200px;
+}
+
+.ccs-sort-dropdown:focus {
+    outline: none;
+    border-color: #0ea5e9;
+    box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.1);
+}
