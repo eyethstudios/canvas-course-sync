@@ -84,6 +84,8 @@ class CCS_Scheduler {
                 return false;
             }
 
+            $this->logger->log('Found ' . count($canvas_courses) . ' courses from Canvas API');
+
             // Find new courses (not already in WordPress)
             $new_courses = $this->find_new_courses($canvas_courses);
             
@@ -91,6 +93,8 @@ class CCS_Scheduler {
                 $this->logger->log('No new courses found during auto-sync');
                 return true;
             }
+
+            $this->logger->log('Found ' . count($new_courses) . ' new courses to import');
 
             // Import new courses
             $course_ids = array_column($new_courses, 'id');
@@ -110,7 +114,7 @@ class CCS_Scheduler {
     }
 
     /**
-     * Find courses that don't exist in WordPress
+     * Find courses that don't exist in WordPress using the same logic as manual sync
      *
      * @param array $canvas_courses Array of Canvas courses
      * @return array Array of new courses
@@ -118,32 +122,54 @@ class CCS_Scheduler {
     private function find_new_courses($canvas_courses) {
         $new_courses = array();
         
-        foreach ($canvas_courses as $course) {
-            // Check if course already exists by Canvas ID
-            $existing_by_id = get_posts(array(
-                'post_type' => 'courses',
-                'post_status' => array('draft', 'publish', 'private', 'pending'),
-                'posts_per_page' => 1,
-                'meta_key' => 'canvas_course_id',
-                'meta_value' => $course->id,
-                'fields' => 'ids',
-            ));
-
-            if (!empty($existing_by_id)) {
-                continue;
+        // Get existing WordPress courses for comparison
+        $existing_wp_courses = get_posts(array(
+            'post_type'      => 'courses',
+            'post_status'    => array('draft', 'publish', 'private', 'pending'),
+            'posts_per_page' => -1,
+            'fields'         => 'ids'
+        ));
+        
+        $existing_titles = array();
+        $existing_canvas_ids = array();
+        
+        foreach ($existing_wp_courses as $post_id) {
+            $title = get_the_title($post_id);
+            $canvas_id = get_post_meta($post_id, 'canvas_course_id', true);
+            
+            if (!empty($title)) {
+                $existing_titles[] = strtolower(trim($title));
             }
-
-            // Check if course exists by title
-            $existing_by_title = get_posts(array(
-                'post_type' => 'courses',
-                'post_status' => array('draft', 'publish', 'private', 'pending'),
-                'title' => $course->name,
-                'posts_per_page' => 1,
-                'fields' => 'ids',
-            ));
-
-            if (empty($existing_by_title)) {
+            if (!empty($canvas_id)) {
+                $existing_canvas_ids[] = $canvas_id;
+            }
+        }
+        
+        $this->logger->log('Found ' . count($existing_wp_courses) . ' existing WordPress courses for comparison');
+        $this->logger->log('Existing Canvas IDs: ' . count($existing_canvas_ids) . ', Existing titles: ' . count($existing_titles));
+        
+        foreach ($canvas_courses as $course) {
+            $exists_in_wp = false;
+            $match_type = '';
+            
+            // Check by Canvas ID first (most reliable)
+            if (in_array($course->id, $existing_canvas_ids)) {
+                $exists_in_wp = true;
+                $match_type = 'canvas_id';
+                $this->logger->log('Skipping course "' . $course->name . '" - already exists by Canvas ID: ' . $course->id);
+            } else {
+                // Check by title (case-insensitive)
+                $course_title_lower = strtolower(trim($course->name));
+                if (in_array($course_title_lower, $existing_titles)) {
+                    $exists_in_wp = true;
+                    $match_type = 'title';
+                    $this->logger->log('Skipping course "' . $course->name . '" - already exists by title match');
+                }
+            }
+            
+            if (!$exists_in_wp) {
                 $new_courses[] = $course;
+                $this->logger->log('Course "' . $course->name . '" marked for import (ID: ' . $course->id . ')');
             }
         }
         
