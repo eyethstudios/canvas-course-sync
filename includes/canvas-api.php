@@ -1,4 +1,3 @@
-
 <?php
 /**
  * Handles API communication with Canvas LMS.
@@ -175,6 +174,7 @@ class CCS_Canvas_API {
      */
     public function get_courses() {
         if ($this->logger) {
+            $this->logger->log('=== ENHANCED COURSE DEBUGGING START ===');
             $this->logger->log('Starting get_courses() method');
         }
         
@@ -187,57 +187,119 @@ class CCS_Canvas_API {
             return new WP_Error('api_not_configured', $error_msg);
         }
 
-        $endpoint = 'courses';
-        
-        // Updated parameters to match Canvas API expectations
-        $params = array(
-            'include' => array('term', 'course_image', 'total_students'),
-            'state' => array('available', 'completed'),
-            'per_page' => 100,
-            'enrollment_type' => 'teacher',
-            'enrollment_state' => 'active'
+        // Try multiple API approaches to find courses
+        $attempts = array(
+            'teacher_active' => array(
+                'include' => array('term', 'course_image', 'total_students'),
+                'state' => array('available'),
+                'per_page' => 100,
+                'enrollment_type' => 'teacher',
+                'enrollment_state' => 'active'
+            ),
+            'teacher_all_states' => array(
+                'include' => array('term', 'course_image', 'total_students'),
+                'state' => array('available', 'completed', 'unpublished'),
+                'per_page' => 100,
+                'enrollment_type' => 'teacher'
+            ),
+            'all_enrollments' => array(
+                'include' => array('term', 'course_image', 'total_students'),
+                'state' => array('available', 'completed', 'unpublished'),
+                'per_page' => 100
+            ),
+            'minimal_request' => array(
+                'per_page' => 100
+            )
         );
+
+        $final_courses = array();
         
-        if ($this->logger) {
-            $this->logger->log('Making API request to fetch courses with params: ' . print_r($params, true));
-        }
-        
-        $courses = $this->api_request($endpoint, $params);
-        
-        if (is_wp_error($courses)) {
+        foreach ($attempts as $attempt_name => $params) {
             if ($this->logger) {
-                $this->logger->log('Error fetching courses: ' . $courses->get_error_message(), 'error');
+                $this->logger->log("=== ATTEMPT: $attempt_name ===");
+                $this->logger->log('Params: ' . print_r($params, true));
             }
-            return $courses;
-        }
-        
-        // Check if courses is an array
-        if (!is_array($courses)) {
-            if ($this->logger) {
-                $this->logger->log('Courses response is not an array. Type: ' . gettype($courses) . ', Value: ' . print_r($courses, true), 'error');
-            }
-            return new WP_Error('invalid_response', 'Expected array of courses, got: ' . gettype($courses));
-        }
-        
-        $course_count = count($courses);
-        if ($this->logger) {
-            $this->logger->log('Successfully fetched ' . $course_count . ' courses from Canvas API');
             
-            // Log details of first few courses for debugging
-            if ($course_count > 0) {
-                $this->logger->log('First course details: ' . print_r($courses[0], true));
-                if ($course_count > 1) {
-                    $this->logger->log('Second course details: ' . print_r($courses[1], true));
+            $endpoint = 'courses';
+            $courses = $this->api_request($endpoint, $params);
+            
+            if (is_wp_error($courses)) {
+                if ($this->logger) {
+                    $this->logger->log("Attempt $attempt_name failed: " . $courses->get_error_message(), 'error');
+                }
+                continue;
+            }
+            
+            if (!is_array($courses)) {
+                if ($this->logger) {
+                    $this->logger->log("Attempt $attempt_name returned non-array: " . gettype($courses), 'error');
+                }
+                continue;
+            }
+            
+            $course_count = count($courses);
+            if ($this->logger) {
+                $this->logger->log("Attempt $attempt_name returned $course_count courses");
+                
+                if ($course_count > 0) {
+                    // Log details about each course
+                    foreach ($courses as $idx => $course) {
+                        $this->logger->log("Course $idx Details:");
+                        $this->logger->log("  ID: " . (isset($course->id) ? $course->id : 'NOT SET'));
+                        $this->logger->log("  Name: " . (isset($course->name) ? $course->name : 'NOT SET'));
+                        $this->logger->log("  Course Code: " . (isset($course->course_code) ? $course->course_code : 'NOT SET'));
+                        $this->logger->log("  Workflow State: " . (isset($course->workflow_state) ? $course->workflow_state : 'NOT SET'));
+                        $this->logger->log("  Start Date: " . (isset($course->start_at) ? $course->start_at : 'NOT SET'));
+                        $this->logger->log("  End Date: " . (isset($course->end_at) ? $course->end_at : 'NOT SET'));
+                        $this->logger->log("  Enrollments: " . (isset($course->enrollments) ? print_r($course->enrollments, true) : 'NOT SET'));
+                        if ($idx >= 2) break; // Only log first 3 courses to avoid spam
+                    }
+                    
+                    $final_courses = $courses;
+                    if ($this->logger) {
+                        $this->logger->log("SUCCESS: Using results from attempt $attempt_name");
+                    }
+                    break;
+                }
+            }
+        }
+
+        // Additional debugging: Try to get user profile to understand permissions
+        if ($this->logger) {
+            $this->logger->log('=== USER PROFILE CHECK ===');
+            $user_profile = $this->api_request('users/self', array());
+            if (!is_wp_error($user_profile)) {
+                $this->logger->log('User ID: ' . (isset($user_profile->id) ? $user_profile->id : 'NOT SET'));
+                $this->logger->log('User Name: ' . (isset($user_profile->name) ? $user_profile->name : 'NOT SET'));
+                $this->logger->log('User Login ID: ' . (isset($user_profile->login_id) ? $user_profile->login_id : 'NOT SET'));
+                $this->logger->log('User Permissions: ' . (isset($user_profile->permissions) ? print_r($user_profile->permissions, true) : 'NOT SET'));
+            } else {
+                $this->logger->log('Failed to get user profile: ' . $user_profile->get_error_message(), 'error');
+            }
+        }
+
+        // Try accounts endpoint to see what we have access to
+        if ($this->logger) {
+            $this->logger->log('=== ACCOUNTS CHECK ===');
+            $accounts = $this->api_request('accounts', array());
+            if (!is_wp_error($accounts) && is_array($accounts)) {
+                $this->logger->log('Found ' . count($accounts) . ' accounts');
+                foreach ($accounts as $idx => $account) {
+                    $this->logger->log("Account $idx: " . (isset($account->name) ? $account->name : 'NO NAME') . " (ID: " . (isset($account->id) ? $account->id : 'NO ID') . ")");
+                    if ($idx >= 2) break;
                 }
             } else {
-                $this->logger->log('No courses returned from API. This could mean:');
-                $this->logger->log('1. User has no courses assigned');
-                $this->logger->log('2. API token lacks proper permissions');
-                $this->logger->log('3. All courses are in non-available state');
+                $this->logger->log('Failed to get accounts or no accounts found', 'warning');
             }
         }
+
+        if ($this->logger) {
+            $this->logger->log('=== FINAL RESULT ===');
+            $this->logger->log('Final course count: ' . count($final_courses));
+            $this->logger->log('=== ENHANCED COURSE DEBUGGING END ===');
+        }
         
-        return $courses;
+        return $final_courses;
     }
 
     /**
