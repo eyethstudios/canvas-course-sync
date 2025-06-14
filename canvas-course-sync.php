@@ -4,7 +4,7 @@
  * Plugin Name: Canvas Course Sync
  * Plugin URI: https://github.com/yourusername/canvas-course-sync
  * Description: A WordPress plugin to synchronize courses from Canvas LMS to a WordPress custom post type.
- * Version: 1.0.0
+ * Version: 2.3.0
  * Author: Your Name
  * Author URI: https://yourwebsite.com
  * License: GPL v2 or later
@@ -23,7 +23,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('CCS_VERSION', '1.0.0');
+define('CCS_VERSION', '2.3.0');
 define('CCS_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('CCS_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('CCS_PLUGIN_FILE', __FILE__);
