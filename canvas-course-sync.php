@@ -1,4 +1,3 @@
-
 <?php
 /**
  * Plugin Name: Canvas Course Sync
@@ -156,7 +155,7 @@ class Canvas_Course_Sync {
             require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-admin-menu.php';
             require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-admin-page.php';
             require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-logs-display.php';
-            // CRITICAL: Include AJAX handlers
+            // CRITICAL: Include AJAX handlers immediately
             require_once CCS_PLUGIN_DIR . 'includes/admin/index.php';
         }
 
@@ -244,10 +243,24 @@ class Canvas_Course_Sync {
      * Enqueue admin assets
      */
     public function enqueue_admin_assets($hook) {
-        // Only load on Canvas Course Sync admin pages
-        if (strpos($hook, 'canvas-course-sync') === false) {
+        // Debug: Log the current hook
+        error_log('CCS Debug: Current admin hook: ' . $hook);
+        
+        // Check if we're on any Canvas Course Sync admin page
+        $plugin_pages = array(
+            'toplevel_page_canvas-course-sync',
+            'canvas-course-sync_page_canvas-course-sync-logs',
+            'canvas-course-sync_page_canvas-course-sync-settings'
+        );
+        
+        $is_plugin_page = in_array($hook, $plugin_pages) || strpos($hook, 'canvas-course-sync') !== false;
+        
+        if (!$is_plugin_page) {
+            error_log('CCS Debug: Not a plugin page, skipping asset enqueue');
             return;
         }
+
+        error_log('CCS Debug: Enqueuing admin assets for hook: ' . $hook);
 
         // Enqueue admin CSS
         wp_enqueue_style(
@@ -269,16 +282,26 @@ class Canvas_Course_Sync {
             true // Load in footer
         );
 
-        // Localize script with AJAX data - FIXED NONCE NAMES
-        wp_localize_script('ccs-admin-js', 'ccsAjax', array(
+        // Create nonces
+        $test_nonce = wp_create_nonce('ccs_test_connection');
+        $courses_nonce = wp_create_nonce('ccs_get_courses');
+        $sync_nonce = wp_create_nonce('ccs_sync_courses');
+        $logs_nonce = wp_create_nonce('ccs_clear_logs');
+        $status_nonce = wp_create_nonce('ccs_sync_status');
+        $auto_sync_nonce = wp_create_nonce('ccs_auto_sync');
+
+        error_log('CCS Debug: Created nonces - test: ' . substr($test_nonce, 0, 10) . '..., courses: ' . substr($courses_nonce, 0, 10) . '...');
+
+        // Localize script with AJAX data
+        $localize_data = array(
             'ajaxUrl' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('ccs_admin_nonce'),
-            'testConnectionNonce' => wp_create_nonce('ccs_test_connection'),
-            'getCoursesNonce' => wp_create_nonce('ccs_get_courses'),
-            'syncCoursesNonce' => wp_create_nonce('ccs_sync_courses'),
-            'clearLogsNonce' => wp_create_nonce('ccs_clear_logs'),
-            'syncStatusNonce' => wp_create_nonce('ccs_sync_status'),
-            'autoSyncNonce' => wp_create_nonce('ccs_auto_sync'),
+            'testConnectionNonce' => $test_nonce,
+            'getCoursesNonce' => $courses_nonce,
+            'syncCoursesNonce' => $sync_nonce,
+            'clearLogsNonce' => $logs_nonce,
+            'syncStatusNonce' => $status_nonce,
+            'autoSyncNonce' => $auto_sync_nonce,
             'debug' => defined('WP_DEBUG') && WP_DEBUG,
             'strings' => array(
                 'testing' => __('Testing...', 'canvas-course-sync'),
@@ -288,7 +311,11 @@ class Canvas_Course_Sync {
                 'error' => __('Error', 'canvas-course-sync'),
                 'selectCourses' => __('Please select at least one course to sync.', 'canvas-course-sync'),
             )
-        ));
+        );
+
+        wp_localize_script('ccs-admin-js', 'ccsAjax', $localize_data);
+        
+        error_log('CCS Debug: Localized script data: ' . print_r($localize_data, true));
     }
 
     /**
