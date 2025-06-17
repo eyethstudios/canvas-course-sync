@@ -127,6 +127,13 @@ class CCS_Admin_Page {
                     </div>
                 </div>
             </div>
+
+            <script type="text/javascript">
+            console.log('Admin page loaded, checking for buttons...');
+            console.log('Test connection button exists:', document.getElementById('ccs-test-connection') !== null);
+            console.log('Get courses button exists:', document.getElementById('ccs-get-courses') !== null);
+            console.log('ccsAjax object:', typeof ccsAjax !== 'undefined' ? ccsAjax : 'NOT DEFINED');
+            </script>
         </div>
         <?php
     }

@@ -154,18 +154,21 @@ class Canvas_Course_Sync {
      * Enqueue admin assets
      */
     public function enqueue_admin_assets($hook) {
-        // Load on our admin pages
-        if ($hook !== 'toplevel_page_canvas-course-sync' && $hook !== 'canvas-sync_page_canvas-course-sync-logs') {
+        // Only load on Canvas Course Sync admin pages
+        if (strpos($hook, 'canvas-course-sync') === false) {
             return;
         }
 
-        // Enqueue admin JavaScript
+        // Force jQuery to load in footer to ensure proper initialization
+        wp_enqueue_script('jquery');
+
+        // Enqueue admin JavaScript with jQuery dependency
         wp_enqueue_script(
             'ccs-admin-js',
             CCS_PLUGIN_URL . 'assets/js/admin.js',
             array('jquery'),
             CCS_VERSION,
-            true
+            true // Load in footer
         );
 
         // Enqueue admin CSS
@@ -176,7 +179,7 @@ class Canvas_Course_Sync {
             CCS_VERSION
         );
 
-        // Localize script with AJAX data
+        // Localize script with AJAX data - this is critical for button functionality
         wp_localize_script('ccs-admin-js', 'ccsAjax', array(
             'ajaxUrl' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('ccs_admin_nonce'),
@@ -185,8 +188,17 @@ class Canvas_Course_Sync {
             'syncCoursesNonce' => wp_create_nonce('ccs_sync_courses'),
             'clearLogsNonce' => wp_create_nonce('ccs_clear_logs'),
             'syncStatusNonce' => wp_create_nonce('ccs_sync_status'),
-            'autoSyncNonce' => wp_create_nonce('ccs_auto_sync')
+            'autoSyncNonce' => wp_create_nonce('ccs_auto_sync'),
+            'debug' => defined('WP_DEBUG') && WP_DEBUG
         ));
+        
+        // Add inline debug script
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            wp_add_inline_script('ccs-admin-js', '
+                console.log("CCS: Script enqueued on hook:", "' . $hook . '");
+                console.log("CCS: AJAX URL:", "' . admin_url('admin-ajax.php') . '");
+            ', 'before');
+        }
     }
 
     /**

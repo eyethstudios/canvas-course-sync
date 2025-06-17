@@ -2,29 +2,53 @@
 (function($) {
     'use strict';
 
-    $(document).ready(function() {
-        console.log('CCS Admin script loaded');
+    // Debug function to check environment
+    function debugEnvironment() {
+        console.log('=== CCS Debug Information ===');
         console.log('jQuery version:', $.fn.jquery);
+        console.log('Document ready state:', document.readyState);
+        console.log('ccsAjax defined:', typeof ccsAjax !== 'undefined');
         
-        // Check if required variables are available
-        if (typeof ccsAjax === 'undefined') {
-            console.error('CCS Admin: ccsAjax variable not found');
-            return;
+        if (typeof ccsAjax !== 'undefined') {
+            console.log('ccsAjax object:', ccsAjax);
+        } else {
+            console.error('ccsAjax is not defined! Check script localization.');
         }
         
-        console.log('CCS Admin initialized successfully with:', ccsAjax);
-        
-        // Check if buttons exist
+        // Check button existence
         var testBtn = $('#ccs-test-connection');
         var getCoursesBtn = $('#ccs-get-courses');
         var syncBtn = $('#ccs-sync-selected');
         
-        console.log('Test connection button exists:', testBtn.length > 0);
-        console.log('Get courses button exists:', getCoursesBtn.length > 0);
-        console.log('Sync button exists:', syncBtn.length > 0);
+        console.log('Test connection button found:', testBtn.length);
+        console.log('Get courses button found:', getCoursesBtn.length);
+        console.log('Sync button found:', syncBtn.length);
+        
+        if (testBtn.length === 0) {
+            console.error('Test connection button not found in DOM');
+        }
+        if (getCoursesBtn.length === 0) {
+            console.error('Get courses button not found in DOM');
+        }
+    }
 
+    $(document).ready(function() {
+        console.log('CCS Admin script loaded and document ready');
+        
+        // Run debug check
+        debugEnvironment();
+        
+        // Check if required variables are available
+        if (typeof ccsAjax === 'undefined') {
+            console.error('CCS Admin: ccsAjax variable not found - script localization failed');
+            alert('Admin script not properly configured. Please refresh the page.');
+            return;
+        }
+        
+        console.log('CCS Admin initialized successfully');
+        
         // Test Connection button
-        testBtn.on('click', function(e) {
+        $(document).on('click', '#ccs-test-connection', function(e) {
             e.preventDefault();
             console.log('Test connection button clicked');
             
@@ -77,7 +101,7 @@
         });
 
         // Get Courses button
-        getCoursesBtn.on('click', function(e) {
+        $(document).on('click', '#ccs-get-courses', function(e) {
             e.preventDefault();
             console.log('Get courses button clicked');
             
@@ -130,7 +154,7 @@
         });
 
         // Sync Selected Courses button
-        syncBtn.on('click', function(e) {
+        $(document).on('click', '#ccs-sync-selected', function(e) {
             e.preventDefault();
             console.log('Sync selected button clicked');
             
