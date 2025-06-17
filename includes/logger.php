@@ -71,6 +71,25 @@ class CCS_Logger {
     }
 
     /**
+     * Get recent log entries (alias for get_logs for compatibility)
+     *
+     * @param int $limit Number of entries to retrieve
+     * @return array Log entries
+     */
+    public function get_recent_logs($limit = 20) {
+        return $this->get_logs($limit);
+    }
+
+    /**
+     * Get log file path
+     *
+     * @return string Log file path
+     */
+    public function get_log_file() {
+        return $this->log_file;
+    }
+
+    /**
      * Clear all logs
      *
      * @return bool Success status

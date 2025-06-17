@@ -23,9 +23,6 @@ class CCS_Logs_Display {
     public function __construct() {
         $canvas_course_sync = canvas_course_sync();
         $this->logger = ($canvas_course_sync && isset($canvas_course_sync->logger)) ? $canvas_course_sync->logger : new CCS_Logger();
-        
-        // Hook the render method to the action
-        add_action('ccs_render_logs_display', array($this, 'render'));
     }
 
     /**
@@ -33,43 +30,58 @@ class CCS_Logs_Display {
      */
     public function render() {
         ?>
-        <div class="ccs-panel">
-            <h2><?php _e('Sync Logs', 'canvas-course-sync'); ?></h2>
-            <button id="ccs-clear-logs" class="button button-secondary ccs-clear-logs">
-                <?php _e('Clear Logs', 'canvas-course-sync'); ?>
-            </button>
-            <div class="ccs-log-container">
-            <?php
-            $recent_logs = $this->logger->get_recent_logs(20);
-            if (!empty($recent_logs)) :
-                foreach ($recent_logs as $log_entry) : 
-                    $entry_class = '';
-                    if (strpos($log_entry, '[ERROR]') !== false) {
-                        $entry_class = 'ccs-log-error';
-                    } elseif (strpos($log_entry, '[WARNING]') !== false) {
-                        $entry_class = 'ccs-log-warning';
-                    }
-                    echo '<div class="ccs-log-entry"><pre class="' . $entry_class . '">' . esc_html($log_entry) . '</pre></div>';
-                endforeach;
-            else : 
-                echo '<p>' . __('No logs available yet.', 'canvas-course-sync') . '</p>';
-            endif;
-            ?>
-            </div>
+        <div class="wrap">
+            <h1><?php _e('Canvas Course Sync - Logs', 'canvas-course-sync'); ?></h1>
             
-            <p>
-                <?php 
-                $log_file = $this->logger->get_log_file();
-                $log_url = '';
-                $upload_dir = wp_upload_dir();
-                if (file_exists($log_file)) {
-                    $log_url = str_replace($upload_dir['basedir'], $upload_dir['baseurl'], $log_file);
-                    echo '<a href="' . esc_url($log_url) . '" target="_blank" class="button button-secondary">';
-                    _e('View Full Log', 'canvas-course-sync');
-                    echo '</a>';
+            <div class="ccs-panel">
+                <h2><?php _e('Sync Logs', 'canvas-course-sync'); ?></h2>
+                <button id="ccs-clear-logs" class="button button-secondary ccs-clear-logs">
+                    <?php _e('Clear Logs', 'canvas-course-sync'); ?>
+                </button>
+                <div class="ccs-log-container">
+                <?php
+                try {
+                    $recent_logs = $this->logger->get_recent_logs(20);
+                    if (!empty($recent_logs)) :
+                        foreach ($recent_logs as $log_entry) : 
+                            $entry_class = '';
+                            if (strpos($log_entry, '[ERROR]') !== false || strpos($log_entry, '[error]') !== false) {
+                                $entry_class = 'ccs-log-error';
+                            } elseif (strpos($log_entry, '[WARNING]') !== false || strpos($log_entry, '[warning]') !== false) {
+                                $entry_class = 'ccs-log-warning';
+                            }
+                            echo '<div class="ccs-log-entry"><pre class="' . esc_attr($entry_class) . '">' . esc_html($log_entry) . '</pre></div>';
+                        endforeach;
+                    else : 
+                        echo '<p>' . __('No logs available yet.', 'canvas-course-sync') . '</p>';
+                    endif;
+                } catch (Exception $e) {
+                    echo '<div class="notice notice-error"><p>';
+                    echo __('Error loading logs: ', 'canvas-course-sync') . esc_html($e->getMessage());
+                    echo '</p></div>';
                 }
                 ?>
-            </p>
+                </div>
+                
+                <p>
+                    <?php 
+                    try {
+                        $log_file = $this->logger->get_log_file();
+                        $upload_dir = wp_upload_dir();
+                        if (file_exists($log_file)) {
+                            $log_url = str_replace($upload_dir['basedir'], $upload_dir['baseurl'], $log_file);
+                            echo '<a href="' . esc_url($log_url) . '" target="_blank" class="button button-secondary">';
+                            _e('View Full Log', 'canvas-course-sync');
+                            echo '</a>';
+                        } else {
+                            echo '<span class="description">' . __('No log file exists yet.', 'canvas-course-sync') . '</span>';
+                        }
+                    } catch (Exception $e) {
+                        echo '<span class="description">' . __('Error accessing log file.', 'canvas-course-sync') . '</span>';
+                    }
+                    ?>
+                </p>
+            </div>
         </div>
         <?php
     }
