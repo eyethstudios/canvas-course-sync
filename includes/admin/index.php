@@ -1,4 +1,3 @@
-
 <?php
 // Prevent direct file access
 if (!defined('ABSPATH')) {
@@ -53,7 +52,6 @@ function ccs_ajax_test_connection() {
         wp_send_json_error(sanitize_text_field($e->getMessage()));
     }
 }
-add_action('wp_ajax_ccs_test_connection', 'ccs_ajax_test_connection');
 
 /**
  * AJAX handler for getting Canvas courses
@@ -150,7 +148,6 @@ function ccs_ajax_get_courses() {
         wp_send_json_error('Exception: ' . sanitize_text_field($e->getMessage()));
     }
 }
-add_action('wp_ajax_ccs_get_courses', 'ccs_ajax_get_courses');
 
 /**
  * AJAX handler for syncing selected courses
@@ -207,7 +204,6 @@ function ccs_ajax_sync_courses() {
         wp_send_json_error(sanitize_text_field($e->getMessage()));
     }
 }
-add_action('wp_ajax_ccs_sync_courses', 'ccs_ajax_sync_courses');
 
 /**
  * AJAX handler for clearing logs
@@ -242,7 +238,6 @@ function ccs_ajax_clear_logs() {
         wp_send_json_error(__('Failed to clear logs', 'canvas-course-sync'));
     }
 }
-add_action('wp_ajax_ccs_clear_logs', 'ccs_ajax_clear_logs');
 
 /**
  * AJAX handler for getting sync status
@@ -263,7 +258,6 @@ function ccs_ajax_sync_status() {
     $status = function_exists('ccs_get_sync_status') ? ccs_get_sync_status() : array();
     wp_send_json_success($status);
 }
-add_action('wp_ajax_ccs_sync_status', 'ccs_ajax_sync_status');
 
 /**
  * AJAX handler for running auto-sync
@@ -303,4 +297,11 @@ function ccs_ajax_run_auto_sync() {
         wp_send_json_error(__('Auto-sync failed: ', 'canvas-course-sync') . sanitize_text_field($e->getMessage()));
     }
 }
+
+// CRITICAL: Register all AJAX actions immediately when this file is included
+add_action('wp_ajax_ccs_test_connection', 'ccs_ajax_test_connection');
+add_action('wp_ajax_ccs_get_courses', 'ccs_ajax_get_courses');
+add_action('wp_ajax_ccs_sync_courses', 'ccs_ajax_sync_courses');
+add_action('wp_ajax_ccs_clear_logs', 'ccs_ajax_clear_logs');
+add_action('wp_ajax_ccs_sync_status', 'ccs_ajax_sync_status');
 add_action('wp_ajax_ccs_run_auto_sync', 'ccs_ajax_run_auto_sync');

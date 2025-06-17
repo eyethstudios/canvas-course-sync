@@ -1,3 +1,4 @@
+
 <?php
 /**
  * Plugin Name: Canvas Course Sync
@@ -155,6 +156,7 @@ class Canvas_Course_Sync {
             require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-admin-menu.php';
             require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-admin-page.php';
             require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-logs-display.php';
+            // CRITICAL: Include AJAX handlers
             require_once CCS_PLUGIN_DIR . 'includes/admin/index.php';
         }
 
@@ -267,7 +269,7 @@ class Canvas_Course_Sync {
             true // Load in footer
         );
 
-        // Localize script with AJAX data
+        // Localize script with AJAX data - FIXED NONCE NAMES
         wp_localize_script('ccs-admin-js', 'ccsAjax', array(
             'ajaxUrl' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('ccs_admin_nonce'),

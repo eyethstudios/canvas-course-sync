@@ -1,4 +1,3 @@
-
 (function($) {
     'use strict';
 
@@ -9,6 +8,7 @@
         // Check if required variables are available
         if (typeof ccsAjax === 'undefined') {
             console.error('ccsAjax variable not found - AJAX calls will fail');
+            showError('JavaScript configuration error. Please refresh the page.');
             return;
         }
         
@@ -38,20 +38,27 @@
                 success: function(response) {
                     console.log('Test connection response:', response);
                     
-                    if (response.success) {
-                        $resultDiv.html('<div class="notice notice-success inline"><p>' + response.data + '</p></div>');
+                    if (response && response.success) {
+                        $resultDiv.html('<div class="notice notice-success inline"><p>' + escapeHtml(response.data) + '</p></div>');
                     } else {
-                        var errorMsg = response.data || 'Unknown error occurred';
-                        $resultDiv.html('<div class="notice notice-error inline"><p>Connection failed: ' + errorMsg + '</p></div>');
+                        var errorMsg = (response && response.data) ? response.data : 'Unknown error occurred';
+                        $resultDiv.html('<div class="notice notice-error inline"><p>Connection failed: ' + escapeHtml(errorMsg) + '</p></div>');
                     }
                 },
                 error: function(xhr, status, error) {
                     console.error('AJAX Error:', {xhr: xhr, status: status, error: error});
                     var errorMsg = 'Connection error: ' + error;
                     if (xhr.responseText) {
-                        errorMsg += ' (' + xhr.responseText.substring(0, 100) + ')';
+                        try {
+                            var responseObj = JSON.parse(xhr.responseText);
+                            if (responseObj && responseObj.data) {
+                                errorMsg = 'Error: ' + responseObj.data;
+                            }
+                        } catch (e) {
+                            errorMsg += ' (Response: ' + xhr.responseText.substring(0, 100) + ')';
+                        }
                     }
-                    $resultDiv.html('<div class="notice notice-error inline"><p>' + errorMsg + '</p></div>');
+                    $resultDiv.html('<div class="notice notice-error inline"><p>' + escapeHtml(errorMsg) + '</p></div>');
                 },
                 complete: function() {
                     $button.prop('disabled', false).text(originalText);
@@ -83,21 +90,28 @@
                 success: function(response) {
                     console.log('Get courses response:', response);
                     
-                    if (response.success && Array.isArray(response.data)) {
+                    if (response && response.success && Array.isArray(response.data)) {
                         displayCourses(response.data);
                         $('#ccs-sync-selected').show();
                     } else {
-                        var errorMsg = response.data || 'Failed to load courses';
-                        $coursesList.html('<div class="notice notice-error inline"><p>' + errorMsg + '</p></div>');
+                        var errorMsg = (response && response.data) ? response.data : 'Failed to load courses';
+                        $coursesList.html('<div class="notice notice-error inline"><p>' + escapeHtml(errorMsg) + '</p></div>');
                     }
                 },
                 error: function(xhr, status, error) {
                     console.error('AJAX Error:', {xhr: xhr, status: status, error: error});
                     var errorMsg = 'Error loading courses: ' + error;
                     if (xhr.responseText) {
-                        errorMsg += ' (' + xhr.responseText.substring(0, 100) + ')';
+                        try {
+                            var responseObj = JSON.parse(xhr.responseText);
+                            if (responseObj && responseObj.data) {
+                                errorMsg = 'Error: ' + responseObj.data;
+                            }
+                        } catch (e) {
+                            errorMsg += ' (Response: ' + xhr.responseText.substring(0, 100) + ')';
+                        }
                     }
-                    $coursesList.html('<div class="notice notice-error inline"><p>' + errorMsg + '</p></div>');
+                    $coursesList.html('<div class="notice notice-error inline"><p>' + escapeHtml(errorMsg) + '</p></div>');
                 },
                 complete: function() {
                     $button.prop('disabled', false).text(originalText);
@@ -225,6 +239,17 @@
                 "'": '&#039;'
             };
             return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+        }
+        
+        // Helper function to show errors
+        function showError(message) {
+            if ($('#ccs-connection-result').length) {
+                $('#ccs-connection-result').html('<div class="notice notice-error inline"><p>' + escapeHtml(message) + '</p></div>');
+            } else if ($('#ccs-courses-list').length) {
+                $('#ccs-courses-list').html('<div class="notice notice-error inline"><p>' + escapeHtml(message) + '</p></div>');
+            } else {
+                console.error('CCS Error:', message);
+            }
         }
     });
 
