@@ -126,7 +126,7 @@ class CCS_Importer {
             
             $this->logger->log('Processing course: ' . $course_name . ' (ID: ' . $course_id . ')');
             
-            // First, check if we have a post with this Canvas ID already
+            // First, check if we have a post with this Canvas ID already - FIXED: use correct post type 'courses'
             $existing_by_id = get_posts(array(
                 'post_type'      => 'courses',
                 'post_status'    => array('draft', 'publish', 'private', 'pending'),
