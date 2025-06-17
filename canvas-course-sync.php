@@ -1,4 +1,3 @@
-
 <?php
 /**
  * Plugin Name: Canvas Course Sync
@@ -256,7 +255,7 @@ class Canvas_Course_Sync {
             CCS_VERSION
         );
 
-        // Force jQuery to load in footer to ensure proper initialization
+        // Enqueue jQuery
         wp_enqueue_script('jquery');
 
         // Enqueue admin JavaScript with jQuery dependency
@@ -268,7 +267,7 @@ class Canvas_Course_Sync {
             true // Load in footer
         );
 
-        // Localize script with AJAX data - this is critical for button functionality
+        // Localize script with AJAX data
         wp_localize_script('ccs-admin-js', 'ccsAjax', array(
             'ajaxUrl' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('ccs_admin_nonce'),
@@ -288,15 +287,6 @@ class Canvas_Course_Sync {
                 'selectCourses' => __('Please select at least one course to sync.', 'canvas-course-sync'),
             )
         ));
-        
-        // Add inline debug script for development
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            wp_add_inline_script('ccs-admin-js', '
-                console.log("CCS: Script enqueued on hook:", "' . esc_js($hook) . '");
-                console.log("CCS: AJAX URL:", "' . esc_js(admin_url('admin-ajax.php')) . '");
-                console.log("CCS: Plugin URL:", "' . esc_js(CCS_PLUGIN_URL) . '");
-            ', 'before');
-        }
     }
 
     /**

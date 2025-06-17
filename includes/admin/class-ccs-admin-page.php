@@ -37,8 +37,12 @@ class CCS_Admin_Page {
      * Register settings
      */
     public function register_settings() {
-        register_setting('ccs_settings', 'ccs_canvas_domain');
-        register_setting('ccs_settings', 'ccs_canvas_token');
+        register_setting('ccs_settings', 'ccs_canvas_domain', array(
+            'sanitize_callback' => 'esc_url_raw'
+        ));
+        register_setting('ccs_settings', 'ccs_canvas_token', array(
+            'sanitize_callback' => 'sanitize_text_field'
+        ));
     }
 
     /**
@@ -52,8 +56,8 @@ class CCS_Admin_Page {
             <?php
             // Handle form submission
             if (isset($_POST['submit']) && check_admin_referer('ccs_settings_nonce', 'ccs_settings_nonce')) {
-                $domain = sanitize_url(wp_unslash($_POST['ccs_canvas_domain'] ?? ''));
-                $token = sanitize_text_field(wp_unslash($_POST['ccs_canvas_token'] ?? ''));
+                $domain = isset($_POST['ccs_canvas_domain']) ? esc_url_raw(wp_unslash($_POST['ccs_canvas_domain'])) : '';
+                $token = isset($_POST['ccs_canvas_token']) ? sanitize_text_field(wp_unslash($_POST['ccs_canvas_token'])) : '';
                 
                 update_option('ccs_canvas_domain', $domain);
                 update_option('ccs_canvas_token', $token);
@@ -100,6 +104,7 @@ class CCS_Admin_Page {
                     </form>
                     
                     <div class="ccs-connection-test">
+                        <h3><?php _e('Test Connection', 'canvas-course-sync'); ?></h3>
                         <button type="button" id="ccs-test-connection" class="button button-secondary">
                             <?php _e('Test Connection', 'canvas-course-sync'); ?>
                         </button>
@@ -127,13 +132,6 @@ class CCS_Admin_Page {
                     </div>
                 </div>
             </div>
-
-            <script type="text/javascript">
-            console.log('Admin page loaded, checking for buttons...');
-            console.log('Test connection button exists:', document.getElementById('ccs-test-connection') !== null);
-            console.log('Get courses button exists:', document.getElementById('ccs-get-courses') !== null);
-            console.log('ccsAjax object:', typeof ccsAjax !== 'undefined' ? ccsAjax : 'NOT DEFINED');
-            </script>
         </div>
         <?php
     }
