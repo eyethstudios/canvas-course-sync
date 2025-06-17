@@ -39,7 +39,7 @@ function ccs_get_sync_status() {
 function ccs_update_sync_status($message, $progress = array()) {
     $status = array(
         'is_running' => true,
-        'message' => $message,
+        'message' => sanitize_text_field($message),
         'progress' => wp_parse_args($progress, array(
             'processed' => 0,
             'total' => 0,
@@ -63,6 +63,11 @@ function ccs_clear_sync_status() {
  * Register the courses custom post type
  */
 function ccs_register_courses_post_type() {
+    // Check if we should register the post type
+    if (!apply_filters('ccs_register_post_type', true)) {
+        return;
+    }
+
     $labels = array(
         'name'                  => _x('Courses', 'Post type general name', 'canvas-course-sync'),
         'singular_name'         => _x('Course', 'Post type singular name', 'canvas-course-sync'),
@@ -97,17 +102,35 @@ function ccs_register_courses_post_type() {
         'show_ui'            => true,
         'show_in_menu'       => true,
         'query_var'          => true,
-        'rewrite'            => array('slug' => 'courses'),
+        'rewrite'            => array(
+            'slug' => apply_filters('ccs_post_type_slug', 'courses'),
+            'with_front' => false
+        ),
         'capability_type'    => 'post',
+        'capabilities'       => array(
+            'create_posts' => 'edit_posts', // Allow creation
+        ),
+        'map_meta_cap'       => true,
         'has_archive'        => true,
         'hierarchical'       => false,
-        'menu_position'      => null,
+        'menu_position'      => 25, // After Comments
         'menu_icon'          => 'dashicons-welcome-learn-more',
-        'supports'           => array('title', 'editor', 'thumbnail', 'excerpt', 'custom-fields'),
+        'supports'           => array('title', 'editor', 'thumbnail', 'excerpt', 'custom-fields', 'revisions'),
         'show_in_rest'       => true,
+        'rest_base'          => 'courses',
+        'rest_controller_class' => 'WP_REST_Posts_Controller',
     );
 
+    // Allow filtering of post type args
+    $args = apply_filters('ccs_post_type_args', $args);
+
     register_post_type('courses', $args);
+    
+    // Flush rewrite rules if needed
+    if (get_option('ccs_flush_rewrite_rules')) {
+        flush_rewrite_rules();
+        delete_option('ccs_flush_rewrite_rules');
+    }
 }
 add_action('init', 'ccs_register_courses_post_type');
 
@@ -115,10 +138,16 @@ add_action('init', 'ccs_register_courses_post_type');
  * Add metaboxes for course information
  */
 function ccs_add_course_metaboxes() {
+    // Check if we're on the correct post type
+    $screen = get_current_screen();
+    if (!$screen || $screen->post_type !== 'courses') {
+        return;
+    }
+
     add_meta_box(
-        'ccs-course-link',
-        __('Canvas Course Link', 'canvas-course-sync'),
-        'ccs_course_link_metabox_callback',
+        'ccs-course-info',
+        __('Canvas Course Information', 'canvas-course-sync'),
+        'ccs_course_info_metabox_callback',
         'courses',
         'side',
         'default'
@@ -127,13 +156,137 @@ function ccs_add_course_metaboxes() {
 add_action('add_meta_boxes', 'ccs_add_course_metaboxes');
 
 /**
- * Course link metabox callback
+ * Course information metabox callback
  *
  * @param WP_Post $post Current post object
  */
-function ccs_course_link_metabox_callback($post) {
+function ccs_course_info_metabox_callback($post) {
+    // Security nonce
+    wp_nonce_field('ccs_course_meta_nonce', 'ccs_course_meta_nonce');
+    
     $canvas_course_sync = canvas_course_sync();
     if ($canvas_course_sync && isset($canvas_course_sync->importer)) {
         $canvas_course_sync->importer->display_course_link_metabox($post);
     }
+    
+    // Display Canvas course ID if available
+    $canvas_id = get_post_meta($post->ID, 'canvas_course_id', true);
+    if ($canvas_id) {
+        echo '<p><strong>' . esc_html__('Canvas Course ID:', 'canvas-course-sync') . '</strong> ' . esc_html($canvas_id) . '</p>';
+    }
+}
+
+/**
+ * Save course meta data
+ *
+ * @param int $post_id Post ID
+ */
+function ccs_save_course_meta($post_id) {
+    // Security checks
+    if (!isset($_POST['ccs_course_meta_nonce']) || 
+        !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['ccs_course_meta_nonce'])), 'ccs_course_meta_nonce')) {
+        return;
+    }
+
+    if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
+        return;
+    }
+
+    if (!current_user_can('edit_post', $post_id)) {
+        return;
+    }
+
+    // Only for courses post type
+    if (get_post_type($post_id) !== 'courses') {
+        return;
+    }
+
+    // Save custom fields if needed
+    do_action('ccs_save_course_meta', $post_id);
+}
+add_action('save_post', 'ccs_save_course_meta');
+
+/**
+ * Check if user can manage Canvas sync
+ *
+ * @return bool Whether user can manage sync
+ */
+function ccs_user_can_manage_sync() {
+    return current_user_can('manage_options') || current_user_can('edit_posts');
+}
+
+/**
+ * Sanitize Canvas domain
+ *
+ * @param string $domain Domain to sanitize
+ * @return string Sanitized domain
+ */
+function ccs_sanitize_canvas_domain($domain) {
+    $domain = esc_url_raw($domain);
+    $domain = untrailingslashit($domain);
+    
+    // Ensure it's a valid URL
+    if (!filter_var($domain, FILTER_VALIDATE_URL)) {
+        return '';
+    }
+    
+    return $domain;
+}
+
+/**
+ * Get Canvas course link
+ *
+ * @param int $post_id Post ID
+ * @return string Canvas course link or empty string
+ */
+function ccs_get_canvas_course_link($post_id) {
+    $canvas_id = get_post_meta($post_id, 'canvas_course_id', true);
+    $canvas_domain = get_option('ccs_canvas_domain');
+    
+    if (empty($canvas_id) || empty($canvas_domain)) {
+        return '';
+    }
+    
+    return trailingslashit($canvas_domain) . 'courses/' . intval($canvas_id);
+}
+
+/**
+ * Plugin activation hook
+ */
+function ccs_activate_plugin() {
+    // Set flag to flush rewrite rules
+    add_option('ccs_flush_rewrite_rules', true);
+    
+    // Create upload directory
+    $upload_dir = wp_upload_dir();
+    $log_dir = $upload_dir['basedir'] . '/canvas-course-sync/logs';
+    
+    if (!file_exists($log_dir)) {
+        wp_mkdir_p($log_dir);
+        
+        // Add .htaccess for security
+        $htaccess_content = "deny from all\n";
+        file_put_contents($log_dir . '/.htaccess', $htaccess_content);
+    }
+    
+    // Set default options
+    add_option('ccs_version', CCS_VERSION);
+    
+    do_action('ccs_plugin_activated');
+}
+
+/**
+ * Plugin deactivation hook
+ */
+function ccs_deactivate_plugin() {
+    // Clear scheduled events
+    wp_clear_scheduled_hook('ccs_auto_sync');
+    
+    // Clear transients
+    delete_transient('ccs_sync_status');
+    
+    // Flush rewrite rules
+    flush_rewrite_rules();
+    
+    do_action('ccs_plugin_deactivated');
 }

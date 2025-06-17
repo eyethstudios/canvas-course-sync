@@ -21,7 +21,7 @@ function ccs_ajax_test_connection() {
     }
     
     // Check user capabilities
-    if (!current_user_can('manage_options')) {
+    if (!ccs_user_can_manage_sync()) {
         wp_send_json_error(__('Permission denied', 'canvas-course-sync'));
         return;
     }
@@ -44,13 +44,13 @@ function ccs_ajax_test_connection() {
             if (isset($canvas_course_sync->logger)) {
                 $canvas_course_sync->logger->log('API connection test failed: ' . $result, 'error');
             }
-            wp_send_json_error($result);
+            wp_send_json_error(sanitize_text_field($result));
         }
     } catch (Exception $e) {
         if (isset($canvas_course_sync->logger)) {
             $canvas_course_sync->logger->log('Exception in API connection test: ' . $e->getMessage(), 'error');
         }
-        wp_send_json_error($e->getMessage());
+        wp_send_json_error(sanitize_text_field($e->getMessage()));
     }
 }
 add_action('wp_ajax_ccs_test_connection', 'ccs_ajax_test_connection');
@@ -66,7 +66,7 @@ function ccs_ajax_get_courses() {
     }
     
     // Check user capabilities
-    if (!current_user_can('manage_options')) {
+    if (!ccs_user_can_manage_sync()) {
         wp_send_json_error(__('Permission denied', 'canvas-course-sync'));
         return;
     }
@@ -85,7 +85,7 @@ function ccs_ajax_get_courses() {
             if (isset($canvas_course_sync->logger)) {
                 $canvas_course_sync->logger->log('Connection test failed before getting courses: ' . $connection_test, 'error');
             }
-            wp_send_json_error('Connection test failed: ' . $connection_test);
+            wp_send_json_error('Connection test failed: ' . sanitize_text_field($connection_test));
             return;
         }
         
@@ -97,7 +97,7 @@ function ccs_ajax_get_courses() {
             if (isset($canvas_course_sync->logger)) {
                 $canvas_course_sync->logger->log('Error getting courses: ' . $error_message, 'error');
             }
-            wp_send_json_error($error_message);
+            wp_send_json_error(sanitize_text_field($error_message));
             return;
         }
         
@@ -107,7 +107,7 @@ function ccs_ajax_get_courses() {
             if (isset($canvas_course_sync->logger)) {
                 $canvas_course_sync->logger->log($error_msg, 'error');
             }
-            wp_send_json_error($error_msg);
+            wp_send_json_error(sanitize_text_field($error_msg));
             return;
         }
         
@@ -116,12 +116,22 @@ function ccs_ajax_get_courses() {
         foreach ($courses as $course) {
             $course_data = is_object($course) ? (array) $course : $course;
             
+            // Sanitize course data
+            $course_data['id'] = isset($course_data['id']) ? intval($course_data['id']) : 0;
+            $course_data['name'] = isset($course_data['name']) ? sanitize_text_field($course_data['name']) : '';
+            
+            if (empty($course_data['id']) || empty($course_data['name'])) {
+                continue; // Skip invalid courses
+            }
+            
             // Check if course already exists in WordPress
             $existing_posts = get_posts(array(
-                'post_type' => 'canvas_course',
+                'post_type' => 'courses',
                 'meta_key' => 'canvas_course_id',
                 'meta_value' => $course_data['id'],
-                'posts_per_page' => 1
+                'posts_per_page' => 1,
+                'post_status' => array('publish', 'draft', 'private', 'pending'),
+                'fields' => 'ids'
             ));
             
             $course_data['exists_in_wp'] = !empty($existing_posts);
@@ -137,7 +147,7 @@ function ccs_ajax_get_courses() {
         if (isset($canvas_course_sync->logger)) {
             $canvas_course_sync->logger->log('Exception getting courses: ' . $e->getMessage(), 'error');
         }
-        wp_send_json_error('Exception: ' . $e->getMessage());
+        wp_send_json_error('Exception: ' . sanitize_text_field($e->getMessage()));
     }
 }
 add_action('wp_ajax_ccs_get_courses', 'ccs_ajax_get_courses');
@@ -153,7 +163,7 @@ function ccs_ajax_sync_courses() {
     }
     
     // Check user capabilities
-    if (!current_user_can('manage_options')) {
+    if (!ccs_user_can_manage_sync()) {
         wp_send_json_error(__('Permission denied', 'canvas-course-sync'));
         return;
     }
@@ -168,8 +178,19 @@ function ccs_ajax_sync_courses() {
     // Get course IDs from request and sanitize
     $course_ids = isset($_POST['course_ids']) ? array_map('intval', wp_unslash($_POST['course_ids'])) : array();
     
+    // Remove any zero or negative IDs
+    $course_ids = array_filter($course_ids, function($id) {
+        return $id > 0;
+    });
+    
     if (empty($course_ids)) {
-        wp_send_json_error(__('No course IDs provided', 'canvas-course-sync'));
+        wp_send_json_error(__('No valid course IDs provided', 'canvas-course-sync'));
+        return;
+    }
+    
+    // Limit number of courses that can be synced at once
+    if (count($course_ids) > 50) {
+        wp_send_json_error(__('Too many courses selected. Please select 50 or fewer courses.', 'canvas-course-sync'));
         return;
     }
     
@@ -183,7 +204,7 @@ function ccs_ajax_sync_courses() {
         if (isset($canvas_course_sync->logger)) {
             $canvas_course_sync->logger->log('Exception during course sync: ' . $e->getMessage(), 'error');
         }
-        wp_send_json_error($e->getMessage());
+        wp_send_json_error(sanitize_text_field($e->getMessage()));
     }
 }
 add_action('wp_ajax_ccs_sync_courses', 'ccs_ajax_sync_courses');
@@ -234,7 +255,7 @@ function ccs_ajax_sync_status() {
     }
     
     // Check user capabilities
-    if (!current_user_can('manage_options')) {
+    if (!ccs_user_can_manage_sync()) {
         wp_send_json_error(__('Permission denied', 'canvas-course-sync'));
         return;
     }
@@ -279,7 +300,7 @@ function ccs_ajax_run_auto_sync() {
         if (isset($canvas_course_sync->logger)) {
             $canvas_course_sync->logger->log('Exception during auto-sync: ' . $e->getMessage(), 'error');
         }
-        wp_send_json_error(__('Auto-sync failed: ', 'canvas-course-sync') . $e->getMessage());
+        wp_send_json_error(__('Auto-sync failed: ', 'canvas-course-sync') . sanitize_text_field($e->getMessage()));
     }
 }
 add_action('wp_ajax_ccs_run_auto_sync', 'ccs_ajax_run_auto_sync');
