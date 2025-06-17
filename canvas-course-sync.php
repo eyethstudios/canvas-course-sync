@@ -273,13 +273,22 @@ class Canvas_Course_Sync {
         // Enqueue jQuery
         wp_enqueue_script('jquery');
 
-        // Enqueue admin JavaScript with jQuery dependency
+        // Enqueue test script first for debugging
+        wp_enqueue_script(
+            'ccs-test-js',
+            CCS_PLUGIN_URL . 'assets/js/test-buttons.js',
+            array('jquery'),
+            CCS_VERSION,
+            true
+        );
+
+        // Enqueue main admin JavaScript
         wp_enqueue_script(
             'ccs-admin-js',
             CCS_PLUGIN_URL . 'assets/js/admin.js',
-            array('jquery'),
+            array('jquery', 'ccs-test-js'),
             CCS_VERSION,
-            true // Load in footer
+            true
         );
 
         // Create nonces
@@ -314,8 +323,9 @@ class Canvas_Course_Sync {
         );
 
         wp_localize_script('ccs-admin-js', 'ccsAjax', $localize_data);
+        wp_localize_script('ccs-test-js', 'ccsAjax', $localize_data);
         
-        error_log('CCS Debug: Localized script data: ' . print_r($localize_data, true));
+        error_log('CCS Debug: Localized script data with AJAX URL: ' . $localize_data['ajaxUrl']);
     }
 
     /**

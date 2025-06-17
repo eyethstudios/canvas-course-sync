@@ -105,10 +105,11 @@ class CCS_Admin_Page {
                     
                     <div class="ccs-connection-test">
                         <h3><?php _e('Test Connection', 'canvas-course-sync'); ?></h3>
+                        <p><?php _e('Click the button below to test your Canvas API connection.', 'canvas-course-sync'); ?></p>
                         <button type="button" id="ccs-test-connection" class="button button-secondary">
                             <?php _e('Test Connection', 'canvas-course-sync'); ?>
                         </button>
-                        <div id="ccs-connection-result"></div>
+                        <div id="ccs-connection-result" style="margin-top: 10px;"></div>
                     </div>
                 </div>
 
@@ -122,14 +123,28 @@ class CCS_Admin_Page {
                             <?php _e('Get Courses', 'canvas-course-sync'); ?>
                         </button>
                         
-                        <div id="ccs-courses-list" class="ccs-courses-container"></div>
+                        <div id="ccs-courses-list" class="ccs-courses-container" style="margin: 15px 0;"></div>
                         
-                        <button type="button" id="ccs-sync-selected" class="button button-primary" style="display: none;">
+                        <button type="button" id="ccs-sync-selected" class="button button-primary" style="display: none; margin: 10px 0;">
                             <?php _e('Sync Selected Courses', 'canvas-course-sync'); ?>
                         </button>
                         
-                        <div id="ccs-sync-status" class="ccs-sync-status"></div>
+                        <div id="ccs-sync-status" class="ccs-sync-status" style="margin-top: 10px;"></div>
                     </div>
+                </div>
+
+                <!-- Debug Panel -->
+                <div class="ccs-panel" style="margin-top: 20px; padding: 15px; background: #f9f9f9; border-left: 4px solid #00a0d2;">
+                    <h3><?php _e('Debug Information', 'canvas-course-sync'); ?></h3>
+                    <p><strong>Plugin Version:</strong> <?php echo esc_html(CCS_VERSION); ?></p>
+                    <p><strong>Canvas Domain:</strong> <?php echo esc_html(get_option('ccs_canvas_domain', 'Not set')); ?></p>
+                    <p><strong>API Token:</strong> <?php echo get_option('ccs_canvas_token') ? 'Set' : 'Not set'; ?></p>
+                    <p><strong>JavaScript Loaded:</strong> <span id="js-status">Checking...</span></p>
+                    <script>
+                        document.getElementById('js-status').textContent = 'Yes';
+                        console.log('CCS Debug: Admin page loaded, jQuery available:', typeof jQuery !== 'undefined');
+                        console.log('CCS Debug: ccsAjax available:', typeof ccsAjax !== 'undefined');
+                    </script>
                 </div>
             </div>
         </div>
