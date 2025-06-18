@@ -12,9 +12,10 @@ if (!defined('WP_UNINSTALL_PLUGIN')) {
 }
 
 // Delete plugin options
-delete_option('ccs_api_domain');
-delete_option('ccs_api_token');
+delete_option('ccs_canvas_domain');
+delete_option('ccs_canvas_token');
 delete_option('ccs_version');
+delete_option('ccs_flush_rewrite_rules');
 
 // Clean up logs directory
 $upload_dir = wp_upload_dir();
@@ -29,4 +30,15 @@ if (file_exists($log_dir)) {
     }
     @rmdir($log_dir);
     @rmdir(dirname($log_dir));
+}
+
+// Delete all courses posts and their meta
+$courses = get_posts(array(
+    'post_type' => 'courses',
+    'numberposts' => -1,
+    'post_status' => 'any'
+));
+
+foreach ($courses as $course) {
+    wp_delete_post($course->ID, true);
 }

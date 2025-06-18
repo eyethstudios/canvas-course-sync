@@ -43,6 +43,7 @@ if (is_admin()) {
     require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-admin-menu.php';
     require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-admin-page.php';
     require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-logs-display.php';
+    require_once CCS_PLUGIN_DIR . 'includes/handlers/class-ccs-ajax-handler.php';
 }
 
 /**
@@ -65,9 +66,9 @@ class Canvas_Course_Sync {
     public $importer;
 
     /**
-     * Scheduler instance
+     * Admin menu instance
      */
-    public $scheduler;
+    public $admin_menu;
 
     /**
      * Constructor
@@ -80,6 +81,12 @@ class Canvas_Course_Sync {
         $this->logger = new CCS_Logger();
         $this->api = new CCS_Canvas_API();
         $this->importer = new CCS_Course_Importer();
+        
+        // Initialize admin components
+        if (is_admin()) {
+            $this->admin_menu = new CCS_Admin_Menu();
+            add_action('admin_menu', array($this->admin_menu, 'add_menu'));
+        }
     }
 
     /**
@@ -88,11 +95,6 @@ class Canvas_Course_Sync {
     public function init() {
         // Register post types
         $this->register_post_types();
-        
-        // Initialize admin menu if in admin
-        if (is_admin()) {
-            new CCS_Admin_Menu();
-        }
     }
 
     /**
@@ -115,8 +117,8 @@ class Canvas_Course_Sync {
      * Enqueue admin scripts and styles
      */
     public function enqueue_admin_scripts($hook) {
-        // Only load on our admin page
-        if ($hook !== 'toplevel_page_canvas-course-sync') {
+        // Only load on our admin pages
+        if (!in_array($hook, array('toplevel_page_canvas-course-sync', 'canvas-sync_page_canvas-course-sync-logs'))) {
             return;
         }
 
@@ -156,13 +158,6 @@ class Canvas_Course_Sync {
             array(),
             CCS_VERSION
         );
-
-        // Add inline script for debugging
-        wp_add_inline_script('ccs-admin', '
-            console.log("CCS Debug: Admin script enqueued successfully");
-            console.log("CCS Debug: Hook is: " + "' . esc_js($hook) . '");
-            console.log("CCS Debug: Plugin URL: " + "' . esc_js(CCS_PLUGIN_URL) . '");
-        ', 'before');
     }
 }
 
@@ -251,11 +246,7 @@ function canvas_course_sync() {
 canvas_course_sync();
 
 // Activation hook
-register_activation_hook(__FILE__, function() {
-    flush_rewrite_rules();
-});
+register_activation_hook(__FILE__, 'ccs_activate_plugin');
 
 // Deactivation hook
-register_deactivation_hook(__FILE__, function() {
-    flush_rewrite_rules();
-});
+register_deactivation_hook(__FILE__, 'ccs_deactivate_plugin');
