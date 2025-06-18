@@ -30,11 +30,33 @@ class CCS_Course_Importer {
      * Constructor
      */
     public function __construct() {
-        $canvas_course_sync = canvas_course_sync();
-        if ($canvas_course_sync) {
-            $this->logger = $canvas_course_sync->logger;
-            $this->api = $canvas_course_sync->api;
+        // Don't initialize in constructor to avoid circular dependency
+    }
+    
+    /**
+     * Get logger instance safely
+     */
+    private function get_logger() {
+        if ($this->logger === null) {
+            $canvas_course_sync = canvas_course_sync();
+            if ($canvas_course_sync && isset($canvas_course_sync->logger)) {
+                $this->logger = $canvas_course_sync->logger;
+            }
         }
+        return $this->logger;
+    }
+    
+    /**
+     * Get API instance safely
+     */
+    private function get_api() {
+        if ($this->api === null) {
+            $canvas_course_sync = canvas_course_sync();
+            if ($canvas_course_sync && isset($canvas_course_sync->api)) {
+                $this->api = $canvas_course_sync->api;
+            }
+        }
+        return $this->api;
     }
     
     /**
@@ -44,7 +66,10 @@ class CCS_Course_Importer {
      * @return array Import results
      */
     public function import_courses($course_ids) {
-        if (!$this->api || !$this->logger) {
+        $api = $this->get_api();
+        $logger = $this->get_logger();
+        
+        if (!$api || !$logger) {
             return array(
                 'imported' => 0,
                 'skipped' => 0,
@@ -63,11 +88,11 @@ class CCS_Course_Importer {
         );
         
         foreach ($course_ids as $course_id) {
-            $course_details = $this->api->get_course_details($course_id);
+            $course_details = $api->get_course_details($course_id);
             
             if (is_wp_error($course_details)) {
                 $results['errors']++;
-                $this->logger->log('Failed to get course details for ID ' . $course_id . ': ' . $course_details->get_error_message(), 'error');
+                $logger->log('Failed to get course details for ID ' . $course_id . ': ' . $course_details->get_error_message(), 'error');
                 continue;
             }
             
@@ -82,7 +107,7 @@ class CCS_Course_Importer {
             
             if (!empty($existing)) {
                 $results['skipped']++;
-                $this->logger->log('Course already exists: ' . $course_details->name . ' (ID: ' . $course_id . ')');
+                $logger->log('Course already exists: ' . $course_details->name . ' (ID: ' . $course_id . ')');
                 continue;
             }
             
@@ -106,11 +131,11 @@ class CCS_Course_Importer {
                 update_post_meta($post_id, 'canvas_enrollment_term_id', intval($course_details->enrollment_term_id ?? 0));
                 
                 $results['imported']++;
-                $this->logger->log('Successfully imported course: ' . $course_details->name . ' (ID: ' . $course_id . ')');
+                $logger->log('Successfully imported course: ' . $course_details->name . ' (ID: ' . $course_id . ')');
             } else {
                 $results['errors']++;
                 $error_message = is_wp_error($post_id) ? $post_id->get_error_message() : 'Unknown error';
-                $this->logger->log('Failed to create WordPress post for course ID: ' . $course_id . ' - ' . $error_message, 'error');
+                $logger->log('Failed to create WordPress post for course ID: ' . $course_id . ' - ' . $error_message, 'error');
             }
         }
         

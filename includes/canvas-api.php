@@ -25,10 +25,20 @@ class CCS_Canvas_API {
      * Constructor
      */
     public function __construct() {
-        $canvas_course_sync = canvas_course_sync();
-        if ($canvas_course_sync && isset($canvas_course_sync->logger)) {
-            $this->logger = $canvas_course_sync->logger;
+        // Don't initialize logger in constructor to avoid circular dependency
+    }
+    
+    /**
+     * Get logger instance safely
+     */
+    private function get_logger() {
+        if ($this->logger === null) {
+            $canvas_course_sync = canvas_course_sync();
+            if ($canvas_course_sync && isset($canvas_course_sync->logger)) {
+                $this->logger = $canvas_course_sync->logger;
+            }
         }
+        return $this->logger;
     }
     
     /**
@@ -75,15 +85,16 @@ class CCS_Canvas_API {
         
         $args = wp_parse_args($args, $default_args);
         
-        if ($this->logger) {
-            $this->logger->log('Making API request to: ' . $url);
+        $logger = $this->get_logger();
+        if ($logger) {
+            $logger->log('Making API request to: ' . $url);
         }
         
         $response = wp_remote_get($url, $args);
         
         if (is_wp_error($response)) {
-            if ($this->logger) {
-                $this->logger->log('API request failed: ' . $response->get_error_message(), 'error');
+            if ($logger) {
+                $logger->log('API request failed: ' . $response->get_error_message(), 'error');
             }
             return $response;
         }
@@ -100,8 +111,8 @@ class CCS_Canvas_API {
                 }
             }
             
-            if ($this->logger) {
-                $this->logger->log('API error: ' . $error_message, 'error');
+            if ($logger) {
+                $logger->log('API error: ' . $error_message, 'error');
             }
             
             return new WP_Error('api_error', $error_message);

@@ -27,7 +27,6 @@ class CCS_Logger {
     public function __construct() {
         global $wpdb;
         $this->table_name = $wpdb->prefix . 'ccs_logs';
-        $this->create_table_if_not_exists();
     }
     
     /**
@@ -36,9 +35,20 @@ class CCS_Logger {
     private function create_table_if_not_exists() {
         global $wpdb;
         
+        // Check if table exists first
+        $table_exists = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = %s AND table_name = %s",
+            DB_NAME,
+            $this->table_name
+        ));
+        
+        if ($table_exists) {
+            return;
+        }
+        
         $charset_collate = $wpdb->get_charset_collate();
         
-        $sql = "CREATE TABLE IF NOT EXISTS {$this->table_name} (
+        $sql = "CREATE TABLE {$this->table_name} (
             id int(11) NOT NULL AUTO_INCREMENT,
             timestamp datetime DEFAULT CURRENT_TIMESTAMP,
             level varchar(20) NOT NULL DEFAULT 'info',
@@ -59,6 +69,9 @@ class CCS_Logger {
      * @param string $level Log level (info, warning, error)
      */
     public function log($message, $level = 'info') {
+        // Ensure table exists before logging
+        $this->create_table_if_not_exists();
+        
         global $wpdb;
         
         $wpdb->insert(
@@ -79,6 +92,9 @@ class CCS_Logger {
      * @return array Log entries
      */
     public function get_recent_logs($limit = 100) {
+        // Ensure table exists before querying
+        $this->create_table_if_not_exists();
+        
         global $wpdb;
         
         $results = $wpdb->get_results(
@@ -95,6 +111,9 @@ class CCS_Logger {
      * Clear logs
      */
     public function clear_logs() {
+        // Ensure table exists before truncating
+        $this->create_table_if_not_exists();
+        
         global $wpdb;
         $wpdb->query("TRUNCATE TABLE {$this->table_name}");
     }
