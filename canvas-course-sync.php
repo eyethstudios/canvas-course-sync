@@ -33,7 +33,6 @@ define('CCS_PLUGIN_FILE', __FILE__);
  */
 function ccs_check_required_files() {
     $required_files = array(
-        CCS_PLUGIN_DIR . 'includes/functions.php',
         CCS_PLUGIN_DIR . 'includes/logger.php',
         CCS_PLUGIN_DIR . 'includes/canvas-api.php',
         CCS_PLUGIN_DIR . 'includes/importer.php'
@@ -56,7 +55,6 @@ if (!ccs_check_required_files()) {
 }
 
 // Include required files in proper order
-require_once CCS_PLUGIN_DIR . 'includes/functions.php';
 require_once CCS_PLUGIN_DIR . 'includes/logger.php';
 require_once CCS_PLUGIN_DIR . 'includes/canvas-api.php';
 require_once CCS_PLUGIN_DIR . 'includes/importer.php';
@@ -107,6 +105,8 @@ class Canvas_Course_Sync {
     public function __construct() {
         // Hook into WordPress initialization
         add_action('init', array($this, 'init'));
+        add_action('admin_init', array($this, 'admin_init'));
+        add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
         
         // Initialize components with error handling
@@ -121,6 +121,7 @@ class Canvas_Course_Sync {
             // Initialize logger first
             if (class_exists('CCS_Logger')) {
                 $this->logger = new CCS_Logger();
+                $this->logger->log('Plugin components initializing...');
             }
             
             // Initialize API
@@ -137,6 +138,10 @@ class Canvas_Course_Sync {
             if (is_admin() && class_exists('CCS_Admin_Menu')) {
                 $this->admin_menu = new CCS_Admin_Menu();
             }
+            
+            if ($this->logger) {
+                $this->logger->log('Plugin components initialized successfully');
+            }
         } catch (Exception $e) {
             // Log error if logger is available, otherwise fail silently
             if ($this->logger) {
@@ -151,6 +156,82 @@ class Canvas_Course_Sync {
     public function init() {
         // Load text domain for translations
         load_plugin_textdomain('canvas-course-sync', false, dirname(plugin_basename(__FILE__)) . '/languages');
+    }
+
+    /**
+     * Admin initialization
+     */
+    public function admin_init() {
+        // Register settings
+        register_setting('ccs_settings', 'ccs_canvas_domain', array(
+            'sanitize_callback' => 'esc_url_raw'
+        ));
+        register_setting('ccs_settings', 'ccs_canvas_token', array(
+            'sanitize_callback' => 'sanitize_text_field'
+        ));
+    }
+
+    /**
+     * Add admin menu
+     */
+    public function add_admin_menu() {
+        if ($this->admin_menu && method_exists($this->admin_menu, 'add_menu')) {
+            $this->admin_menu->add_menu();
+        } else {
+            // Fallback menu creation
+            add_menu_page(
+                __('Canvas Course Sync', 'canvas-course-sync'),
+                __('Canvas Sync', 'canvas-course-sync'),
+                'manage_options',
+                'canvas-course-sync',
+                array($this, 'display_admin_page'),
+                'dashicons-update',
+                30
+            );
+            
+            add_submenu_page(
+                'canvas-course-sync',
+                __('Sync Logs', 'canvas-course-sync'),
+                __('Logs', 'canvas-course-sync'),
+                'manage_options',
+                'canvas-course-sync-logs',
+                array($this, 'display_logs_page')
+            );
+        }
+    }
+
+    /**
+     * Display admin page
+     */
+    public function display_admin_page() {
+        if (class_exists('CCS_Admin_Page')) {
+            $admin_page = new CCS_Admin_Page();
+            $admin_page->render();
+        } else {
+            echo '<div class="wrap">';
+            echo '<h1>' . esc_html__('Canvas Course Sync', 'canvas-course-sync') . '</h1>';
+            echo '<div class="notice notice-error"><p>';
+            echo esc_html__('Admin page class not found. Please check plugin installation.', 'canvas-course-sync');
+            echo '</p></div>';
+            echo '</div>';
+        }
+    }
+
+    /**
+     * Display logs page
+     */
+    public function display_logs_page() {
+        if (class_exists('CCS_Logs_Display')) {
+            $logs_display = new CCS_Logs_Display();
+            $logs_display->render();
+        } else {
+            echo '<div class="wrap">';
+            echo '<h1>' . esc_html__('Canvas Course Sync - Logs', 'canvas-course-sync') . '</h1>';
+            echo '<div class="notice notice-error"><p>';
+            echo esc_html__('Logs display class not found. Please check plugin installation.', 'canvas-course-sync');
+            echo '</p></div>';
+            echo '</div>';
+        }
     }
 
     /**
@@ -230,6 +311,39 @@ function canvas_course_sync() {
         }
     }
     return $instance;
+}
+
+/**
+ * Plugin activation hook
+ */
+function ccs_activate_plugin() {
+    // Create custom post type for courses if it doesn't exist
+    if (!post_type_exists('courses')) {
+        register_post_type('courses', array(
+            'public' => true,
+            'label' => 'Courses',
+            'supports' => array('title', 'editor', 'custom-fields')
+        ));
+    }
+    
+    // Flush rewrite rules
+    flush_rewrite_rules();
+    
+    // Log activation
+    $logger = new CCS_Logger();
+    $logger->log('Canvas Course Sync plugin activated');
+}
+
+/**
+ * Plugin deactivation hook
+ */
+function ccs_deactivate_plugin() {
+    // Log deactivation
+    $logger = new CCS_Logger();
+    $logger->log('Canvas Course Sync plugin deactivated');
+    
+    // Flush rewrite rules
+    flush_rewrite_rules();
 }
 
 // Start the plugin only after WordPress is fully loaded
