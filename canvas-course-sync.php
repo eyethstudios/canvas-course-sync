@@ -71,7 +71,7 @@ class Canvas_Course_Sync {
      */
     public function __construct() {
         // Hook into WordPress initialization
-        add_action('plugins_loaded', array($this, 'init'));
+        add_action('init', array($this, 'init'));
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
         
         // Initialize components
@@ -89,28 +89,8 @@ class Canvas_Course_Sync {
      * Initialize plugin
      */
     public function init() {
-        // Register post types
-        $this->register_post_types();
-        
         // Load text domain for translations
         load_plugin_textdomain('canvas-course-sync', false, dirname(plugin_basename(__FILE__)) . '/languages');
-    }
-
-    /**
-     * Register post types
-     */
-    public function register_post_types() {
-        register_post_type('courses', array(
-            'labels' => array(
-                'name' => __('Courses', 'canvas-course-sync'),
-                'singular_name' => __('Course', 'canvas-course-sync'),
-            ),
-            'public' => true,
-            'has_archive' => true,
-            'supports' => array('title', 'editor', 'thumbnail', 'custom-fields'),
-            'menu_icon' => 'dashicons-welcome-learn-more',
-            'rewrite' => array('slug' => 'courses'),
-        ));
     }
 
     /**
@@ -162,78 +142,6 @@ class Canvas_Course_Sync {
 }
 
 /**
- * Course Importer class
- */
-class CCS_Course_Importer {
-    /**
-     * Import courses from Canvas
-     */
-    public function import_courses($course_ids) {
-        $canvas_course_sync = canvas_course_sync();
-        $api = $canvas_course_sync->api;
-        $logger = $canvas_course_sync->logger;
-        
-        $results = array(
-            'imported' => 0,
-            'skipped' => 0,
-            'errors' => 0,
-            'total' => count($course_ids),
-            'message' => ''
-        );
-        
-        foreach ($course_ids as $course_id) {
-            $course_details = $api->get_course_details($course_id);
-            
-            if (is_wp_error($course_details)) {
-                $results['errors']++;
-                $logger->log('Failed to get course details for ID ' . $course_id . ': ' . $course_details->get_error_message(), 'error');
-                continue;
-            }
-            
-            // Check if course already exists
-            $existing = get_posts(array(
-                'post_type' => 'courses',
-                'meta_key' => 'canvas_course_id',
-                'meta_value' => $course_id,
-                'posts_per_page' => 1
-            ));
-            
-            if (!empty($existing)) {
-                $results['skipped']++;
-                continue;
-            }
-            
-            // Create WordPress post
-            $post_id = wp_insert_post(array(
-                'post_title' => sanitize_text_field($course_details->name),
-                'post_content' => wp_kses_post($course_details->description ?? ''),
-                'post_status' => 'publish',
-                'post_type' => 'courses'
-            ));
-            
-            if ($post_id) {
-                update_post_meta($post_id, 'canvas_course_id', $course_id);
-                update_post_meta($post_id, 'canvas_course_code', sanitize_text_field($course_details->course_code ?? ''));
-                $results['imported']++;
-                $logger->log('Successfully imported course: ' . $course_details->name . ' (ID: ' . $course_id . ')');
-            } else {
-                $results['errors']++;
-                $logger->log('Failed to create WordPress post for course ID: ' . $course_id, 'error');
-            }
-        }
-        
-        $results['message'] = sprintf(
-            __('Import completed: %d imported, %d skipped, %d errors', 'canvas-course-sync'),
-            $results['imported'],
-            $results['skipped'],
-            $results['errors']
-        );
-        
-        return $results;
-    }
-}
-
-/**
  * Initialize plugin
  */
 function canvas_course_sync() {
@@ -252,4 +160,3 @@ register_activation_hook(__FILE__, 'ccs_activate_plugin');
 
 // Deactivation hook
 register_deactivation_hook(__FILE__, 'ccs_deactivate_plugin');
-

@@ -15,27 +15,34 @@ if (!defined('ABSPATH')) {
  * Logger class
  */
 class CCS_Logger {
+    
     /**
-     * Log file path
-     *
-     * @var string
+     * Log directory
      */
-    private $log_file;
-
+    private $log_dir;
+    
     /**
      * Constructor
      */
     public function __construct() {
         $upload_dir = wp_upload_dir();
-        $log_dir = $upload_dir['basedir'] . '/canvas-course-sync/logs';
-        
-        if (!file_exists($log_dir)) {
-            wp_mkdir_p($log_dir);
-        }
-        
-        $this->log_file = $log_dir . '/ccs-log-' . date('Y-m-d') . '.log';
+        $this->log_dir = $upload_dir['basedir'] . '/canvas-course-sync/logs';
+        $this->ensure_log_dir();
     }
-
+    
+    /**
+     * Ensure log directory exists
+     */
+    private function ensure_log_dir() {
+        if (!file_exists($this->log_dir)) {
+            wp_mkdir_p($this->log_dir);
+            
+            // Add .htaccess for security
+            $htaccess_content = "deny from all\n";
+            file_put_contents($this->log_dir . '/.htaccess', $htaccess_content);
+        }
+    }
+    
     /**
      * Log a message
      *
@@ -43,73 +50,39 @@ class CCS_Logger {
      * @param string $level Log level (info, warning, error)
      */
     public function log($message, $level = 'info') {
-        $timestamp = date('Y-m-d H:i:s');
-        $log_entry = "[{$timestamp}] [{$level}] {$message}" . PHP_EOL;
+        $timestamp = current_time('Y-m-d H:i:s');
+        $log_entry = sprintf("[%s] [%s] %s\n", $timestamp, strtoupper($level), $message);
         
-        file_put_contents($this->log_file, $log_entry, FILE_APPEND | LOCK_EX);
+        $log_file = $this->log_dir . '/canvas-sync-' . date('Y-m-d') . '.log';
+        file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
     }
-
+    
     /**
-     * Get log entries
+     * Get recent log entries
      *
-     * @param int $limit Number of entries to retrieve
+     * @param int $limit Number of entries to return
      * @return array Log entries
      */
-    public function get_logs($limit = 100) {
-        if (!file_exists($this->log_file)) {
-            return array();
-        }
-
-        $logs = file($this->log_file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    public function get_recent_logs($limit = 100) {
+        $log_file = $this->log_dir . '/canvas-sync-' . date('Y-m-d') . '.log';
         
-        if (!$logs) {
+        if (!file_exists($log_file)) {
             return array();
         }
-
-        // Return the last N entries
-        return array_slice(array_reverse($logs), 0, $limit);
+        
+        $lines = file($log_file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        return array_slice(array_reverse($lines), 0, $limit);
     }
-
+    
     /**
-     * Get recent log entries (alias for get_logs for compatibility)
-     *
-     * @param int $limit Number of entries to retrieve
-     * @return array Log entries
-     */
-    public function get_recent_logs($limit = 20) {
-        return $this->get_logs($limit);
-    }
-
-    /**
-     * Get log file path
-     *
-     * @return string Log file path
-     */
-    public function get_log_file() {
-        return $this->log_file;
-    }
-
-    /**
-     * Clear all logs
-     *
-     * @return bool Success status
+     * Clear logs
      */
     public function clear_logs() {
-        $upload_dir = wp_upload_dir();
-        $log_dir = $upload_dir['basedir'] . '/canvas-course-sync/logs';
-        
-        if (!is_dir($log_dir)) {
-            return true;
-        }
-
-        $files = glob($log_dir . '/*.log');
-        
+        $files = glob($this->log_dir . '/*.log');
         foreach ($files as $file) {
             if (is_file($file)) {
                 unlink($file);
             }
         }
-
-        return true;
     }
 }
