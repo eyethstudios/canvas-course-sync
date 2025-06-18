@@ -81,11 +81,14 @@ class Canvas_Course_Sync {
      * Load plugin components
      */
     public function load_plugin() {
-        // Load required files
+        // Load required files first
         $this->load_required_files();
         
-        // Initialize components
-        $this->init_components();
+        // Register custom post type early
+        add_action('init', 'ccs_register_courses_post_type', 0);
+        
+        // Initialize components after WordPress is fully loaded
+        add_action('wp_loaded', array($this, 'init_components'));
         
         // Initialize admin
         if (is_admin()) {
@@ -133,7 +136,7 @@ class Canvas_Course_Sync {
     /**
      * Initialize components safely
      */
-    private function init_components() {
+    public function init_components() {
         // Initialize logger first
         if (class_exists('CCS_Logger')) {
             $this->logger = new CCS_Logger();
@@ -167,9 +170,9 @@ class Canvas_Course_Sync {
      * Admin initialization
      */
     public function admin_init() {
-        // Register settings
+        // Register settings with consistent naming
         register_setting('ccs_settings', 'ccs_canvas_domain', array(
-            'sanitize_callback' => 'sanitize_url',
+            'sanitize_callback' => 'esc_url_raw',
             'default' => ''
         ));
         register_setting('ccs_settings', 'ccs_canvas_token', array(
@@ -320,11 +323,24 @@ function canvas_course_sync() {
  * Plugin activation hook
  */
 function ccs_activate_plugin() {
+    // Register custom post type first
+    if (!function_exists('ccs_register_courses_post_type')) {
+        require_once CCS_PLUGIN_DIR . 'includes/functions.php';
+    }
+    ccs_register_courses_post_type();
+    
     // Set default options
     add_option('ccs_canvas_domain', '');
     add_option('ccs_canvas_token', '');
     add_option('ccs_notification_email', get_option('admin_email'));
     add_option('ccs_auto_sync_enabled', 0);
+    
+    // Create logger table
+    if (class_exists('CCS_Logger')) {
+        $logger = new CCS_Logger();
+        // Force table creation on activation
+        $logger->ensure_table_exists();
+    }
     
     // Flush rewrite rules
     flush_rewrite_rules();

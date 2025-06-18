@@ -30,6 +30,13 @@ class CCS_Logger {
     }
     
     /**
+     * Public method to ensure table exists (for activation)
+     */
+    public function ensure_table_exists() {
+        $this->create_table_if_not_exists();
+    }
+    
+    /**
      * Create logs table if it doesn't exist
      */
     private function create_table_if_not_exists() {

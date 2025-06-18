@@ -28,21 +28,6 @@ class CCS_Admin_Page {
     public function __construct() {
         $canvas_course_sync = canvas_course_sync();
         $this->logger = ($canvas_course_sync && isset($canvas_course_sync->logger)) ? $canvas_course_sync->logger : null;
-        
-        // Register settings
-        add_action('admin_init', array($this, 'register_settings'));
-    }
-
-    /**
-     * Register settings
-     */
-    public function register_settings() {
-        register_setting('ccs_settings', 'ccs_canvas_domain', array(
-            'sanitize_callback' => 'esc_url_raw'
-        ));
-        register_setting('ccs_settings', 'ccs_canvas_token', array(
-            'sanitize_callback' => 'sanitize_text_field'
-        ));
     }
 
     /**
@@ -63,6 +48,10 @@ class CCS_Admin_Page {
                 update_option('ccs_canvas_token', $token);
                 
                 echo '<div class="notice notice-success"><p>' . __('Settings saved!', 'canvas-course-sync') . '</p></div>';
+                
+                if ($this->logger) {
+                    $this->logger->log('Settings updated via admin page');
+                }
             }
             ?>
 
@@ -139,6 +128,15 @@ class CCS_Admin_Page {
                     <p><strong>Plugin Version:</strong> <?php echo esc_html(CCS_VERSION); ?></p>
                     <p><strong>Canvas Domain:</strong> <?php echo esc_html(get_option('ccs_canvas_domain', 'Not set')); ?></p>
                     <p><strong>API Token:</strong> <?php echo get_option('ccs_canvas_token') ? 'Set' : 'Not set'; ?></p>
+                    <p><strong>Courses Post Type:</strong> <?php echo post_type_exists('courses') ? 'Registered' : 'Not registered'; ?></p>
+                    <p><strong>Database Table:</strong> 
+                        <?php 
+                        global $wpdb;
+                        $table_name = $wpdb->prefix . 'ccs_logs';
+                        $table_exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $table_name));
+                        echo $table_exists ? 'Created' : 'Missing';
+                        ?>
+                    </p>
                     <p><strong>JavaScript Loaded:</strong> <span id="js-status">Checking...</span></p>
                     <script>
                         document.getElementById('js-status').textContent = 'Yes';

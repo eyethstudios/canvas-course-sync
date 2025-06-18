@@ -50,6 +50,8 @@ function ccs_register_courses_post_type() {
 
     register_post_type('courses', $args);
 }
+
+// Register the post type on init - don't rely on external calls
 add_action('init', 'ccs_register_courses_post_type');
 
 /**
