@@ -1,3 +1,4 @@
+
 <?php
 // Prevent direct file access
 if (!defined('ABSPATH')) {
@@ -54,17 +55,22 @@ function ccs_ajax_test_connection() {
 }
 
 /**
- * AJAX handler for getting Canvas courses
+ * AJAX handler for getting Canvas courses - FIXED VERSION
  */
 function ccs_ajax_get_courses() {
+    // Debug logging
+    error_log('CCS Debug: ccs_ajax_get_courses called');
+    
     // Verify nonce
     if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ccs_get_courses')) {
+        error_log('CCS Debug: Nonce verification failed');
         wp_send_json_error(__('Security check failed', 'canvas-course-sync'));
         return;
     }
     
     // Check user capabilities
     if (!ccs_user_can_manage_sync()) {
+        error_log('CCS Debug: User capability check failed');
         wp_send_json_error(__('Permission denied', 'canvas-course-sync'));
         return;
     }
@@ -72,20 +78,26 @@ function ccs_ajax_get_courses() {
     $canvas_course_sync = canvas_course_sync();
     
     if (!$canvas_course_sync || !isset($canvas_course_sync->api)) {
+        error_log('CCS Debug: API not initialized');
         wp_send_json_error(__('API not initialized', 'canvas-course-sync'));
         return;
     }
     
     try {
+        error_log('CCS Debug: Testing connection before getting courses');
+        
         // First test the connection
         $connection_test = $canvas_course_sync->api->test_connection();
         if ($connection_test !== true) {
             if (isset($canvas_course_sync->logger)) {
                 $canvas_course_sync->logger->log('Connection test failed before getting courses: ' . $connection_test, 'error');
             }
+            error_log('CCS Debug: Connection test failed: ' . $connection_test);
             wp_send_json_error('Connection test failed: ' . sanitize_text_field($connection_test));
             return;
         }
+        
+        error_log('CCS Debug: Connection test passed, getting courses');
         
         $courses = $canvas_course_sync->api->get_courses();
         
@@ -95,6 +107,7 @@ function ccs_ajax_get_courses() {
             if (isset($canvas_course_sync->logger)) {
                 $canvas_course_sync->logger->log('Error getting courses: ' . $error_message, 'error');
             }
+            error_log('CCS Debug: WP_Error getting courses: ' . $error_message);
             wp_send_json_error(sanitize_text_field($error_message));
             return;
         }
@@ -105,9 +118,12 @@ function ccs_ajax_get_courses() {
             if (isset($canvas_course_sync->logger)) {
                 $canvas_course_sync->logger->log($error_msg, 'error');
             }
+            error_log('CCS Debug: ' . $error_msg);
             wp_send_json_error(sanitize_text_field($error_msg));
             return;
         }
+        
+        error_log('CCS Debug: Got ' . count($courses) . ' courses from Canvas API');
         
         // Process courses and check if they exist in WordPress
         $processed_courses = array();
@@ -136,6 +152,8 @@ function ccs_ajax_get_courses() {
             $processed_courses[] = $course_data;
         }
         
+        error_log('CCS Debug: Processed ' . count($processed_courses) . ' courses with WP existence check');
+        
         if (isset($canvas_course_sync->logger)) {
             $canvas_course_sync->logger->log('Successfully retrieved ' . count($processed_courses) . ' courses');
         }
@@ -145,6 +163,7 @@ function ccs_ajax_get_courses() {
         if (isset($canvas_course_sync->logger)) {
             $canvas_course_sync->logger->log('Exception getting courses: ' . $e->getMessage(), 'error');
         }
+        error_log('CCS Debug: Exception in ccs_ajax_get_courses: ' . $e->getMessage());
         wp_send_json_error('Exception: ' . sanitize_text_field($e->getMessage()));
     }
 }

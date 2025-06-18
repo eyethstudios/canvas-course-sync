@@ -89,10 +89,10 @@
             });
         });
 
-        // Get Courses button handler
+        // Get Courses button handler - FIXED VERSION
         $('#ccs-get-courses').on('click', function(e) {
             e.preventDefault();
-            console.log('Get courses button clicked');
+            console.log('Get courses button clicked - starting course fetch');
             
             var $button = $(this);
             var $coursesList = $('#ccs-courses-list');
@@ -104,7 +104,8 @@
             $button.prop('disabled', true).text(ccsAjax.strings.loading || 'Loading...');
             $coursesList.html('<div class="spinner is-active" style="float:none;"></div> Loading courses...');
             
-            console.log('Making get courses AJAX request');
+            console.log('Making get courses AJAX request to:', ccsAjax.ajaxUrl);
+            console.log('Using get courses nonce:', ccsAjax.getCoursesNonce);
             
             $.ajax({
                 url: ccsAjax.ajaxUrl,
@@ -115,32 +116,40 @@
                 },
                 timeout: 30000,
                 beforeSend: function(xhr, settings) {
-                    console.log('Get courses AJAX request starting:', settings);
+                    console.log('Get courses AJAX request starting with data:', settings.data);
                 },
                 success: function(response) {
                     console.log('Get courses response received:', response);
                     
                     if (response && response.success && Array.isArray(response.data)) {
-                        console.log('Displaying', response.data.length, 'courses');
+                        console.log('Successfully received', response.data.length, 'courses');
                         displayCourses(response.data);
                         $('#ccs-sync-selected').show();
+                        $coursesList.append('<p class="success">Successfully loaded ' + response.data.length + ' courses.</p>');
                     } else {
-                        var errorMsg = (response && response.data) ? response.data : 'Failed to load courses';
+                        var errorMsg = (response && response.data) ? response.data : 'Failed to load courses - no data returned';
+                        console.error('Get courses failed:', errorMsg);
                         $coursesList.html('<div class="notice notice-error inline"><p>' + escapeHtml(errorMsg) + '</p></div>');
-                        console.log('Error loading courses:', errorMsg);
                     }
                 },
                 error: function(xhr, status, error) {
-                    console.error('Get courses AJAX Error:', {xhr: xhr, status: status, error: error});
+                    console.error('Get courses AJAX Error:', {
+                        xhr: xhr, 
+                        status: status, 
+                        error: error,
+                        responseText: xhr.responseText,
+                        readyState: xhr.readyState
+                    });
+                    
                     var errorMsg = 'Error loading courses: ' + error;
                     if (xhr.responseText) {
                         try {
                             var responseObj = JSON.parse(xhr.responseText);
                             if (responseObj && responseObj.data) {
-                                errorMsg = 'Error: ' + responseObj.data;
+                                errorMsg = 'Server error: ' + responseObj.data;
                             }
                         } catch (e) {
-                            errorMsg += ' (Response: ' + xhr.responseText.substring(0, 100) + ')';
+                            errorMsg += ' (Server response: ' + xhr.responseText.substring(0, 200) + ')';
                         }
                     }
                     $coursesList.html('<div class="notice notice-error inline"><p>' + escapeHtml(errorMsg) + '</p></div>');
@@ -208,9 +217,11 @@
             });
         });
 
-        // Helper function to display courses
+        // Helper function to display courses - IMPROVED VERSION
         function displayCourses(courses) {
             var $coursesList = $('#ccs-courses-list');
+            
+            console.log('displayCourses called with:', courses);
             
             if (!courses || courses.length === 0) {
                 $coursesList.html('<div class="notice notice-info inline"><p>No courses found.</p></div>');
@@ -218,24 +229,31 @@
             }
 
             var html = '<div class="ccs-courses-wrapper">';
-            html += '<h3>Select courses to sync:</h3>';
-            html += '<div class="ccs-course-list" style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; margin: 10px 0;">';
+            html += '<h3>Select courses to sync (' + courses.length + ' found):</h3>';
+            html += '<div class="ccs-course-list" style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; margin: 10px 0; background: #f9f9f9;">';
             
-            courses.forEach(function(course) {
+            courses.forEach(function(course, index) {
+                console.log('Processing course ' + index + ':', course);
+                
                 var courseId = course.id || '';
                 var courseName = course.name || 'Unnamed Course';
                 var existsInWp = course.exists_in_wp || false;
                 var disabled = existsInWp ? 'disabled' : '';
-                var status = existsInWp ? ' (Already exists)' : '';
+                var status = existsInWp ? ' (Already exists)' : ' (New)';
+                var statusClass = existsInWp ? 'style="color: #666;"' : 'style="color: #0073aa; font-weight: bold;"';
                 
-                html += '<label style="display: block; margin: 5px 0;">';
+                html += '<label style="display: block; margin: 5px 0; padding: 5px; border-bottom: 1px solid #eee;">';
                 html += '<input type="checkbox" class="ccs-course-checkbox" value="' + escapeHtml(courseId) + '" ' + disabled + '> ';
-                html += escapeHtml(courseName) + status;
+                html += '<span ' + statusClass + '>' + escapeHtml(courseName) + status + '</span>';
                 html += '</label>';
             });
             
-            html += '</div></div>';
+            html += '</div>';
+            html += '<button type="button" id="ccs-sync-selected" class="button button-primary" style="margin-top: 10px;">Sync Selected Courses</button>';
+            html += '</div>';
+            
             $coursesList.html(html);
+            console.log('Courses displayed successfully');
         }
 
         // Helper function to display sync results
