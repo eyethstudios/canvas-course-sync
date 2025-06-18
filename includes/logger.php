@@ -17,30 +17,39 @@ if (!defined('ABSPATH')) {
 class CCS_Logger {
     
     /**
-     * Log directory
+     * Log table name
      */
-    private $log_dir;
+    private $table_name;
     
     /**
      * Constructor
      */
     public function __construct() {
-        $upload_dir = wp_upload_dir();
-        $this->log_dir = $upload_dir['basedir'] . '/canvas-course-sync/logs';
-        $this->ensure_log_dir();
+        global $wpdb;
+        $this->table_name = $wpdb->prefix . 'ccs_logs';
+        $this->create_table_if_not_exists();
     }
     
     /**
-     * Ensure log directory exists
+     * Create logs table if it doesn't exist
      */
-    private function ensure_log_dir() {
-        if (!file_exists($this->log_dir)) {
-            wp_mkdir_p($this->log_dir);
-            
-            // Add .htaccess for security
-            $htaccess_content = "deny from all\n";
-            file_put_contents($this->log_dir . '/.htaccess', $htaccess_content);
-        }
+    private function create_table_if_not_exists() {
+        global $wpdb;
+        
+        $charset_collate = $wpdb->get_charset_collate();
+        
+        $sql = "CREATE TABLE IF NOT EXISTS {$this->table_name} (
+            id int(11) NOT NULL AUTO_INCREMENT,
+            timestamp datetime DEFAULT CURRENT_TIMESTAMP,
+            level varchar(20) NOT NULL DEFAULT 'info',
+            message text NOT NULL,
+            PRIMARY KEY (id),
+            KEY level (level),
+            KEY timestamp (timestamp)
+        ) $charset_collate;";
+        
+        require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+        dbDelta($sql);
     }
     
     /**
@@ -50,11 +59,17 @@ class CCS_Logger {
      * @param string $level Log level (info, warning, error)
      */
     public function log($message, $level = 'info') {
-        $timestamp = current_time('Y-m-d H:i:s');
-        $log_entry = sprintf("[%s] [%s] %s\n", $timestamp, strtoupper($level), $message);
+        global $wpdb;
         
-        $log_file = $this->log_dir . '/canvas-sync-' . date('Y-m-d') . '.log';
-        file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
+        $wpdb->insert(
+            $this->table_name,
+            array(
+                'message' => sanitize_text_field($message),
+                'level' => sanitize_text_field($level),
+                'timestamp' => current_time('mysql')
+            ),
+            array('%s', '%s', '%s')
+        );
     }
     
     /**
@@ -64,25 +79,23 @@ class CCS_Logger {
      * @return array Log entries
      */
     public function get_recent_logs($limit = 100) {
-        $log_file = $this->log_dir . '/canvas-sync-' . date('Y-m-d') . '.log';
+        global $wpdb;
         
-        if (!file_exists($log_file)) {
-            return array();
-        }
+        $results = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT * FROM {$this->table_name} ORDER BY timestamp DESC LIMIT %d",
+                $limit
+            )
+        );
         
-        $lines = file($log_file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        return array_slice(array_reverse($lines), 0, $limit);
+        return $results ? $results : array();
     }
     
     /**
      * Clear logs
      */
     public function clear_logs() {
-        $files = glob($this->log_dir . '/*.log');
-        foreach ($files as $file) {
-            if (is_file($file)) {
-                unlink($file);
-            }
-        }
+        global $wpdb;
+        $wpdb->query("TRUNCATE TABLE {$this->table_name}");
     }
 }

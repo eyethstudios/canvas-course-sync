@@ -17,10 +17,102 @@ if (!defined('ABSPATH')) {
 class CCS_Canvas_API {
     
     /**
+     * Logger instance
+     */
+    private $logger;
+    
+    /**
      * Constructor
      */
     public function __construct() {
-        // Initialize API
+        $canvas_course_sync = canvas_course_sync();
+        if ($canvas_course_sync && isset($canvas_course_sync->logger)) {
+            $this->logger = $canvas_course_sync->logger;
+        }
+    }
+    
+    /**
+     * Get Canvas credentials
+     *
+     * @return array|WP_Error Credentials array or error
+     */
+    private function get_credentials() {
+        $domain = get_option('ccs_canvas_domain');
+        $token = get_option('ccs_canvas_token');
+        
+        if (empty($domain) || empty($token)) {
+            return new WP_Error('missing_credentials', __('Canvas domain and API token are required.', 'canvas-course-sync'));
+        }
+        
+        return array(
+            'domain' => untrailingslashit($domain),
+            'token' => $token
+        );
+    }
+    
+    /**
+     * Make API request
+     *
+     * @param string $endpoint API endpoint
+     * @param array $args Additional request arguments
+     * @return array|WP_Error Response data or error
+     */
+    private function make_request($endpoint, $args = array()) {
+        $credentials = $this->get_credentials();
+        if (is_wp_error($credentials)) {
+            return $credentials;
+        }
+        
+        $url = $credentials['domain'] . '/api/v1/' . ltrim($endpoint, '/');
+        
+        $default_args = array(
+            'headers' => array(
+                'Authorization' => 'Bearer ' . $credentials['token'],
+                'Content-Type' => 'application/json'
+            ),
+            'timeout' => 30,
+        );
+        
+        $args = wp_parse_args($args, $default_args);
+        
+        if ($this->logger) {
+            $this->logger->log('Making API request to: ' . $url);
+        }
+        
+        $response = wp_remote_get($url, $args);
+        
+        if (is_wp_error($response)) {
+            if ($this->logger) {
+                $this->logger->log('API request failed: ' . $response->get_error_message(), 'error');
+            }
+            return $response;
+        }
+        
+        $response_code = wp_remote_retrieve_response_code($response);
+        $body = wp_remote_retrieve_body($response);
+        
+        if ($response_code !== 200) {
+            $error_message = sprintf(__('API returned status code %d', 'canvas-course-sync'), $response_code);
+            if (!empty($body)) {
+                $decoded_body = json_decode($body, true);
+                if (isset($decoded_body['message'])) {
+                    $error_message .= ': ' . $decoded_body['message'];
+                }
+            }
+            
+            if ($this->logger) {
+                $this->logger->log('API error: ' . $error_message, 'error');
+            }
+            
+            return new WP_Error('api_error', $error_message);
+        }
+        
+        $data = json_decode($body, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            return new WP_Error('invalid_response', __('Invalid JSON response from Canvas API', 'canvas-course-sync'));
+        }
+        
+        return $data;
     }
     
     /**
@@ -29,29 +121,14 @@ class CCS_Canvas_API {
      * @return bool|WP_Error True on success, WP_Error on failure
      */
     public function test_connection() {
-        $domain = get_option('ccs_canvas_domain');
-        $token = get_option('ccs_canvas_token');
+        $result = $this->make_request('users/self');
         
-        if (empty($domain) || empty($token)) {
-            return new WP_Error('missing_credentials', __('Canvas domain and API token are required.', 'canvas-course-sync'));
+        if (is_wp_error($result)) {
+            return $result;
         }
         
-        $url = untrailingslashit($domain) . '/api/v1/users/self';
-        
-        $response = wp_remote_get($url, array(
-            'headers' => array(
-                'Authorization' => 'Bearer ' . $token,
-            ),
-            'timeout' => 30,
-        ));
-        
-        if (is_wp_error($response)) {
-            return $response;
-        }
-        
-        $response_code = wp_remote_retrieve_response_code($response);
-        if ($response_code !== 200) {
-            return new WP_Error('api_error', sprintf(__('API returned status code %d', 'canvas-course-sync'), $response_code));
+        if ($this->logger) {
+            $this->logger->log('Connection test successful');
         }
         
         return true;
@@ -63,36 +140,24 @@ class CCS_Canvas_API {
      * @return array|WP_Error Array of courses or WP_Error on failure
      */
     public function get_courses() {
-        $domain = get_option('ccs_canvas_domain');
-        $token = get_option('ccs_canvas_token');
+        $result = $this->make_request('courses?per_page=100&include[]=term');
         
-        if (empty($domain) || empty($token)) {
-            return new WP_Error('missing_credentials', __('Canvas domain and API token are required.', 'canvas-course-sync'));
+        if (is_wp_error($result)) {
+            return $result;
         }
         
-        $url = untrailingslashit($domain) . '/api/v1/courses';
-        
-        $response = wp_remote_get($url, array(
-            'headers' => array(
-                'Authorization' => 'Bearer ' . $token,
-            ),
-            'timeout' => 30,
-        ));
-        
-        if (is_wp_error($response)) {
-            return $response;
-        }
-        
-        $response_code = wp_remote_retrieve_response_code($response);
-        if ($response_code !== 200) {
-            return new WP_Error('api_error', sprintf(__('API returned status code %d', 'canvas-course-sync'), $response_code));
-        }
-        
-        $body = wp_remote_retrieve_body($response);
-        $courses = json_decode($body);
-        
-        if (!is_array($courses)) {
+        if (!is_array($result)) {
             return new WP_Error('invalid_response', __('Invalid response from Canvas API', 'canvas-course-sync'));
+        }
+        
+        // Convert to objects for consistency
+        $courses = array();
+        foreach ($result as $course_data) {
+            $courses[] = (object) $course_data;
+        }
+        
+        if ($this->logger) {
+            $this->logger->log('Retrieved ' . count($courses) . ' courses from Canvas');
         }
         
         return $courses;
@@ -105,38 +170,17 @@ class CCS_Canvas_API {
      * @return object|WP_Error Course object or WP_Error on failure
      */
     public function get_course_details($course_id) {
-        $domain = get_option('ccs_canvas_domain');
-        $token = get_option('ccs_canvas_token');
+        $endpoint = 'courses/' . intval($course_id) . '?include[]=term&include[]=syllabus_body';
+        $result = $this->make_request($endpoint);
         
-        if (empty($domain) || empty($token)) {
-            return new WP_Error('missing_credentials', __('Canvas domain and API token are required.', 'canvas-course-sync'));
+        if (is_wp_error($result)) {
+            return $result;
         }
         
-        $url = untrailingslashit($domain) . '/api/v1/courses/' . intval($course_id);
-        
-        $response = wp_remote_get($url, array(
-            'headers' => array(
-                'Authorization' => 'Bearer ' . $token,
-            ),
-            'timeout' => 30,
-        ));
-        
-        if (is_wp_error($response)) {
-            return $response;
-        }
-        
-        $response_code = wp_remote_retrieve_response_code($response);
-        if ($response_code !== 200) {
-            return new WP_Error('api_error', sprintf(__('API returned status code %d', 'canvas-course-sync'), $response_code));
-        }
-        
-        $body = wp_remote_retrieve_body($response);
-        $course = json_decode($body);
-        
-        if (!is_object($course)) {
+        if (!is_array($result)) {
             return new WP_Error('invalid_response', __('Invalid response from Canvas API', 'canvas-course-sync'));
         }
         
-        return $course;
+        return (object) $result;
     }
 }

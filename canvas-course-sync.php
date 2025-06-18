@@ -1,4 +1,3 @@
-
 <?php
 /**
  * Plugin Name: Canvas Course Sync
@@ -33,6 +32,7 @@ define('CCS_PLUGIN_FILE', __FILE__);
  */
 function ccs_check_required_files() {
     $required_files = array(
+        CCS_PLUGIN_DIR . 'includes/functions.php',
         CCS_PLUGIN_DIR . 'includes/logger.php',
         CCS_PLUGIN_DIR . 'includes/canvas-api.php',
         CCS_PLUGIN_DIR . 'includes/importer.php'
@@ -55,6 +55,7 @@ if (!ccs_check_required_files()) {
 }
 
 // Include required files in proper order
+require_once CCS_PLUGIN_DIR . 'includes/functions.php';
 require_once CCS_PLUGIN_DIR . 'includes/logger.php';
 require_once CCS_PLUGIN_DIR . 'includes/canvas-api.php';
 require_once CCS_PLUGIN_DIR . 'includes/importer.php';
@@ -164,10 +165,20 @@ class Canvas_Course_Sync {
     public function admin_init() {
         // Register settings
         register_setting('ccs_settings', 'ccs_canvas_domain', array(
-            'sanitize_callback' => 'esc_url_raw'
+            'sanitize_callback' => 'esc_url_raw',
+            'default' => ''
         ));
         register_setting('ccs_settings', 'ccs_canvas_token', array(
-            'sanitize_callback' => 'sanitize_text_field'
+            'sanitize_callback' => 'sanitize_text_field',
+            'default' => ''
+        ));
+        register_setting('ccs_settings', 'ccs_notification_email', array(
+            'sanitize_callback' => 'sanitize_email',
+            'default' => get_option('admin_email')
+        ));
+        register_setting('ccs_settings', 'ccs_auto_sync_enabled', array(
+            'sanitize_callback' => 'absint',
+            'default' => 0
         ));
     }
 
@@ -317,21 +328,25 @@ function canvas_course_sync() {
  * Plugin activation hook
  */
 function ccs_activate_plugin() {
-    // Create custom post type for courses if it doesn't exist
-    if (!post_type_exists('courses')) {
-        register_post_type('courses', array(
-            'public' => true,
-            'label' => 'Courses',
-            'supports' => array('title', 'editor', 'custom-fields')
-        ));
+    // Initialize logger to create database table
+    if (class_exists('CCS_Logger')) {
+        $logger = new CCS_Logger();
+        $logger->log('Canvas Course Sync plugin activated');
+    }
+    
+    // Register custom post type
+    if (function_exists('ccs_register_courses_post_type')) {
+        ccs_register_courses_post_type();
     }
     
     // Flush rewrite rules
     flush_rewrite_rules();
     
-    // Log activation
-    $logger = new CCS_Logger();
-    $logger->log('Canvas Course Sync plugin activated');
+    // Set default options
+    add_option('ccs_canvas_domain', '');
+    add_option('ccs_canvas_token', '');
+    add_option('ccs_notification_email', get_option('admin_email'));
+    add_option('ccs_auto_sync_enabled', 0);
 }
 
 /**
@@ -339,8 +354,10 @@ function ccs_activate_plugin() {
  */
 function ccs_deactivate_plugin() {
     // Log deactivation
-    $logger = new CCS_Logger();
-    $logger->log('Canvas Course Sync plugin deactivated');
+    if (class_exists('CCS_Logger')) {
+        $logger = new CCS_Logger();
+        $logger->log('Canvas Course Sync plugin deactivated');
+    }
     
     // Flush rewrite rules
     flush_rewrite_rules();

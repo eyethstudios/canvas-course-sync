@@ -1,7 +1,9 @@
 
 <?php
 /**
- * Canvas Course Sync Logs Display Component
+ * Canvas Course Sync Logs Display
+ *
+ * @package Canvas_Course_Sync
  */
 
 // Exit if accessed directly
@@ -9,6 +11,9 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+/**
+ * Logs Display class
+ */
 class CCS_Logs_Display {
     /**
      * Logger instance
@@ -22,67 +27,101 @@ class CCS_Logs_Display {
      */
     public function __construct() {
         $canvas_course_sync = canvas_course_sync();
-        $this->logger = ($canvas_course_sync && isset($canvas_course_sync->logger)) ? $canvas_course_sync->logger : new CCS_Logger();
+        $this->logger = ($canvas_course_sync && isset($canvas_course_sync->logger)) ? $canvas_course_sync->logger : null;
     }
 
     /**
-     * Render logs section
+     * Render logs page
      */
     public function render() {
         ?>
         <div class="wrap">
             <h1><?php _e('Canvas Course Sync - Logs', 'canvas-course-sync'); ?></h1>
             
-            <div class="ccs-panel">
-                <h2><?php _e('Sync Logs', 'canvas-course-sync'); ?></h2>
-                <button id="ccs-clear-logs" class="button button-secondary ccs-clear-logs">
-                    <?php _e('Clear Logs', 'canvas-course-sync'); ?>
-                </button>
-                <div class="ccs-log-container">
-                <?php
-                try {
-                    $recent_logs = $this->logger->get_recent_logs(20);
-                    if (!empty($recent_logs)) :
-                        foreach ($recent_logs as $log_entry) : 
-                            $entry_class = '';
-                            if (strpos($log_entry, '[ERROR]') !== false || strpos($log_entry, '[error]') !== false) {
-                                $entry_class = 'ccs-log-error';
-                            } elseif (strpos($log_entry, '[WARNING]') !== false || strpos($log_entry, '[warning]') !== false) {
-                                $entry_class = 'ccs-log-warning';
-                            }
-                            echo '<div class="ccs-log-entry"><pre class="' . esc_attr($entry_class) . '">' . esc_html($log_entry) . '</pre></div>';
-                        endforeach;
-                    else : 
-                        echo '<p>' . __('No logs available yet.', 'canvas-course-sync') . '</p>';
-                    endif;
-                } catch (Exception $e) {
-                    echo '<div class="notice notice-error"><p>';
-                    echo __('Error loading logs: ', 'canvas-course-sync') . esc_html($e->getMessage());
-                    echo '</p></div>';
-                }
-                ?>
+            <div class="ccs-logs-container">
+                <div class="ccs-logs-controls" style="margin: 20px 0;">
+                    <button type="button" id="ccs-refresh-logs" class="button button-secondary">
+                        <?php _e('Refresh Logs', 'canvas-course-sync'); ?>
+                    </button>
+                    <button type="button" id="ccs-clear-logs" class="button button-secondary" style="margin-left: 10px;">
+                        <?php _e('Clear All Logs', 'canvas-course-sync'); ?>
+                    </button>
                 </div>
                 
-                <p>
-                    <?php 
-                    try {
-                        $log_file = $this->logger->get_log_file();
-                        $upload_dir = wp_upload_dir();
-                        if (file_exists($log_file)) {
-                            $log_url = str_replace($upload_dir['basedir'], $upload_dir['baseurl'], $log_file);
-                            echo '<a href="' . esc_url($log_url) . '" target="_blank" class="button button-secondary">';
-                            _e('View Full Log', 'canvas-course-sync');
-                            echo '</a>';
-                        } else {
-                            echo '<span class="description">' . __('No log file exists yet.', 'canvas-course-sync') . '</span>';
-                        }
-                    } catch (Exception $e) {
-                        echo '<span class="description">' . __('Error accessing log file.', 'canvas-course-sync') . '</span>';
-                    }
-                    ?>
-                </p>
+                <?php if ($this->logger): ?>
+                    <div id="ccs-logs-display">
+                        <?php $this->display_logs(); ?>
+                    </div>
+                <?php else: ?>
+                    <div class="notice notice-error">
+                        <p><?php _e('Logger not available. Please check plugin installation.', 'canvas-course-sync'); ?></p>
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
+        <?php
+    }
+    
+    /**
+     * Display logs table
+     */
+    private function display_logs() {
+        $logs = $this->logger ? $this->logger->get_recent_logs(50) : array();
+        
+        if (empty($logs)) {
+            echo '<div class="notice notice-info"><p>' . __('No logs found.', 'canvas-course-sync') . '</p></div>';
+            return;
+        }
+        
+        ?>
+        <table class="wp-list-table widefat fixed striped">
+            <thead>
+                <tr>
+                    <th scope="col" style="width: 150px;"><?php _e('Timestamp', 'canvas-course-sync'); ?></th>
+                    <th scope="col" style="width: 80px;"><?php _e('Level', 'canvas-course-sync'); ?></th>
+                    <th scope="col"><?php _e('Message', 'canvas-course-sync'); ?></th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($logs as $log): ?>
+                    <tr>
+                        <td>
+                            <?php 
+                            $timestamp = isset($log->timestamp) ? $log->timestamp : '';
+                            echo esc_html(mysql2date('Y-m-d H:i:s', $timestamp));
+                            ?>
+                        </td>
+                        <td>
+                            <span class="ccs-log-level ccs-log-level-<?php echo esc_attr($log->level ?? 'info'); ?>">
+                                <?php echo esc_html(strtoupper($log->level ?? 'INFO')); ?>
+                            </span>
+                        </td>
+                        <td><?php echo esc_html($log->message ?? ''); ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+        
+        <style>
+        .ccs-log-level {
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        .ccs-log-level-info {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        .ccs-log-level-warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .ccs-log-level-error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        </style>
         <?php
     }
 }
