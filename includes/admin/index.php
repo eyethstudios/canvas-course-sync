@@ -68,14 +68,15 @@ function ccs_ajax_get_courses() {
         wp_send_json_error($courses->get_error_message());
     } else {
         // Check which courses already exist in WordPress
-        foreach ($courses as &$course) {
+        foreach ($courses as $key => $course) {
+            $course_id = isset($course['id']) ? $course['id'] : 0;
             $existing = get_posts(array(
                 'post_type' => 'courses',
                 'meta_key' => 'canvas_course_id',
-                'meta_value' => $course->id,
+                'meta_value' => $course_id,
                 'posts_per_page' => 1
             ));
-            $course->exists_in_wp = !empty($existing);
+            $courses[$key]['exists_in_wp'] = !empty($existing);
         }
         
         wp_send_json_success($courses);

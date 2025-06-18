@@ -107,14 +107,18 @@ class CCS_Course_Importer {
             
             if (!empty($existing)) {
                 $results['skipped']++;
-                $logger->log('Course already exists: ' . $course_details->name . ' (ID: ' . $course_id . ')');
+                $course_name = isset($course_details['name']) ? $course_details['name'] : 'Unknown Course';
+                $logger->log('Course already exists: ' . $course_name . ' (ID: ' . $course_id . ')');
                 continue;
             }
             
             // Create WordPress post
+            $course_name = isset($course_details['name']) ? $course_details['name'] : 'Untitled Course';
+            $course_description = isset($course_details['description']) ? $course_details['description'] : '';
+            
             $post_data = array(
-                'post_title' => sanitize_text_field($course_details->name ?? 'Untitled Course'),
-                'post_content' => wp_kses_post($course_details->description ?? ''),
+                'post_title' => sanitize_text_field($course_name),
+                'post_content' => wp_kses_post($course_description),
                 'post_status' => 'publish',
                 'post_type' => 'courses',
                 'post_author' => get_current_user_id()
@@ -125,13 +129,13 @@ class CCS_Course_Importer {
             if ($post_id && !is_wp_error($post_id)) {
                 // Add Canvas metadata
                 update_post_meta($post_id, 'canvas_course_id', intval($course_id));
-                update_post_meta($post_id, 'canvas_course_code', sanitize_text_field($course_details->course_code ?? ''));
-                update_post_meta($post_id, 'canvas_start_at', sanitize_text_field($course_details->start_at ?? ''));
-                update_post_meta($post_id, 'canvas_end_at', sanitize_text_field($course_details->end_at ?? ''));
-                update_post_meta($post_id, 'canvas_enrollment_term_id', intval($course_details->enrollment_term_id ?? 0));
+                update_post_meta($post_id, 'canvas_course_code', sanitize_text_field($course_details['course_code'] ?? ''));
+                update_post_meta($post_id, 'canvas_start_at', sanitize_text_field($course_details['start_at'] ?? ''));
+                update_post_meta($post_id, 'canvas_end_at', sanitize_text_field($course_details['end_at'] ?? ''));
+                update_post_meta($post_id, 'canvas_enrollment_term_id', intval($course_details['enrollment_term_id'] ?? 0));
                 
                 $results['imported']++;
-                $logger->log('Successfully imported course: ' . $course_details->name . ' (ID: ' . $course_id . ')');
+                $logger->log('Successfully imported course: ' . $course_name . ' (ID: ' . $course_id . ')');
             } else {
                 $results['errors']++;
                 $error_message = is_wp_error($post_id) ? $post_id->get_error_message() : 'Unknown error';

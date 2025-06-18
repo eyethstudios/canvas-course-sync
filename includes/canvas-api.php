@@ -138,8 +138,9 @@ class CCS_Canvas_API {
             return $result;
         }
         
-        if ($this->logger) {
-            $this->logger->log('Connection test successful');
+        $logger = $this->get_logger();
+        if ($logger) {
+            $logger->log('Connection test successful');
         }
         
         return true;
@@ -161,24 +162,19 @@ class CCS_Canvas_API {
             return new WP_Error('invalid_response', __('Invalid response from Canvas API', 'canvas-course-sync'));
         }
         
-        // Convert to objects for consistency
-        $courses = array();
-        foreach ($result as $course_data) {
-            $courses[] = (object) $course_data;
+        $logger = $this->get_logger();
+        if ($logger) {
+            $logger->log('Retrieved ' . count($result) . ' courses from Canvas');
         }
         
-        if ($this->logger) {
-            $this->logger->log('Retrieved ' . count($courses) . ' courses from Canvas');
-        }
-        
-        return $courses;
+        return $result;
     }
     
     /**
      * Get course details from Canvas
      *
      * @param int $course_id Course ID
-     * @return object|WP_Error Course object or WP_Error on failure
+     * @return array|WP_Error Course data or WP_Error on failure
      */
     public function get_course_details($course_id) {
         $endpoint = 'courses/' . intval($course_id) . '?include[]=term&include[]=syllabus_body';
@@ -192,6 +188,6 @@ class CCS_Canvas_API {
             return new WP_Error('invalid_response', __('Invalid response from Canvas API', 'canvas-course-sync'));
         }
         
-        return (object) $result;
+        return $result;
     }
 }

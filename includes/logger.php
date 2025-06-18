@@ -35,10 +35,9 @@ class CCS_Logger {
     private function create_table_if_not_exists() {
         global $wpdb;
         
-        // Check if table exists first
+        // Check if table exists
         $table_exists = $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = %s AND table_name = %s",
-            DB_NAME,
+            "SHOW TABLES LIKE %s",
             $this->table_name
         ));
         
