@@ -16,12 +16,13 @@
         
         console.log('ccsAjax object found:', ccsAjax);
         console.log('AJAX URL:', ccsAjax.ajaxUrl);
-        console.log('Test connection nonce:', ccsAjax.testConnectionNonce ? ccsAjax.testConnectionNonce.substring(0, 10) + '...' : 'NOT SET');
+        console.log('Test connection nonce available:', !!ccsAjax.testConnectionNonce);
+        console.log('Get courses nonce available:', !!ccsAjax.getCoursesNonce);
 
-        // Test Connection button handler
-        $('#ccs-test-connection').on('click', function(e) {
+        // Test Connection button handler - CLEAN VERSION
+        $('#ccs-test-connection').off('click').on('click', function(e) {
             e.preventDefault();
-            console.log('Test connection button clicked');
+            console.log('=== TEST CONNECTION CLICKED ===');
             
             var $button = $(this);
             var $resultDiv = $('#ccs-connection-result');
@@ -30,11 +31,13 @@
             console.log('Button found, result div found:', $resultDiv.length > 0);
             
             // Disable button and show loading
-            $button.prop('disabled', true).text(ccsAjax.strings.testing || 'Testing...');
+            $button.prop('disabled', true).text('Testing...');
             $resultDiv.html('<div class="spinner is-active" style="float:none;"></div> Testing connection...');
             
-            console.log('Making AJAX request to:', ccsAjax.ajaxUrl);
-            console.log('Using nonce:', ccsAjax.testConnectionNonce);
+            console.log('Making AJAX request with data:', {
+                action: 'ccs_test_connection',
+                nonce: ccsAjax.testConnectionNonce
+            });
             
             $.ajax({
                 url: ccsAjax.ajaxUrl,
@@ -48,18 +51,20 @@
                     console.log('AJAX request starting:', settings);
                 },
                 success: function(response) {
-                    console.log('Test connection response received:', response);
+                    console.log('=== TEST CONNECTION SUCCESS ===');
+                    console.log('Response:', response);
                     
                     if (response && response.success) {
                         $resultDiv.html('<div class="notice notice-success inline"><p>' + escapeHtml(response.data) + '</p></div>');
-                        console.log('Success response displayed');
+                        console.log('Success message displayed');
                     } else {
                         var errorMsg = (response && response.data) ? response.data : 'Unknown error occurred';
                         $resultDiv.html('<div class="notice notice-error inline"><p>Connection failed: ' + escapeHtml(errorMsg) + '</p></div>');
-                        console.log('Error response displayed:', errorMsg);
+                        console.log('Error message displayed:', errorMsg);
                     }
                 },
                 error: function(xhr, status, error) {
+                    console.log('=== TEST CONNECTION ERROR ===');
                     console.error('AJAX Error Details:', {
                         xhr: xhr,
                         status: status,
@@ -83,16 +88,16 @@
                     $resultDiv.html('<div class="notice notice-error inline"><p>' + escapeHtml(errorMsg) + '</p></div>');
                 },
                 complete: function() {
-                    console.log('AJAX request completed');
+                    console.log('Test connection AJAX completed');
                     $button.prop('disabled', false).text(originalText);
                 }
             });
         });
 
-        // Get Courses button handler - FIXED VERSION
-        $('#ccs-get-courses').on('click', function(e) {
+        // Get Courses button handler - CLEAN VERSION
+        $('#ccs-get-courses').off('click').on('click', function(e) {
             e.preventDefault();
-            console.log('Get courses button clicked - starting course fetch');
+            console.log('=== GET COURSES CLICKED ===');
             
             var $button = $(this);
             var $coursesList = $('#ccs-courses-list');
@@ -101,11 +106,13 @@
             console.log('Get courses button found, courses list found:', $coursesList.length > 0);
             
             // Disable button and show loading
-            $button.prop('disabled', true).text(ccsAjax.strings.loading || 'Loading...');
+            $button.prop('disabled', true).text('Loading...');
             $coursesList.html('<div class="spinner is-active" style="float:none;"></div> Loading courses...');
             
-            console.log('Making get courses AJAX request to:', ccsAjax.ajaxUrl);
-            console.log('Using get courses nonce:', ccsAjax.getCoursesNonce);
+            console.log('Making get courses AJAX request with data:', {
+                action: 'ccs_get_courses',
+                nonce: ccsAjax.getCoursesNonce
+            });
             
             $.ajax({
                 url: ccsAjax.ajaxUrl,
@@ -119,13 +126,13 @@
                     console.log('Get courses AJAX request starting with data:', settings.data);
                 },
                 success: function(response) {
-                    console.log('Get courses response received:', response);
+                    console.log('=== GET COURSES SUCCESS ===');
+                    console.log('Response:', response);
                     
                     if (response && response.success && Array.isArray(response.data)) {
                         console.log('Successfully received', response.data.length, 'courses');
                         displayCourses(response.data);
                         $('#ccs-sync-selected').show();
-                        $coursesList.append('<p class="success">Successfully loaded ' + response.data.length + ' courses.</p>');
                     } else {
                         var errorMsg = (response && response.data) ? response.data : 'Failed to load courses - no data returned';
                         console.error('Get courses failed:', errorMsg);
@@ -133,6 +140,7 @@
                     }
                 },
                 error: function(xhr, status, error) {
+                    console.log('=== GET COURSES ERROR ===');
                     console.error('Get courses AJAX Error:', {
                         xhr: xhr, 
                         status: status, 
@@ -155,7 +163,7 @@
                     $coursesList.html('<div class="notice notice-error inline"><p>' + escapeHtml(errorMsg) + '</p></div>');
                 },
                 complete: function() {
-                    console.log('Get courses AJAX request completed');
+                    console.log('Get courses AJAX completed');
                     $button.prop('disabled', false).text(originalText);
                 }
             });
@@ -217,7 +225,7 @@
             });
         });
 
-        // Helper function to display courses - IMPROVED VERSION
+        // Helper function to display courses
         function displayCourses(courses) {
             var $coursesList = $('#ccs-courses-list');
             
@@ -304,7 +312,7 @@
         }
 
         // Enhanced logging for debugging
-        console.log('All event handlers attached successfully');
+        console.log('=== CCS ADMIN INITIALIZATION COMPLETE ===');
         console.log('Test connection button exists:', $('#ccs-test-connection').length > 0);
         console.log('Get courses button exists:', $('#ccs-get-courses').length > 0);
         console.log('Connection result div exists:', $('#ccs-connection-result').length > 0);
