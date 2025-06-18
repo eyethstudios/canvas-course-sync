@@ -1,3 +1,4 @@
+
 <?php
 /**
  * Plugin Name: Canvas Course Sync
@@ -74,6 +75,10 @@ class Canvas_Course_Sync {
         add_action('init', array($this, 'init'));
         add_action('admin_init', array($this, 'admin_init'));
         add_action('plugins_loaded', array($this, 'load_plugin'), 10);
+        
+        // Add WordPress hooks for proper integration
+        add_action('wp_loaded', array($this, 'wp_loaded'));
+        add_filter('plugin_action_links_' . plugin_basename(__FILE__), array($this, 'add_plugin_action_links'));
     }
 
     /**
@@ -163,26 +168,51 @@ class Canvas_Course_Sync {
     }
 
     /**
+     * WordPress loaded hook
+     */
+    public function wp_loaded() {
+        // Additional initialization after WordPress is fully loaded
+        do_action('ccs_loaded');
+    }
+
+    /**
      * Admin initialization
      */
     public function admin_init() {
         // Register settings with consistent naming
         register_setting('ccs_settings', 'ccs_canvas_domain', array(
+            'type' => 'string',
             'sanitize_callback' => 'esc_url_raw',
-            'default' => ''
+            'default' => '',
+            'show_in_rest' => false
         ));
         register_setting('ccs_settings', 'ccs_canvas_token', array(
+            'type' => 'string',
             'sanitize_callback' => 'sanitize_text_field',
-            'default' => ''
+            'default' => '',
+            'show_in_rest' => false
         ));
         register_setting('ccs_settings', 'ccs_notification_email', array(
+            'type' => 'string',
             'sanitize_callback' => 'sanitize_email',
-            'default' => get_option('admin_email')
+            'default' => get_option('admin_email'),
+            'show_in_rest' => false
         ));
         register_setting('ccs_settings', 'ccs_auto_sync_enabled', array(
-            'sanitize_callback' => 'absint',
-            'default' => 0
+            'type' => 'boolean',
+            'sanitize_callback' => 'rest_sanitize_boolean',
+            'default' => false,
+            'show_in_rest' => false
         ));
+    }
+
+    /**
+     * Add plugin action links
+     */
+    public function add_plugin_action_links($links) {
+        $settings_link = '<a href="' . admin_url('admin.php?page=canvas-course-sync') . '">' . __('Settings', 'canvas-course-sync') . '</a>';
+        array_unshift($links, $settings_link);
+        return $links;
     }
 
     /**
@@ -319,7 +349,7 @@ function canvas_course_sync() {
  * Plugin activation hook
  */
 function ccs_activate_plugin() {
-    // Set default options
+    // Set default options with proper WordPress option handling
     add_option('ccs_canvas_domain', '');
     add_option('ccs_canvas_token', '');
     add_option('ccs_notification_email', get_option('admin_email'));
@@ -334,6 +364,9 @@ function ccs_activate_plugin() {
     
     // Flush rewrite rules
     flush_rewrite_rules();
+    
+    // Log activation
+    do_action('ccs_plugin_activated');
 }
 
 /**
@@ -342,6 +375,9 @@ function ccs_activate_plugin() {
 function ccs_deactivate_plugin() {
     // Flush rewrite rules
     flush_rewrite_rules();
+    
+    // Log deactivation
+    do_action('ccs_plugin_deactivated');
 }
 
 // Initialize plugin

@@ -22,7 +22,7 @@ add_action('wp_ajax_ccs_clear_logs', 'ccs_ajax_clear_logs');
  */
 function ccs_ajax_test_connection() {
     // Verify nonce
-    if (!wp_verify_nonce($_POST['nonce'], 'ccs_test_connection')) {
+    if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ccs_test_connection')) {
         wp_send_json_error(__('Security check failed.', 'canvas-course-sync'));
     }
     
@@ -49,7 +49,7 @@ function ccs_ajax_test_connection() {
  */
 function ccs_ajax_get_courses() {
     // Verify nonce
-    if (!wp_verify_nonce($_POST['nonce'], 'ccs_get_courses')) {
+    if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ccs_get_courses')) {
         wp_send_json_error(__('Security check failed.', 'canvas-course-sync'));
     }
     
@@ -69,12 +69,13 @@ function ccs_ajax_get_courses() {
     } else {
         // Check which courses already exist in WordPress
         foreach ($courses as $key => $course) {
-            $course_id = isset($course['id']) ? $course['id'] : 0;
+            $course_id = isset($course['id']) ? intval($course['id']) : 0;
             $existing = get_posts(array(
                 'post_type' => 'courses',
                 'meta_key' => 'canvas_course_id',
                 'meta_value' => $course_id,
-                'posts_per_page' => 1
+                'posts_per_page' => 1,
+                'post_status' => 'any'
             ));
             $courses[$key]['exists_in_wp'] = !empty($existing);
         }
@@ -88,7 +89,7 @@ function ccs_ajax_get_courses() {
  */
 function ccs_ajax_sync_courses() {
     // Verify nonce
-    if (!wp_verify_nonce($_POST['nonce'], 'ccs_sync_courses')) {
+    if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ccs_sync_courses')) {
         wp_send_json_error(__('Security check failed.', 'canvas-course-sync'));
     }
     
@@ -96,7 +97,11 @@ function ccs_ajax_sync_courses() {
         wp_send_json_error(__('You do not have sufficient permissions to access this page.', 'canvas-course-sync'));
     }
     
-    $course_ids = isset($_POST['course_ids']) ? array_map('intval', $_POST['course_ids']) : array();
+    // Sanitize course IDs
+    $course_ids = array();
+    if (isset($_POST['course_ids']) && is_array($_POST['course_ids'])) {
+        $course_ids = array_map('intval', wp_unslash($_POST['course_ids']));
+    }
     
     if (empty($course_ids)) {
         wp_send_json_error(__('No courses selected for sync.', 'canvas-course-sync'));
@@ -117,7 +122,7 @@ function ccs_ajax_sync_courses() {
  */
 function ccs_ajax_clear_logs() {
     // Verify nonce
-    if (!wp_verify_nonce($_POST['nonce'], 'ccs_clear_logs')) {
+    if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ccs_clear_logs')) {
         wp_send_json_error(__('Security check failed.', 'canvas-course-sync'));
     }
     
