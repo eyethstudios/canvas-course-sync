@@ -1,4 +1,3 @@
-
 /**
  * Course management functionality
  */
@@ -19,11 +18,11 @@ export function initCourseManager($) {
         courseList.html('');
         
         $.ajax({
-            url: window.ajaxurl || ccsData.ajaxUrl,
+            url: window.ajaxurl || ccsAjax.ajaxUrl,
             type: 'POST',
             data: {
                 action: 'ccs_get_courses',
-                nonce: window.ccsNonces?.get_courses || ccsData.getCoursesNonce
+                nonce: window.ccsNonces?.get_courses || ccsAjax.getCoursesNonce
             },
             success: function(response) {
                 console.log('Full AJAX response:', response);

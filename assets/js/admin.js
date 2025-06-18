@@ -19,7 +19,7 @@
         console.log('Test connection nonce available:', !!ccsAjax.testConnectionNonce);
         console.log('Get courses nonce available:', !!ccsAjax.getCoursesNonce);
 
-        // Test Connection button handler - CLEAN VERSION
+        // Test Connection button handler
         $('#ccs-test-connection').off('click').on('click', function(e) {
             e.preventDefault();
             console.log('=== TEST CONNECTION CLICKED ===');
@@ -94,7 +94,7 @@
             });
         });
 
-        // Get Courses button handler - CLEAN VERSION
+        // Get Courses button handler
         $('#ccs-get-courses').off('click').on('click', function(e) {
             e.preventDefault();
             console.log('=== GET COURSES CLICKED ===');
@@ -218,6 +218,44 @@
                         errorMsg += ' (' + xhr.responseText.substring(0, 100) + ')';
                     }
                     $statusDiv.html('<div class="notice notice-error inline"><p>' + errorMsg + '</p></div>');
+                },
+                complete: function() {
+                    $button.prop('disabled', false).text(originalText);
+                }
+            });
+        });
+
+        // Clear Logs button handler
+        $('#ccs-clear-logs').on('click', function(e) {
+            e.preventDefault();
+            console.log('Clear logs button clicked');
+            
+            var $button = $(this);
+            var originalText = $button.text();
+            
+            $button.prop('disabled', true).text('Clearing...');
+            
+            $.ajax({
+                url: ccsAjax.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'ccs_clear_logs',
+                    nonce: ccsAjax.clearLogsNonce
+                },
+                timeout: 30000,
+                success: function(response) {
+                    console.log('Clear logs response:', response);
+                    
+                    if (response.success) {
+                        $('.ccs-log-container').html('<p>Logs cleared successfully.</p>');
+                    } else {
+                        var errorMsg = response.data || 'Failed to clear logs';
+                        alert('Failed to clear logs: ' + errorMsg);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('Clear logs AJAX Error:', {xhr: xhr, status: status, error: error});
+                    alert('Failed to clear logs. Please try again. Error: ' + error);
                 },
                 complete: function() {
                     $button.prop('disabled', false).text(originalText);

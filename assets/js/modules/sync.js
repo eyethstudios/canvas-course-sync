@@ -25,11 +25,11 @@ export function initSyncManager($) {
         
         let syncInterval = setInterval(function() {
             $.ajax({
-                url: ccsData.ajaxUrl,
+                url: ccsAjax.ajaxUrl,
                 type: 'POST',
                 data: {
                     action: 'ccs_sync_status',
-                    nonce: ccsData.syncStatusNonce
+                    nonce: ccsAjax.syncStatusNonce
                 },
                 success: function(response) {
                     if (response.success && response.data) {
@@ -44,11 +44,11 @@ export function initSyncManager($) {
         }, 2000);
         
         $.ajax({
-            url: ccsData.ajaxUrl,
+            url: ccsAjax.ajaxUrl,
             type: 'POST',
             data: {
                 action: 'ccs_sync_courses',
-                nonce: ccsData.syncNonce,
+                nonce: ccsAjax.syncCoursesNonce,
                 course_ids: selectedCourses
             },
             success: function(response) {

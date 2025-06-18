@@ -11,11 +11,11 @@ export function initAutoSync($) {
         resultContainer.html('<div class="ccs-spinner"></div> Running auto-sync...');
         
         $.ajax({
-            url: ccsData.ajaxUrl,
+            url: ccsAjax.ajaxUrl,
             type: 'POST',
             data: {
                 action: 'ccs_run_auto_sync',
-                nonce: ccsData.autoSyncNonce
+                nonce: ccsAjax.autoSyncNonce
             },
             success: function(response) {
                 button.attr('disabled', false);

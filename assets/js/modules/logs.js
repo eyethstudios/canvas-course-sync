@@ -8,11 +8,11 @@ export function initLogManager($) {
         button.attr('disabled', true);
         
         $.ajax({
-            url: ccsData.ajaxUrl,
+            url: ccsAjax.ajaxUrl,
             type: 'POST',
             data: {
                 action: 'ccs_clear_logs',
-                nonce: ccsData.clearLogsNonce
+                nonce: ccsAjax.clearLogsNonce
             },
             success: function(response) {
                 button.attr('disabled', false);

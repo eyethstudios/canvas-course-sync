@@ -11,11 +11,11 @@ export function initConnectionTester($) {
         resultContainer.html('<div class="ccs-spinner"></div> Testing connection...');
         
         $.ajax({
-            url: ccsData.ajaxUrl,
+            url: ccsAjax.ajaxUrl,
             type: 'POST',
             data: {
                 action: 'ccs_test_connection',
-                nonce: ccsData.testConnectionNonce
+                nonce: ccsAjax.testConnectionNonce
             },
             success: function(response) {
                 button.attr('disabled', false);
