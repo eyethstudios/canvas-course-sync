@@ -3,11 +3,18 @@
 /**
  * Plugin Name: Canvas Course Sync
  * Plugin URI: https://github.com/yourusername/canvas-course-sync
- * Description: Synchronize courses from Canvas LMS to WordPress
+ * Description: Synchronize courses from Canvas LMS to WordPress with full API integration and course management.
  * Version: 1.0.0
  * Author: Your Name
+ * Author URI: https://yourwebsite.com
  * License: GPL v2 or later
+ * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: canvas-course-sync
+ * Domain Path: /languages
+ * Requires at least: 5.0
+ * Tested up to: 6.4
+ * Requires PHP: 7.4
+ * Network: false
  */
 
 // Prevent direct access
@@ -21,17 +28,7 @@ define('CCS_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('CCS_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('CCS_PLUGIN_FILE', __FILE__);
 
-// Autoload classes
-spl_autoload_register(function ($class) {
-    if (strpos($class, 'CCS_') === 0) {
-        $file = CCS_PLUGIN_DIR . 'includes/class-' . strtolower(str_replace('_', '-', $class)) . '.php';
-        if (file_exists($file)) {
-            require_once $file;
-        }
-    }
-});
-
-// Include required files
+// Include required files in proper order
 require_once CCS_PLUGIN_DIR . 'includes/functions.php';
 require_once CCS_PLUGIN_DIR . 'includes/logger.php';
 require_once CCS_PLUGIN_DIR . 'includes/canvas-api.php';
@@ -43,7 +40,6 @@ if (is_admin()) {
     require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-admin-menu.php';
     require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-admin-page.php';
     require_once CCS_PLUGIN_DIR . 'includes/admin/class-ccs-logs-display.php';
-    require_once CCS_PLUGIN_DIR . 'includes/handlers/class-ccs-ajax-handler.php';
 }
 
 /**
@@ -74,7 +70,8 @@ class Canvas_Course_Sync {
      * Constructor
      */
     public function __construct() {
-        add_action('init', array($this, 'init'));
+        // Hook into WordPress initialization
+        add_action('plugins_loaded', array($this, 'init'));
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
         
         // Initialize components
@@ -85,7 +82,6 @@ class Canvas_Course_Sync {
         // Initialize admin components
         if (is_admin()) {
             $this->admin_menu = new CCS_Admin_Menu();
-            add_action('admin_menu', array($this->admin_menu, 'add_menu'));
         }
     }
 
@@ -95,6 +91,9 @@ class Canvas_Course_Sync {
     public function init() {
         // Register post types
         $this->register_post_types();
+        
+        // Load text domain for translations
+        load_plugin_textdomain('canvas-course-sync', false, dirname(plugin_basename(__FILE__)) . '/languages');
     }
 
     /**
@@ -110,6 +109,7 @@ class Canvas_Course_Sync {
             'has_archive' => true,
             'supports' => array('title', 'editor', 'thumbnail', 'custom-fields'),
             'menu_icon' => 'dashicons-welcome-learn-more',
+            'rewrite' => array('slug' => 'courses'),
         ));
     }
 
@@ -233,7 +233,9 @@ class CCS_Course_Importer {
     }
 }
 
-// Initialize plugin
+/**
+ * Initialize plugin
+ */
 function canvas_course_sync() {
     static $instance = null;
     if ($instance === null) {
@@ -250,3 +252,4 @@ register_activation_hook(__FILE__, 'ccs_activate_plugin');
 
 // Deactivation hook
 register_deactivation_hook(__FILE__, 'ccs_deactivate_plugin');
+

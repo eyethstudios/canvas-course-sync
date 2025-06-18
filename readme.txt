@@ -1,0 +1,61 @@
+
+=== Canvas Course Sync ===
+Contributors: yourname
+Donate link: https://yourwebsite.com/donate
+Tags: canvas, lms, course, sync, education
+Requires at least: 5.0
+Tested up to: 6.4
+Requires PHP: 7.4
+Stable tag: 1.0.0
+License: GPLv2 or later
+License URI: https://www.gnu.org/licenses/gpl-2.0.html
+
+Synchronize courses from Canvas LMS to WordPress with full API integration and course management.
+
+== Description ==
+
+Canvas Course Sync allows you to easily synchronize courses from your Canvas LMS instance to WordPress. This plugin provides:
+
+* Secure API integration with Canvas LMS
+* Selective course synchronization
+* Automatic course import and management
+* Comprehensive logging system
+* Admin interface for easy configuration
+
+== Installation ==
+
+1. Upload the plugin files to the `/wp-content/plugins/canvas-course-sync` directory, or install the plugin through the WordPress plugins screen directly.
+2. Activate the plugin through the 'Plugins' screen in WordPress
+3. Use the Canvas Sync screen to configure your Canvas API settings
+4. Enter your Canvas domain and API token
+5. Test the connection and start syncing courses
+
+== Frequently Asked Questions ==
+
+= How do I get a Canvas API token? =
+
+Visit your Canvas instance, go to Account > Settings > Approved Integrations > New Access Token.
+
+= What permissions does the API token need? =
+
+The token needs read access to courses and basic user information.
+
+== Screenshots ==
+
+1. Main plugin configuration page
+2. Course synchronization interface
+3. Logging and status monitoring
+
+== Changelog ==
+
+= 1.0.0 =
+* Initial release
+* Canvas API integration
+* Course synchronization
+* Admin interface
+* Logging system
+
+== Upgrade Notice ==
+
+= 1.0.0 =
+Initial release of Canvas Course Sync plugin.
