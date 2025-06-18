@@ -1,4 +1,3 @@
-
 <?php
 /**
  * Plugin Name: Canvas Course Sync
@@ -83,9 +82,6 @@ class Canvas_Course_Sync {
     public function load_plugin() {
         // Load required files first
         $this->load_required_files();
-        
-        // Register custom post type early
-        add_action('init', 'ccs_register_courses_post_type', 0);
         
         // Initialize components after WordPress is fully loaded
         add_action('wp_loaded', array($this, 'init_components'));
@@ -323,12 +319,6 @@ function canvas_course_sync() {
  * Plugin activation hook
  */
 function ccs_activate_plugin() {
-    // Register custom post type first
-    if (!function_exists('ccs_register_courses_post_type')) {
-        require_once CCS_PLUGIN_DIR . 'includes/functions.php';
-    }
-    ccs_register_courses_post_type();
-    
     // Set default options
     add_option('ccs_canvas_domain', '');
     add_option('ccs_canvas_token', '');
