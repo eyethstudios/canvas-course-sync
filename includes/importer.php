@@ -96,6 +96,15 @@ class CCS_Course_Importer {
                 continue;
             }
             
+            $course_name = isset($course_details['name']) ? $course_details['name'] : '';
+            
+            // Skip courses with "SHELL" in the name
+            if (stripos($course_name, 'SHELL') !== false) {
+                $results['skipped']++;
+                $logger->log('Skipped SHELL course: ' . $course_name . ' (ID: ' . $course_id . ')');
+                continue;
+            }
+            
             // Check if course already exists
             $existing = get_posts(array(
                 'post_type' => 'courses',
@@ -107,13 +116,12 @@ class CCS_Course_Importer {
             
             if (!empty($existing)) {
                 $results['skipped']++;
-                $course_name = isset($course_details['name']) ? $course_details['name'] : 'Unknown Course';
                 $logger->log('Course already exists: ' . $course_name . ' (ID: ' . $course_id . ')');
                 continue;
             }
             
             // Create WordPress post
-            $course_name = isset($course_details['name']) ? $course_details['name'] : 'Untitled Course';
+            $course_name = $course_name ?: 'Untitled Course';
             $course_description = isset($course_details['description']) ? $course_details['description'] : '';
             
             $post_data = array(

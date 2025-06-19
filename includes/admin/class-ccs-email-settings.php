@@ -64,7 +64,7 @@ class CCS_Email_Settings {
                 <?php submit_button(); ?>
             </form>
             
-            <div id="ccs-manual-sync" style="<?php echo $auto_sync_enabled ? '' : 'display: none;'; ?>">
+            <div id="ccs-manual-sync">
                 <h3><?php _e('Manual Trigger', 'canvas-course-sync'); ?></h3>
                 <button id="ccs-trigger-auto-sync" class="button button-secondary">
                     <?php _e('Run Auto-Sync Now', 'canvas-course-sync'); ?>

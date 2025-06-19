@@ -68,6 +68,12 @@ function ccs_ajax_get_courses() {
     if (is_wp_error($courses)) {
         wp_send_json_error($courses->get_error_message());
     } else {
+        // Filter out courses with "SHELL" in the name
+        $courses = array_filter($courses, function($course) {
+            $course_name = isset($course['name']) ? $course['name'] : '';
+            return stripos($course_name, 'SHELL') === false;
+        });
+        
         // Get existing WordPress courses for comparison
         $existing_wp_courses = get_posts(array(
             'post_type'      => 'courses',
