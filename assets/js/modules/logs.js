@@ -5,10 +5,17 @@
 export function initLogManager($) {
     console.log('CCS Debug: Initializing log manager');
     
+    // Check if we're on the logs page
+    if (!$('#ccs-clear-logs').length && !$('#ccs-refresh-logs').length) {
+        console.log('CCS Debug: Not on logs page, skipping log manager init');
+        return;
+    }
+    
     // Clear logs functionality
     $('#ccs-clear-logs').on('click', function() {
         console.log('CCS Debug: Clear logs button clicked');
         const button = $(this);
+        const originalText = button.text();
         button.attr('disabled', true).text('Clearing...');
         
         $.ajax({
@@ -20,18 +27,19 @@ export function initLogManager($) {
             },
             success: function(response) {
                 console.log('CCS Debug: Clear logs response:', response);
-                button.attr('disabled', false).text('Clear All Logs');
+                button.attr('disabled', false).text(originalText);
                 if (response.success) {
                     $('#ccs-logs-display').html('<div class="notice notice-success"><p>Logs cleared successfully.</p></div>');
                     // Auto-refresh logs after clearing
-                    refreshLogs();
+                    setTimeout(refreshLogs, 1000);
                 } else {
-                    alert('Failed to clear logs: ' + (response.data || 'Unknown error'));
+                    const errorMsg = response.data && response.data.message ? response.data.message : (response.data || 'Unknown error');
+                    alert('Failed to clear logs: ' + errorMsg);
                 }
             },
             error: function(xhr, status, error) {
                 console.error('CCS Debug: Clear logs error:', error, xhr.responseText);
-                button.attr('disabled', false).text('Clear All Logs');
+                button.attr('disabled', false).text(originalText);
                 alert('Failed to clear logs. Please try again. Error: ' + error);
             }
         });
@@ -46,6 +54,7 @@ export function initLogManager($) {
     // Function to refresh logs
     function refreshLogs() {
         const button = $('#ccs-refresh-logs');
+        const originalText = button.text();
         button.attr('disabled', true).text('Refreshing...');
         
         $.ajax({
@@ -57,18 +66,25 @@ export function initLogManager($) {
             },
             success: function(response) {
                 console.log('CCS Debug: Refresh logs response:', response);
-                button.attr('disabled', false).text('Refresh Logs');
+                button.attr('disabled', false).text(originalText);
                 if (response.success) {
-                    $('#ccs-logs-display').html(response.data.html);
+                    if (response.data && response.data.html) {
+                        $('#ccs-logs-display').html(response.data.html);
+                    } else {
+                        $('#ccs-logs-display').html('<div class="notice notice-info"><p>No logs data received.</p></div>');
+                    }
                 } else {
-                    alert('Failed to refresh logs: ' + (response.data || 'Unknown error'));
+                    const errorMsg = response.data && response.data.message ? response.data.message : (response.data || 'Unknown error');
+                    alert('Failed to refresh logs: ' + errorMsg);
                 }
             },
             error: function(xhr, status, error) {
                 console.error('CCS Debug: Refresh logs error:', error, xhr.responseText);
-                button.attr('disabled', false).text('Refresh Logs');
+                button.attr('disabled', false).text(originalText);
                 alert('Failed to refresh logs. Please try again. Error: ' + error);
             }
         });
     }
+    
+    console.log('CCS Debug: Log manager initialized successfully');
 }
