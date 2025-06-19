@@ -54,16 +54,22 @@ class CCS_Admin_Page {
             return;
         }
         
-        // Enqueue admin script
+        // Enqueue admin script as ES6 module
         wp_enqueue_script(
             'ccs-admin',
             CCS_PLUGIN_URL . 'assets/js/admin.js',
             array('jquery'),
             CCS_VERSION,
-            true
+            array(
+                'in_footer' => true,
+                'strategy' => 'defer'
+            )
         );
         
-        // Localize script with AJAX data
+        // Add module type attribute
+        add_filter('script_loader_tag', array($this, 'add_module_to_script'), 10, 3);
+        
+        // Localize script with AJAX data - this must come after wp_enqueue_script
         wp_localize_script('ccs-admin', 'ccsAjax', array(
             'ajaxUrl' => admin_url('admin-ajax.php'),
             'testConnectionNonce' => wp_create_nonce('ccs_test_connection'),
@@ -82,6 +88,16 @@ class CCS_Admin_Page {
             array(),
             CCS_VERSION
         );
+    }
+    
+    /**
+     * Add type="module" to admin script
+     */
+    public function add_module_to_script($tag, $handle, $src) {
+        if ('ccs-admin' === $handle) {
+            $tag = str_replace('<script ', '<script type="module" ', $tag);
+        }
+        return $tag;
     }
 
     /**
