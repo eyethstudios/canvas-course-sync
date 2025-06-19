@@ -1,3 +1,4 @@
+
 (function($) {
     'use strict';
 
@@ -129,40 +130,59 @@
                     console.log('=== GET COURSES SUCCESS ===');
                     console.log('Raw response:', response);
                     console.log('Response type:', typeof response);
-                    console.log('Response.success:', response.success);
-                    console.log('Response.data type:', typeof response.data);
-                    console.log('Response.data:', response.data);
                     
                     var courses = [];
                     var hasValidData = false;
                     
-                    // Check if response indicates success
-                    if (response && response.success === true) {
+                    // First check if response has explicit success flag
+                    if (response && response.success === true && response.data) {
                         console.log('Response marked as successful by server');
+                        if (Array.isArray(response.data)) {
+                            courses = response.data;
+                            hasValidData = true;
+                            console.log('Data is already an array with', courses.length, 'courses');
+                        } else if (typeof response.data === 'object' && response.data !== null) {
+                            // Convert object with numeric keys to array
+                            courses = Object.values(response.data);
+                            hasValidData = true;
+                            console.log('Converted object to array, length:', courses.length);
+                        }
+                    } 
+                    // If no explicit success flag, check if response.data looks like course data
+                    else if (response && response.data && typeof response.data === 'object') {
+                        console.log('Checking if response.data contains course-like objects');
+                        var keys = Object.keys(response.data);
+                        var hasNumericKeys = keys.length > 0 && keys.every(function(key) {
+                            return !isNaN(parseInt(key));
+                        });
                         
-                        if (response.data) {
-                            if (Array.isArray(response.data)) {
-                                courses = response.data;
+                        if (hasNumericKeys) {
+                            // Check if first item looks like a course
+                            var firstItem = response.data[keys[0]];
+                            if (firstItem && firstItem.id && firstItem.name) {
+                                courses = Object.values(response.data);
                                 hasValidData = true;
-                                console.log('Data is already an array with', courses.length, 'courses');
-                            } else if (typeof response.data === 'object' && response.data !== null) {
-                                // Check if it's an object with numbered keys (like our case)
-                                var keys = Object.keys(response.data);
-                                var hasNumericKeys = keys.length > 0 && keys.every(function(key) {
-                                    return !isNaN(parseInt(key));
-                                });
-                                
-                                if (hasNumericKeys) {
-                                    courses = Object.values(response.data);
-                                    hasValidData = true;
-                                    console.log('Converted object with numeric keys to array, length:', courses.length);
-                                } else {
-                                    console.log('Object does not have numeric keys:', keys);
-                                }
+                                console.log('Detected course data without explicit success flag, converted to array, length:', courses.length);
                             }
                         }
-                    } else {
-                        console.log('Response not marked as successful or response.success is false');
+                    }
+                    // Last resort: check if response itself is an object with numeric keys and course-like data
+                    else if (response && typeof response === 'object' && !response.success) {
+                        console.log('Checking if response itself is course data object');
+                        var keys = Object.keys(response);
+                        var hasNumericKeys = keys.length > 0 && keys.every(function(key) {
+                            return !isNaN(parseInt(key));
+                        });
+                        
+                        if (hasNumericKeys) {
+                            // Check if first item looks like a course
+                            var firstItem = response[keys[0]];
+                            if (firstItem && firstItem.id && firstItem.name) {
+                                courses = Object.values(response);
+                                hasValidData = true;
+                                console.log('Response itself is course data, converted to array, length:', courses.length);
+                            }
+                        }
                     }
                     
                     if (hasValidData && courses.length > 0) {
