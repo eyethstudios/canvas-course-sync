@@ -1,3 +1,4 @@
+
 (function($) {
     'use strict';
 
@@ -142,9 +143,28 @@
                             console.log('Response data is array with', courses.length, 'courses');
                         } else if (typeof response.data === 'object' && response.data !== null) {
                             // Convert object with numeric keys to array
-                            courses = Object.values(response.data);
-                            isValidResponse = true;
-                            console.log('Converted WP response object to array with', courses.length, 'courses');
+                            var keys = Object.keys(response.data);
+                            console.log('WP response data is object with keys:', keys);
+                            
+                            // Check if this looks like course data with numeric keys
+                            var hasNumericKeys = keys.length > 0 && keys.every(function(key) {
+                                return /^\d+$/.test(key); // Check if key is purely numeric
+                            });
+                            
+                            if (hasNumericKeys) {
+                                // Validate that values look like course objects
+                                var hasValidCourseData = keys.slice(0, 1).every(function(key) {
+                                    var item = response.data[key];
+                                    return item && typeof item === 'object' && 
+                                           item.hasOwnProperty('id') && item.hasOwnProperty('name');
+                                });
+                                
+                                if (hasValidCourseData) {
+                                    courses = Object.values(response.data);
+                                    isValidResponse = true;
+                                    console.log('Converted WP response object to array with', courses.length, 'courses');
+                                }
+                            }
                         }
                     }
                     // Handle direct array response
@@ -153,36 +173,41 @@
                         courses = response;
                         isValidResponse = true;
                     }
-                    // Handle direct object response with numeric keys (your case)
+                    // Handle direct object response with numeric keys
                     else if (response && typeof response === 'object' && response !== null && response.success !== false) {
                         console.log('Direct object response detected');
                         var keys = Object.keys(response);
-                        console.log('Object has', keys.length, 'keys');
+                        console.log('Object has', keys.length, 'keys:', keys.slice(0, 5));
                         
-                        // Check if keys are numeric (indicating course data)
-                        var hasNumericKeys = keys.length > 0 && keys.every(function(key) {
-                            return !isNaN(parseInt(key, 10));
+                        // Check if keys are numeric strings (the actual format from your console)
+                        var hasNumericStringKeys = keys.length > 0 && keys.every(function(key) {
+                            return /^\d+$/.test(key); // This matches "0", "1", "2", etc.
                         });
                         
-                        if (hasNumericKeys) {
-                            // Check if values look like course objects
-                            var hasValidCourseData = keys.slice(0, 3).every(function(key) {
+                        console.log('Has numeric string keys:', hasNumericStringKeys);
+                        
+                        if (hasNumericStringKeys) {
+                            // Check if values look like course objects by examining first few items
+                            var hasValidCourseData = keys.slice(0, Math.min(3, keys.length)).every(function(key) {
                                 var item = response[key];
-                                return item && typeof item === 'object' && 
-                                       (item.hasOwnProperty('id') && item.hasOwnProperty('name'));
+                                var isValidCourse = item && typeof item === 'object' && 
+                                           item.hasOwnProperty('id') && item.hasOwnProperty('name');
+                                console.log('Checking key', key, 'valid course:', isValidCourse, 'item:', item);
+                                return isValidCourse;
                             });
                             
+                            console.log('Has valid course data:', hasValidCourseData);
+                            
                             if (hasValidCourseData) {
-                                console.log('Valid course data detected in numeric object format');
+                                console.log('Valid course data detected in numeric string object format');
                                 courses = Object.values(response);
                                 isValidResponse = true;
-                                console.log('Extracted', courses.length, 'courses from numeric object response');
+                                console.log('Extracted', courses.length, 'courses from numeric string object response');
                             } else {
-                                console.log('Object with numeric keys but invalid course data structure');
+                                console.log('Object with numeric string keys but invalid course data structure');
                             }
                         } else {
-                            console.log('Object does not have numeric keys, checking for other valid structures...');
-                            // Could be other object formats, but for now treat as invalid
+                            console.log('Object does not have numeric string keys, checking for other valid structures...');
                         }
                     }
                     
@@ -196,7 +221,8 @@
                         $coursesList.html('<div class="notice notice-info inline"><p>No courses found.</p></div>');
                     } else {
                         console.error('Unable to process response - not recognized as valid course data');
-                        console.log('Failed to process response:', response);
+                        console.log('Response keys:', Object.keys(response));
+                        console.log('Response sample:', response);
                         $coursesList.html('<div class="notice notice-error inline"><p>Unable to process course data. Please check browser console for details.</p></div>');
                     }
                 },
