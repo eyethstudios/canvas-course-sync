@@ -47,18 +47,23 @@
     border-bottom: none;
 }
 
-.ccs-select-all {
+.ccs-controls-section {
     background-color: #f8f9fa;
-    padding: 10px;
-    margin-bottom: 10px;
+    padding: 15px;
+    margin-bottom: 15px;
     border: 1px solid #dee2e6;
+    border-radius: 6px;
+}
+
+.ccs-select-all {
+    margin-bottom: 10px;
     font-weight: bold;
 }
 
-.ccs-sort-controls {
+.ccs-filter-controls, .ccs-sort-controls {
     background-color: #f1f3f4;
     padding: 8px 10px;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
     border: 1px solid #d1d5db;
     border-radius: 4px;
     display: flex;
@@ -66,23 +71,29 @@
     gap: 8px;
 }
 
-.ccs-sort-controls label {
+.ccs-filter-controls label, .ccs-sort-controls label {
     font-weight: 500;
     margin: 0;
     font-size: 13px;
+    min-width: 110px;
 }
 
-.ccs-sort-dropdown {
+.ccs-filter-dropdown, .ccs-sort-dropdown {
     padding: 4px 8px;
     border: 1px solid #d1d5db;
     border-radius: 3px;
     background: white;
     font-size: 13px;
-    min-width: 200px;
+    min-width: 180px;
 }
 
-.ccs-sort-dropdown:focus {
+.ccs-filter-dropdown:focus, .ccs-sort-dropdown:focus {
     outline: none;
     border-color: #0ea5e9;
     box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.1);
+}
+
+/* Hide filtered items */
+.ccs-course-item[style*="display: none"] {
+    display: none !important;
 }

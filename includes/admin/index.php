@@ -1,3 +1,4 @@
+
 <?php
 /**
  * Admin includes for Canvas Course Sync
@@ -83,36 +84,60 @@ function ccs_ajax_get_courses() {
             $canvas_id = get_post_meta($post_id, 'canvas_course_id', true);
             
             if (!empty($title)) {
-                $existing_titles[] = strtolower(trim($title));
+                // Store both original and normalized versions for comparison
+                $existing_titles[strtolower(trim($title))] = $title;
             }
             if (!empty($canvas_id)) {
                 $existing_canvas_ids[] = intval($canvas_id);
             }
         }
         
+        // Debug logging
+        error_log('CCS Debug: Found ' . count($existing_wp_courses) . ' existing WP courses');
+        error_log('CCS Debug: Existing titles: ' . print_r(array_values($existing_titles), true));
+        error_log('CCS Debug: Existing Canvas IDs: ' . print_r($existing_canvas_ids, true));
+        
         // Check which courses already exist in WordPress
         foreach ($courses as $key => $course) {
             $course_id = isset($course['id']) ? intval($course['id']) : 0;
-            $course_name = isset($course['name']) ? $course['name'] : '';
+            $course_name = isset($course['name']) ? trim($course['name']) : '';
             
             $exists_in_wp = false;
             $match_type = '';
             
             // Check by Canvas ID first (most reliable)
-            if (in_array($course_id, $existing_canvas_ids)) {
+            if ($course_id > 0 && in_array($course_id, $existing_canvas_ids)) {
                 $exists_in_wp = true;
                 $match_type = 'canvas_id';
+                error_log('CCS Debug: Course "' . $course_name . '" matched by Canvas ID: ' . $course_id);
             } else if (!empty($course_name)) {
-                // Check by title (case-insensitive)
-                $course_title_lower = strtolower(trim($course_name));
-                if (in_array($course_title_lower, $existing_titles)) {
+                // Check by title (case-insensitive, trimmed)
+                $course_name_normalized = strtolower($course_name);
+                if (isset($existing_titles[$course_name_normalized])) {
                     $exists_in_wp = true;
                     $match_type = 'title';
+                    error_log('CCS Debug: Course "' . $course_name . '" matched by title');
                 }
             }
             
             $courses[$key]['exists_in_wp'] = $exists_in_wp;
             $courses[$key]['match_type'] = $match_type;
+            
+            // Add explicit status for easier frontend handling
+            if ($exists_in_wp) {
+                if ($match_type === 'canvas_id') {
+                    $courses[$key]['status'] = 'synced';
+                    $courses[$key]['status_label'] = 'Already synced';
+                } else {
+                    $courses[$key]['status'] = 'exists';
+                    $courses[$key]['status_label'] = 'Title exists in WP';
+                }
+            } else {
+                $courses[$key]['status'] = 'new';
+                $courses[$key]['status_label'] = 'New';
+            }
+            
+            error_log('CCS Debug: Course "' . $course_name . '" final status: ' . $courses[$key]['status']);
         }
         
         wp_send_json_success($courses);

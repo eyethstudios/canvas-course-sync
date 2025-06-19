@@ -1,3 +1,4 @@
+
 /**
  * Course management functionality
  */
@@ -28,48 +29,44 @@ export function initCourseManager($) {
                 console.log('Full AJAX response:', response);
                 
                 if (response.success && Array.isArray(response.data)) {
-                    // Debug the data received from the API
-                    console.log('Courses before sorting:', response.data);
+                    console.log('Courses received:', response.data);
                     
                     // Sort courses by status priority and then by creation date
                     const sortedCourses = response.data.sort((a, b) => {
-                        // Define status priority (lower number = higher priority)
-                        const getStatusPriority = (course) => {
-                            if (course.exists_in_wp === true || course.exists_in_wp === 'true') {
-                                if (course.match_type === 'canvas_id') return 3; // Already synced
-                                return 2; // Title exists in WP
-                            }
-                            return 1; // New course (highest priority)
-                        };
+                        const statusPriority = { 'new': 1, 'exists': 2, 'synced': 3 };
+                        const priorityA = statusPriority[a.status] || 999;
+                        const priorityB = statusPriority[b.status] || 999;
                         
-                        const priorityA = getStatusPriority(a);
-                        const priorityB = getStatusPriority(b);
-                        
-                        // First sort by status priority
                         if (priorityA !== priorityB) {
                             return priorityA - priorityB;
                         }
                         
-                        // Then sort by creation date (most recent first) within same status
                         return new Date(b.created_at || 0) - new Date(a.created_at || 0);
                     });
                     
-                    console.log('Sorted courses:', sortedCourses);
-                    
-                    let html = '<div class="ccs-select-all">' +
+                    let html = '<div class="ccs-controls-section">' +
+                        '<div class="ccs-select-all">' +
                         '<label>' +
                         '<input type="checkbox" id="ccs-select-all-checkbox" checked> ' +
                         'Select/Deselect All</label>' +
-                        '</div>';
-                    
-                    // Add sorting controls
-                    html += '<div class="ccs-sort-controls">' +
+                        '</div>' +
+                        '<div class="ccs-filter-controls">' +
+                        '<label for="ccs-status-filter">Filter by Status: </label>' +
+                        '<select id="ccs-status-filter" class="ccs-filter-dropdown">' +
+                        '<option value="all">All Courses</option>' +
+                        '<option value="new">New Only</option>' +
+                        '<option value="exists">Title Exists Only</option>' +
+                        '<option value="synced">Already Synced Only</option>' +
+                        '</select>' +
+                        '</div>' +
+                        '<div class="ccs-sort-controls">' +
                         '<label for="ccs-sort-select">Sort by: </label>' +
                         '<select id="ccs-sort-select" class="ccs-sort-dropdown">' +
                         '<option value="status">Status (New → Existing → Synced)</option>' +
                         '<option value="name">Course Name (A-Z)</option>' +
                         '<option value="date">Creation Date (Newest First)</option>' +
                         '</select>' +
+                        '</div>' +
                         '</div>';
                         
                     sortedCourses.forEach(function(course) {
@@ -77,23 +74,19 @@ export function initCourseManager($) {
                         let statusText = '';
                         let checkboxChecked = 'checked';
                         
-                        console.log('Processing course:', course.name, 'exists_in_wp:', course.exists_in_wp, 'match_type:', course.match_type);
+                        console.log('Processing course:', course.name, 'status:', course.status, 'status_label:', course.status_label);
                         
-                        // Check if course exists in WordPress
-                        if (course.exists_in_wp === true || course.exists_in_wp === 'true') {
+                        // Use the explicit status from backend
+                        if (course.status === 'synced') {
                             statusClass = 'ccs-course-exists';
-                            if (course.match_type === 'canvas_id') {
-                                statusText = ' <span class="ccs-status-badge ccs-exists-canvas-id">(Already synced)</span>';
-                            } else if (course.match_type === 'title') {
-                                statusText = ' <span class="ccs-status-badge ccs-exists-title">(Title exists in WP)</span>';
-                            } else {
-                                // Fallback for any other match type
-                                statusText = ' <span class="ccs-status-badge ccs-exists-title">(Already exists)</span>';
-                            }
-                            checkboxChecked = ''; // Don't check existing courses by default
+                            statusText = ' <span class="ccs-status-badge ccs-exists-canvas-id">(' + course.status_label + ')</span>';
+                            checkboxChecked = '';
+                        } else if (course.status === 'exists') {
+                            statusClass = 'ccs-course-exists';
+                            statusText = ' <span class="ccs-status-badge ccs-exists-title">(' + course.status_label + ')</span>';
+                            checkboxChecked = '';
                         } else {
-                            // Course doesn't exist in WordPress - show "New" badge
-                            statusText = ' <span class="ccs-status-badge ccs-new-course">(New)</span>';
+                            statusText = ' <span class="ccs-status-badge ccs-new-course">(' + course.status_label + ')</span>';
                         }
                         
                         // Add course code if available
@@ -102,7 +95,10 @@ export function initCourseManager($) {
                             courseDisplayName += ' (' + course.course_code + ')';
                         }
                         
-                        html += '<div class="ccs-course-item ' + statusClass + '" data-course-name="' + course.name + '" data-created-at="' + (course.created_at || '') + '" data-status="' + (course.exists_in_wp ? (course.match_type === 'canvas_id' ? 'synced' : 'exists') : 'new') + '">' +
+                        html += '<div class="ccs-course-item ' + statusClass + '" ' +
+                            'data-course-name="' + course.name + '" ' +
+                            'data-created-at="' + (course.created_at || '') + '" ' +
+                            'data-status="' + course.status + '">' +
                             '<label>' +
                             '<input type="checkbox" class="ccs-course-checkbox course-checkbox" ' +
                             'value="' + course.id + '" ' + checkboxChecked + '> ' +
@@ -150,7 +146,28 @@ export function initCourseManager($) {
 
     // Handle select all checkbox
     $(document).on('change', '#ccs-select-all-checkbox', function() {
-        $('.ccs-course-checkbox').prop('checked', $(this).prop('checked'));
+        const isChecked = $(this).prop('checked');
+        $('.ccs-course-checkbox:visible').prop('checked', isChecked);
+    });
+    
+    // Handle status filter dropdown
+    $(document).on('change', '#ccs-status-filter', function() {
+        const filterValue = $(this).val();
+        const courseItems = $('.ccs-course-item');
+        
+        courseItems.each(function() {
+            const $item = $(this);
+            const status = $item.data('status');
+            
+            if (filterValue === 'all' || status === filterValue) {
+                $item.show();
+            } else {
+                $item.hide();
+            }
+        });
+        
+        // Update select all checkbox based on visible items
+        updateSelectAllCheckbox();
     });
     
     // Handle sort dropdown change
@@ -169,7 +186,7 @@ export function initCourseManager($) {
                 case 'date':
                     const dateA = new Date($a.data('created-at') || 0);
                     const dateB = new Date($b.data('created-at') || 0);
-                    return dateB - dateA; // Newest first
+                    return dateB - dateA;
                     
                 case 'status':
                 default:
@@ -181,7 +198,6 @@ export function initCourseManager($) {
                         return priorityA - priorityB;
                     }
                     
-                    // Secondary sort by creation date for same status
                     const dateA2 = new Date($a.data('created-at') || 0);
                     const dateB2 = new Date($b.data('created-at') || 0);
                     return dateB2 - dateA2;
@@ -190,15 +206,35 @@ export function initCourseManager($) {
         
         // Re-append sorted items
         const courseList = $('#ccs-course-list, #ccs-courses-list');
-        const selectAllDiv = courseList.find('.ccs-select-all');
-        const sortControlsDiv = courseList.find('.ccs-sort-controls');
+        const controlsSection = courseList.find('.ccs-controls-section');
         
         courseList.empty();
-        courseList.append(selectAllDiv);
-        courseList.append(sortControlsDiv);
+        courseList.append(controlsSection);
         
         courseItems.forEach(function(item) {
             courseList.append(item);
         });
+    });
+    
+    // Helper function to update select all checkbox
+    function updateSelectAllCheckbox() {
+        const visibleCheckboxes = $('.ccs-course-checkbox:visible');
+        const checkedVisibleCheckboxes = $('.ccs-course-checkbox:visible:checked');
+        const selectAllCheckbox = $('#ccs-select-all-checkbox');
+        
+        if (visibleCheckboxes.length === 0) {
+            selectAllCheckbox.prop('indeterminate', false).prop('checked', false);
+        } else if (checkedVisibleCheckboxes.length === visibleCheckboxes.length) {
+            selectAllCheckbox.prop('indeterminate', false).prop('checked', true);
+        } else if (checkedVisibleCheckboxes.length > 0) {
+            selectAllCheckbox.prop('indeterminate', true);
+        } else {
+            selectAllCheckbox.prop('indeterminate', false).prop('checked', false);
+        }
+    }
+    
+    // Update select all checkbox when individual checkboxes change
+    $(document).on('change', '.ccs-course-checkbox', function() {
+        updateSelectAllCheckbox();
     });
 }
