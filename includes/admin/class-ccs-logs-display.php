@@ -28,6 +28,48 @@ class CCS_Logs_Display {
     public function __construct() {
         $canvas_course_sync = canvas_course_sync();
         $this->logger = ($canvas_course_sync && isset($canvas_course_sync->logger)) ? $canvas_course_sync->logger : null;
+        
+        // Enqueue admin scripts and styles
+        add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
+    }
+
+    /**
+     * Enqueue admin scripts and styles
+     */
+    public function enqueue_admin_scripts($hook) {
+        // Only load on logs page
+        if (strpos($hook, 'canvas-course-sync') === false) {
+            return;
+        }
+        
+        // Enqueue admin script
+        wp_enqueue_script(
+            'ccs-admin',
+            CCS_PLUGIN_URL . 'assets/js/admin.js',
+            array('jquery'),
+            CCS_VERSION,
+            true
+        );
+        
+        // Localize script with AJAX data
+        wp_localize_script('ccs-admin', 'ccsAjax', array(
+            'ajaxUrl' => admin_url('admin-ajax.php'),
+            'testConnectionNonce' => wp_create_nonce('ccs_test_connection'),
+            'getCoursesNonce' => wp_create_nonce('ccs_get_courses'),
+            'syncCoursesNonce' => wp_create_nonce('ccs_sync_courses'),
+            'syncStatusNonce' => wp_create_nonce('ccs_sync_status'),
+            'clearLogsNonce' => wp_create_nonce('ccs_clear_logs'),
+            'refreshLogsNonce' => wp_create_nonce('ccs_refresh_logs'),
+            'runAutoSyncNonce' => wp_create_nonce('ccs_run_auto_sync')
+        ));
+        
+        // Enqueue admin styles
+        wp_enqueue_style(
+            'ccs-admin',
+            CCS_PLUGIN_URL . 'assets/css/admin.css',
+            array(),
+            CCS_VERSION
+        );
     }
 
     /**
