@@ -1,4 +1,3 @@
-
 <?php
 /**
  * GitHub Updater for Canvas Course Sync
@@ -62,6 +61,9 @@ class CCS_GitHub_Updater {
         
         // Add plugin row meta for GitHub link
         add_filter('plugin_row_meta', array($this, 'plugin_row_meta'), 10, 2);
+        
+        // Add AJAX handler for manual update check
+        add_action('wp_ajax_ccs_check_updates', array($this, 'ajax_check_updates'));
     }
     
     /**
@@ -77,7 +79,7 @@ class CCS_GitHub_Updater {
     public function plugin_row_meta($links, $file) {
         if ($file === $this->plugin_slug) {
             $links[] = '<a href="https://github.com/' . $this->github_repo . '" target="_blank">' . __('View on GitHub', 'canvas-course-sync') . '</a>';
-            $links[] = '<a href="#" onclick="wp.updates.checkPluginUpdates(\'' . $this->plugin_slug . '\'); return false;">' . __('Check for updates', 'canvas-course-sync') . '</a>';
+            $links[] = '<a href="#" onclick="ccsCheckForUpdates(); return false;" style="color: #2271b1;">' . __('Check for updates', 'canvas-course-sync') . '</a>';
         }
         return $links;
     }
@@ -221,5 +223,38 @@ class CCS_GitHub_Updater {
         }
         
         return $result;
+    }
+    
+    /**
+     * AJAX handler for manual update check
+     */
+    public function ajax_check_updates() {
+        // Verify nonce for security
+        if (!wp_verify_nonce($_POST['nonce'] ?? '', 'ccs_check_updates')) {
+            wp_die('Security check failed');
+        }
+        
+        // Clear cached version to force fresh check
+        $cache_key = 'ccs_github_version_' . md5($this->github_repo);
+        delete_transient($cache_key);
+        
+        // Get fresh version from GitHub
+        $remote_version = $this->get_remote_version();
+        
+        if (version_compare($this->version, $remote_version, '<')) {
+            wp_send_json_success(array(
+                'message' => sprintf(__('Update available! Version %s is ready to install.', 'canvas-course-sync'), $remote_version),
+                'update_available' => true,
+                'current_version' => $this->version,
+                'remote_version' => $remote_version
+            ));
+        } else {
+            wp_send_json_success(array(
+                'message' => __('Plugin is up to date!', 'canvas-course-sync'),
+                'update_available' => false,
+                'current_version' => $this->version,
+                'remote_version' => $remote_version
+            ));
+        }
     }
 }

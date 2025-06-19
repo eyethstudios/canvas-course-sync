@@ -3,7 +3,7 @@
  * Plugin Name: Canvas Course Sync
  * Plugin URI: https://github.com/yourusername/canvas-course-sync
  * Description: Synchronize courses from Canvas LMS to WordPress
- * Version: 2.2.0
+ * Version: 2.2.1
  * Author: Your Name
  * License: GPL v2 or later
  * Text Domain: canvas-course-sync
@@ -15,10 +15,12 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('CCS_VERSION', '2.2.0');
+define('CCS_VERSION', '2.2.1');
 define('CCS_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('CCS_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('CCS_PLUGIN_BASENAME', plugin_basename(__FILE__));
+define('CCS_PLUGIN_FILE', __FILE__);
+define('CCS_GITHUB_REPO', 'yourusername/canvas-course-sync');
 
 /**
  * Main plugin class
@@ -305,7 +307,7 @@ class Canvas_Course_Sync {
      */
     public function enqueue_admin_scripts($hook) {
         // Only load on our plugin pages
-        if (strpos($hook, 'canvas-course-sync') === false) {
+        if (strpos($hook, 'canvas-course-sync') === false && $hook !== 'plugins.php') {
             return;
         }
         
@@ -326,6 +328,17 @@ class Canvas_Course_Sync {
             true
         );
         
+        // Enqueue updater JavaScript on plugins page
+        if ($hook === 'plugins.php') {
+            wp_enqueue_script(
+                'ccs-updater-js',
+                plugin_dir_url(__FILE__) . 'assets/js/modules/updater.js',
+                array(),
+                CCS_VERSION,
+                true
+            );
+        }
+        
         // Localize script with AJAX data
         wp_localize_script('ccs-admin-js', 'ccsAjax', array(
             'ajaxUrl' => admin_url('admin-ajax.php'),
@@ -337,6 +350,11 @@ class Canvas_Course_Sync {
             'refreshLogsNonce' => wp_create_nonce('ccs_refresh_logs'),
             'runAutoSyncNonce' => wp_create_nonce('ccs_run_auto_sync')
         ));
+        
+        // Add updater nonce for plugins page
+        if ($hook === 'plugins.php') {
+            wp_localize_script('ccs-updater-js', 'ccsUpdaterNonce', wp_create_nonce('ccs_check_updates'));
+        }
         
         error_log('CCS Debug: Admin scripts enqueued for hook: ' . $hook);
     }
