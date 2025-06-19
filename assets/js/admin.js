@@ -1,3 +1,4 @@
+
 (function($) {
     'use strict';
 
@@ -133,39 +134,43 @@
                     var courses = [];
                     var hasValidData = false;
                     
-                    // First, check if we have course-like data directly in response
-                    if (response && typeof response === 'object') {
+                    // Check if response has explicit success flag with data
+                    if (response && response.success === true && response.data) {
+                        console.log('Response has success flag with data');
+                        if (Array.isArray(response.data)) {
+                            courses = response.data;
+                            hasValidData = true;
+                            console.log('Data is already an array with', courses.length, 'courses');
+                        } else if (typeof response.data === 'object' && response.data !== null) {
+                            // Convert object with numeric keys to array
+                            courses = Object.values(response.data);
+                            hasValidData = true;
+                            console.log('Converted data object to array, length:', courses.length);
+                        }
+                    }
+                    // Check if response is directly an array of courses
+                    else if (Array.isArray(response)) {
+                        console.log('Response is directly an array');
+                        courses = response;
+                        hasValidData = true;
+                    }
+                    // Check if response is an object with numeric keys (course objects)
+                    else if (response && typeof response === 'object' && response !== null) {
                         var keys = Object.keys(response);
                         console.log('Response keys:', keys);
                         
-                        // Check if response has explicit success flag with data
-                        if (response.success === true && response.data) {
-                            console.log('Response marked as successful by server');
-                            if (Array.isArray(response.data)) {
-                                courses = response.data;
+                        // Check if all keys are numeric (indicating indexed course objects)
+                        var hasNumericKeys = keys.length > 0 && keys.every(function(key) {
+                            return !isNaN(parseInt(key));
+                        });
+                        
+                        if (hasNumericKeys) {
+                            // Check if first item looks like a course
+                            var firstItem = response[keys[0]];
+                            if (firstItem && firstItem.id && firstItem.name) {
+                                courses = Object.values(response);
                                 hasValidData = true;
-                                console.log('Data is already an array with', courses.length, 'courses');
-                            } else if (typeof response.data === 'object' && response.data !== null) {
-                                // Convert object with numeric keys to array
-                                courses = Object.values(response.data);
-                                hasValidData = true;
-                                console.log('Converted data object to array, length:', courses.length);
-                            }
-                        }
-                        // Check if response itself contains course-like objects (no explicit success flag)
-                        else if (keys.length > 0) {
-                            var hasNumericKeys = keys.every(function(key) {
-                                return !isNaN(parseInt(key));
-                            });
-                            
-                            if (hasNumericKeys) {
-                                // Check if first item looks like a course
-                                var firstItem = response[keys[0]];
-                                if (firstItem && firstItem.id && firstItem.name) {
-                                    courses = Object.values(response);
-                                    hasValidData = true;
-                                    console.log('Response itself is course data, converted to array, length:', courses.length);
-                                }
+                                console.log('Response is course object with numeric keys, converted to array, length:', courses.length);
                             }
                         }
                     }
@@ -180,6 +185,7 @@
                     } else {
                         var errorMsg = 'Failed to load courses - invalid response format';
                         console.log('Invalid response format, showing error:', errorMsg);
+                        console.log('Response that could not be processed:', response);
                         $coursesList.html('<div class="notice notice-error inline"><p>' + escapeHtml(errorMsg) + '</p></div>');
                     }
                 },
