@@ -67,17 +67,52 @@ function ccs_ajax_get_courses() {
     if (is_wp_error($courses)) {
         wp_send_json_error($courses->get_error_message());
     } else {
+        // Get existing WordPress courses for comparison
+        $existing_wp_courses = get_posts(array(
+            'post_type'      => 'courses',
+            'post_status'    => array('draft', 'publish', 'private', 'pending'),
+            'posts_per_page' => -1,
+            'fields'         => 'ids'
+        ));
+        
+        $existing_titles = array();
+        $existing_canvas_ids = array();
+        
+        foreach ($existing_wp_courses as $post_id) {
+            $title = get_the_title($post_id);
+            $canvas_id = get_post_meta($post_id, 'canvas_course_id', true);
+            
+            if (!empty($title)) {
+                $existing_titles[] = strtolower(trim($title));
+            }
+            if (!empty($canvas_id)) {
+                $existing_canvas_ids[] = intval($canvas_id);
+            }
+        }
+        
         // Check which courses already exist in WordPress
         foreach ($courses as $key => $course) {
             $course_id = isset($course['id']) ? intval($course['id']) : 0;
-            $existing = get_posts(array(
-                'post_type' => 'courses',
-                'meta_key' => 'canvas_course_id',
-                'meta_value' => $course_id,
-                'posts_per_page' => 1,
-                'post_status' => 'any'
-            ));
-            $courses[$key]['exists_in_wp'] = !empty($existing);
+            $course_name = isset($course['name']) ? $course['name'] : '';
+            
+            $exists_in_wp = false;
+            $match_type = '';
+            
+            // Check by Canvas ID first (most reliable)
+            if (in_array($course_id, $existing_canvas_ids)) {
+                $exists_in_wp = true;
+                $match_type = 'canvas_id';
+            } else if (!empty($course_name)) {
+                // Check by title (case-insensitive)
+                $course_title_lower = strtolower(trim($course_name));
+                if (in_array($course_title_lower, $existing_titles)) {
+                    $exists_in_wp = true;
+                    $match_type = 'title';
+                }
+            }
+            
+            $courses[$key]['exists_in_wp'] = $exists_in_wp;
+            $courses[$key]['match_type'] = $match_type;
         }
         
         wp_send_json_success($courses);
