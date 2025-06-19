@@ -128,10 +128,27 @@
                 },
                 success: function(response) {
                     console.log('=== GET COURSES SUCCESS ===');
-                    console.log('Response:', response);
+                    console.log('Raw response:', response);
+                    console.log('Response type:', typeof response);
+                    console.log('Response.data type:', typeof response.data);
+                    console.log('Response.data:', response.data);
                     
                     if (response && response.success && Array.isArray(response.data)) {
                         console.log('Successfully received', response.data.length, 'courses');
+                        
+                        // Debug each course object
+                        response.data.forEach(function(course, index) {
+                            console.log('Course ' + index + ' raw data:', course);
+                            console.log('Course ' + index + ' properties:', {
+                                id: course.id,
+                                name: course.name,
+                                course_code: course.course_code,
+                                status: course.status,
+                                status_label: course.status_label,
+                                created_at: course.created_at
+                            });
+                        });
+                        
                         displayCourses(response.data);
                         $('#ccs-sync-selected').show();
                     } else {
@@ -322,13 +339,44 @@
             sortedCourses.forEach(function(course, index) {
                 console.log('Processing course ' + index + ':', course);
                 
-                // Ensure all values are properly converted to strings
-                var courseId = course.id ? String(course.id) : '';
-                var courseName = course.name ? String(course.name) : 'Unnamed Course';
-                var courseCode = course.course_code ? String(course.course_code) : '';
-                var status = course.status ? String(course.status) : 'new';
-                var statusLabel = course.status_label ? String(course.status_label) : 'New';
-                var createdAt = course.created_at ? String(course.created_at) : '';
+                // Safely extract and convert values with detailed logging
+                var courseId = '';
+                var courseName = 'Unnamed Course';
+                var courseCode = '';
+                var status = 'new';
+                var statusLabel = 'New';
+                var createdAt = '';
+                
+                // Detailed property extraction with type checking
+                if (course.hasOwnProperty('id') && course.id !== null && course.id !== undefined) {
+                    courseId = String(course.id);
+                    console.log('Course ID extracted:', courseId);
+                }
+                
+                if (course.hasOwnProperty('name') && course.name !== null && course.name !== undefined) {
+                    courseName = String(course.name);
+                    console.log('Course name extracted:', courseName);
+                }
+                
+                if (course.hasOwnProperty('course_code') && course.course_code !== null && course.course_code !== undefined) {
+                    courseCode = String(course.course_code);
+                    console.log('Course code extracted:', courseCode);
+                }
+                
+                if (course.hasOwnProperty('status') && course.status !== null && course.status !== undefined) {
+                    status = String(course.status);
+                    console.log('Status extracted:', status);
+                }
+                
+                if (course.hasOwnProperty('status_label') && course.status_label !== null && course.status_label !== undefined) {
+                    statusLabel = String(course.status_label);
+                    console.log('Status label extracted:', statusLabel);
+                }
+                
+                if (course.hasOwnProperty('created_at') && course.created_at !== null && course.created_at !== undefined) {
+                    createdAt = String(course.created_at);
+                    console.log('Created at extracted:', createdAt);
+                }
                 
                 var checkboxChecked = status === 'new' ? 'checked' : '';
                 var statusClass = '';
@@ -349,6 +397,14 @@
                 if (courseCode && courseCode !== courseName) {
                     courseDisplayName += ' (' + courseCode + ')';
                 }
+                
+                console.log('Final display values:', {
+                    courseId: courseId,
+                    courseDisplayName: courseDisplayName,
+                    statusText: statusText,
+                    status: status,
+                    createdAt: createdAt
+                });
                 
                 html += '<div class="ccs-course-item ' + statusClass + '" ' +
                     'data-course-name="' + escapeHtml(courseName) + '" ' +
