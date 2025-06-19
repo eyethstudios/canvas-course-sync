@@ -127,79 +127,69 @@
                 },
                 success: function(response) {
                     console.log('=== GET COURSES SUCCESS ===');
-                    console.log('Raw response:', response);
+                    console.log('Raw response received:', response);
                     console.log('Response type:', typeof response);
                     
                     var courses = [];
-                    var hasValidData = false;
+                    var isValidResponse = false;
                     
-                    // First, check if response has a success property and data
+                    // Handle standard WordPress AJAX success format
                     if (response && response.success === true && response.data) {
-                        console.log('Response has success=true with data property');
-                        
+                        console.log('Standard WP AJAX success response detected');
                         if (Array.isArray(response.data)) {
                             courses = response.data;
-                            hasValidData = true;
-                            console.log('Data is array with', courses.length, 'courses');
+                            isValidResponse = true;
+                            console.log('Response data is array with', courses.length, 'courses');
                         } else if (typeof response.data === 'object' && response.data !== null) {
-                            // Convert object to array
+                            // Convert object with numeric keys to array
+                            var keys = Object.keys(response.data);
+                            console.log('Response data is object with keys:', keys.slice(0, 10)); // Show first 10 keys
+                            
                             courses = Object.values(response.data);
-                            hasValidData = true;
-                            console.log('Converted data object to array, length:', courses.length);
+                            isValidResponse = true;
+                            console.log('Converted object to array with', courses.length, 'courses');
                         }
                     }
-                    // Check if response is an object with numeric keys (your case)
+                    // Handle direct object response (your case)
                     else if (response && typeof response === 'object' && response !== null && !Array.isArray(response)) {
                         var keys = Object.keys(response);
-                        console.log('Response is object with keys:', keys);
+                        console.log('Direct object response with', keys.length, 'keys');
                         
-                        // Check if this looks like a courses object (has numeric keys or course-like properties)
-                        var hasNumericKeys = keys.length > 0 && keys.some(function(key) {
-                            return !isNaN(parseInt(key)) && response[key] && (response[key].id || response[key].name);
+                        // Check if this looks like course data by examining the first few items
+                        var hasCourseLikeData = keys.length > 0 && keys.slice(0, 3).every(function(key) {
+                            var item = response[key];
+                            return item && typeof item === 'object' && 
+                                   (item.id || item.name || item.course_code);
                         });
                         
-                        // Also check for 'success' property that might not be explicitly true
-                        var hasSuccessProperty = 'success' in response;
-                        
-                        if (hasNumericKeys || (!hasSuccessProperty && keys.length > 0)) {
-                            console.log('Detected object with course data, converting to array');
-                            
-                            // Filter out non-course properties and convert to array
-                            var courseEntries = [];
-                            keys.forEach(function(key) {
-                                var item = response[key];
-                                // Check if this looks like a course object
-                                if (item && typeof item === 'object' && (item.id || item.name)) {
-                                    courseEntries.push(item);
-                                }
-                            });
-                            
-                            if (courseEntries.length > 0) {
-                                courses = courseEntries;
-                                hasValidData = true;
-                                console.log('Successfully extracted', courses.length, 'courses from object');
-                            }
+                        if (hasCourseLikeData) {
+                            console.log('Detected valid course data in object format');
+                            courses = Object.values(response);
+                            isValidResponse = true;
+                            console.log('Extracted', courses.length, 'courses from object response');
+                        } else {
+                            console.log('Object does not contain recognizable course data');
                         }
                     }
-                    // Check if response is directly an array
+                    // Handle direct array response
                     else if (Array.isArray(response)) {
-                        console.log('Response is directly an array');
+                        console.log('Direct array response detected');
                         courses = response;
-                        hasValidData = true;
+                        isValidResponse = true;
                     }
                     
-                    if (hasValidData && courses.length > 0) {
-                        console.log('Successfully processed', courses.length, 'courses');
-                        console.log('First course sample:', courses[0]);
+                    if (isValidResponse && courses.length > 0) {
+                        console.log('Processing', courses.length, 'valid courses');
+                        console.log('Sample course data:', courses[0]);
                         displayCourses(courses);
                         $('#ccs-sync-selected').show();
-                    } else if (hasValidData && courses.length === 0) {
+                    } else if (isValidResponse && courses.length === 0) {
                         console.log('Valid response but no courses found');
                         $coursesList.html('<div class="notice notice-info inline"><p>No courses found.</p></div>');
                     } else {
-                        console.error('Could not process response format');
-                        console.log('Response that could not be processed:', response);
-                        $coursesList.html('<div class="notice notice-error inline"><p>Could not process course data from server. Please check console logs.</p></div>');
+                        console.error('Unable to process response - not recognized as valid course data');
+                        console.log('Unprocessable response:', response);
+                        $coursesList.html('<div class="notice notice-error inline"><p>Unable to process course data. Please check browser console for details.</p></div>');
                     }
                 },
                 error: function(xhr, status, error) {
@@ -584,5 +574,4 @@
         console.log('Connection result div exists:', $('#ccs-connection-result').length > 0);
         console.log('Courses list div exists:', $('#ccs-courses-list').length > 0);
     });
-
 })(jQuery);
