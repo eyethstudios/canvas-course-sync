@@ -1,4 +1,3 @@
-
 <?php
 /**
  * GitHub Updater for Canvas Course Sync
@@ -112,12 +111,15 @@ class CCS_GitHub_Updater {
         // Get remote version
         $remote_version = $this->get_remote_version();
         
-        // Debug logging
-        error_log('CCS Debug: Current version: ' . $this->version);
-        error_log('CCS Debug: Remote version: ' . $remote_version);
-        error_log('CCS Debug: Version comparison: ' . (version_compare($this->version, $remote_version, '<') ? 'UPDATE AVAILABLE' : 'UP TO DATE'));
+        // Use CCS_VERSION constant for accurate comparison
+        $current_version = defined('CCS_VERSION') ? CCS_VERSION : $this->version;
         
-        if (version_compare($this->version, $remote_version, '<')) {
+        // Debug logging
+        error_log('CCS Debug: Current version (CCS_VERSION): ' . $current_version);
+        error_log('CCS Debug: Remote version: ' . $remote_version);
+        error_log('CCS Debug: Version comparison: ' . (version_compare($current_version, $remote_version, '<') ? 'UPDATE AVAILABLE' : 'UP TO DATE'));
+        
+        if (version_compare($current_version, $remote_version, '<')) {
             $transient->response[$this->plugin_slug] = (object) array(
                 'slug' => $this->plugin_basename,
                 'plugin' => $this->plugin_slug,
@@ -178,7 +180,7 @@ class CCS_GitHub_Updater {
         }
         
         // If we can't get remote version, return current version
-        return $this->version;
+        return defined('CCS_VERSION') ? CCS_VERSION : $this->version;
     }
     
     /**
@@ -254,31 +256,37 @@ class CCS_GitHub_Updater {
             wp_die('Security check failed');
         }
         
-        // Clear cached version to force fresh check
+        // Clear ALL related caches to force fresh check
         $cache_key = 'ccs_github_version_' . md5($this->github_repo);
         delete_transient($cache_key);
         
         // Clear WordPress update cache too
         delete_site_transient('update_plugins');
         
-        // Get fresh version from GitHub
+        // Clear any other related transients
+        delete_transient('ccs_update_check_' . $this->plugin_slug);
+        
+        // Get fresh version from GitHub (this will bypass cache due to POST action)
         $remote_version = $this->get_remote_version();
         
-        // Log the check with actual current version from constant
-        error_log('CCS Debug: Manual update check - Current: ' . CCS_VERSION . ', Remote: ' . $remote_version);
+        // Use CCS_VERSION constant for accurate comparison
+        $current_version = defined('CCS_VERSION') ? CCS_VERSION : $this->version;
         
-        if (version_compare(CCS_VERSION, $remote_version, '<')) {
+        // Log the check with actual current version from constant
+        error_log('CCS Debug: Manual update check - Current (CCS_VERSION): ' . $current_version . ', Remote: ' . $remote_version);
+        
+        if (version_compare($current_version, $remote_version, '<')) {
             wp_send_json_success(array(
                 'message' => sprintf(__('Update available! Version %s is ready to install.', 'canvas-course-sync'), $remote_version),
                 'update_available' => true,
-                'current_version' => CCS_VERSION,
+                'current_version' => $current_version,
                 'remote_version' => $remote_version
             ));
         } else {
             wp_send_json_success(array(
-                'message' => sprintf(__('Plugin is up to date! Current version: %s', 'canvas-course-sync'), CCS_VERSION),
+                'message' => sprintf(__('Plugin is up to date! Current version: %s', 'canvas-course-sync'), $current_version),
                 'update_available' => false,
-                'current_version' => CCS_VERSION,
+                'current_version' => $current_version,
                 'remote_version' => $remote_version
             ));
         }
