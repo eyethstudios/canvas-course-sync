@@ -264,21 +264,21 @@ class CCS_GitHub_Updater {
         // Get fresh version from GitHub
         $remote_version = $this->get_remote_version();
         
-        // Log the check
-        error_log('CCS Debug: Manual update check - Current: ' . $this->version . ', Remote: ' . $remote_version);
+        // Log the check with actual current version from constant
+        error_log('CCS Debug: Manual update check - Current: ' . CCS_VERSION . ', Remote: ' . $remote_version);
         
-        if (version_compare($this->version, $remote_version, '<')) {
+        if (version_compare(CCS_VERSION, $remote_version, '<')) {
             wp_send_json_success(array(
                 'message' => sprintf(__('Update available! Version %s is ready to install.', 'canvas-course-sync'), $remote_version),
                 'update_available' => true,
-                'current_version' => $this->version,
+                'current_version' => CCS_VERSION,
                 'remote_version' => $remote_version
             ));
         } else {
             wp_send_json_success(array(
-                'message' => sprintf(__('Plugin is up to date! Current version: %s', 'canvas-course-sync'), $this->version),
+                'message' => sprintf(__('Plugin is up to date! Current version: %s', 'canvas-course-sync'), CCS_VERSION),
                 'update_available' => false,
-                'current_version' => $this->version,
+                'current_version' => CCS_VERSION,
                 'remote_version' => $remote_version
             ));
         }
