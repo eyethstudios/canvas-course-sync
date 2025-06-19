@@ -1,5 +1,3 @@
-
-
 === Canvas Course Sync ===
 Contributors: eyethstudios
 Donate link: http://eyethstudios.com/donate
@@ -7,7 +5,7 @@ Tags: canvas, lms, course, sync, education
 Requires at least: 5.0
 Tested up to: 6.4
 Requires PHP: 7.4
-Stable tag: 2.2.6
+Stable tag: 2.2.7
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -49,6 +47,11 @@ The token needs read access to courses and basic user information.
 
 == Changelog ==
 
+= 2.2.7 =
+* Fixed refresh and clear logs button functionality
+* Enhanced logs display AJAX handling
+* Improved error handling for logs operations
+
 = 2.2.6 =
 * Fixed JavaScript module loading issues for admin interface
 * Enhanced debugging and error handling for connection testing
@@ -72,6 +75,9 @@ The token needs read access to courses and basic user information.
 
 == Upgrade Notice ==
 
+= 2.2.7 =
+Fixed logs functionality and improved button reliability.
+
 = 2.2.6 =
 Fixed JavaScript functionality and improved admin interface reliability.
 
@@ -83,4 +89,3 @@ Updated author information and repository links.
 
 = 1.0.0 =
 Initial release of Canvas Course Sync plugin.
-

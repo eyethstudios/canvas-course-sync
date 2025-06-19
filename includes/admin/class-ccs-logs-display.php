@@ -1,4 +1,3 @@
-
 <?php
 /**
  * Canvas Course Sync Logs Display
@@ -28,54 +27,14 @@ class CCS_Logs_Display {
     public function __construct() {
         $canvas_course_sync = canvas_course_sync();
         $this->logger = ($canvas_course_sync && isset($canvas_course_sync->logger)) ? $canvas_course_sync->logger : null;
-        
-        // Enqueue admin scripts and styles
-        add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
-    }
-
-    /**
-     * Enqueue admin scripts and styles
-     */
-    public function enqueue_admin_scripts($hook) {
-        // Only load on logs page
-        if (strpos($hook, 'canvas-course-sync') === false) {
-            return;
-        }
-        
-        // Enqueue admin script
-        wp_enqueue_script(
-            'ccs-admin',
-            CCS_PLUGIN_URL . 'assets/js/admin.js',
-            array('jquery'),
-            CCS_VERSION,
-            true
-        );
-        
-        // Localize script with AJAX data
-        wp_localize_script('ccs-admin', 'ccsAjax', array(
-            'ajaxUrl' => admin_url('admin-ajax.php'),
-            'testConnectionNonce' => wp_create_nonce('ccs_test_connection'),
-            'getCoursesNonce' => wp_create_nonce('ccs_get_courses'),
-            'syncCoursesNonce' => wp_create_nonce('ccs_sync_courses'),
-            'syncStatusNonce' => wp_create_nonce('ccs_sync_status'),
-            'clearLogsNonce' => wp_create_nonce('ccs_clear_logs'),
-            'refreshLogsNonce' => wp_create_nonce('ccs_refresh_logs'),
-            'runAutoSyncNonce' => wp_create_nonce('ccs_run_auto_sync')
-        ));
-        
-        // Enqueue admin styles
-        wp_enqueue_style(
-            'ccs-admin',
-            CCS_PLUGIN_URL . 'assets/css/admin.css',
-            array(),
-            CCS_VERSION
-        );
     }
 
     /**
      * Render logs page
      */
     public function render() {
+        // Enqueue scripts inline for this page
+        wp_enqueue_script('jquery');
         ?>
         <div class="wrap">
             <h1><?php _e('Canvas Course Sync - Logs', 'canvas-course-sync'); ?></h1>
@@ -104,9 +63,111 @@ class CCS_Logs_Display {
         
         <script>
         jQuery(document).ready(function($) {
-            console.log('CCS Debug: Logs page loaded');
-            console.log('CCS Debug: ccsAjax object:', typeof ccsAjax !== 'undefined' ? ccsAjax : 'Not available');
+            console.log('CCS Debug: Logs page script loaded');
+            
+            // Check if ccsAjax is available
+            if (typeof ccsAjax === 'undefined') {
+                console.error('CCS Debug: ccsAjax not available on logs page');
+                // Create a minimal ccsAjax object for logs page
+                window.ccsAjax = {
+                    ajaxUrl: '<?php echo admin_url('admin-ajax.php'); ?>',
+                    clearLogsNonce: '<?php echo wp_create_nonce('ccs_clear_logs'); ?>',
+                    refreshLogsNonce: '<?php echo wp_create_nonce('ccs_refresh_logs'); ?>'
+                };
+                console.log('CCS Debug: Created ccsAjax object for logs page');
+            }
+            
+            console.log('CCS Debug: ccsAjax object:', ccsAjax);
+            console.log('CCS Debug: Clear logs button exists:', $('#ccs-clear-logs').length > 0);
+            console.log('CCS Debug: Refresh logs button exists:', $('#ccs-refresh-logs').length > 0);
+            
+            // Initialize log manager functionality directly
+            initLogsDirectly($);
         });
+        
+        function initLogsDirectly($) {
+            console.log('CCS Debug: Initializing logs functionality directly');
+            
+            // Clear logs functionality
+            $('#ccs-clear-logs').off('click').on('click', function(e) {
+                e.preventDefault();
+                console.log('CCS Debug: Clear logs button clicked (direct)');
+                
+                const button = $(this);
+                const originalText = button.text();
+                button.attr('disabled', true).text('Clearing...');
+                
+                $.ajax({
+                    url: ccsAjax.ajaxUrl,
+                    type: 'POST',
+                    data: {
+                        action: 'ccs_clear_logs',
+                        nonce: ccsAjax.clearLogsNonce
+                    },
+                    success: function(response) {
+                        console.log('CCS Debug: Clear logs response:', response);
+                        button.attr('disabled', false).text(originalText);
+                        if (response.success) {
+                            $('#ccs-logs-display').html('<div class="notice notice-success"><p>Logs cleared successfully.</p></div>');
+                            setTimeout(function() {
+                                refreshLogsDirect();
+                            }, 1000);
+                        } else {
+                            const errorMsg = response.data && response.data.message ? response.data.message : (response.data || 'Unknown error');
+                            alert('Failed to clear logs: ' + errorMsg);
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('CCS Debug: Clear logs error:', error, xhr.responseText);
+                        button.attr('disabled', false).text(originalText);
+                        alert('Failed to clear logs. Please try again. Error: ' + error);
+                    }
+                });
+            });
+            
+            // Refresh logs functionality
+            $('#ccs-refresh-logs').off('click').on('click', function(e) {
+                e.preventDefault();
+                console.log('CCS Debug: Refresh logs button clicked (direct)');
+                refreshLogsDirect();
+            });
+            
+            function refreshLogsDirect() {
+                const button = $('#ccs-refresh-logs');
+                const originalText = button.text();
+                button.attr('disabled', true).text('Refreshing...');
+                
+                $.ajax({
+                    url: ccsAjax.ajaxUrl,
+                    type: 'POST,
+                    data: {
+                        action: 'ccs_refresh_logs',
+                        nonce: ccsAjax.refreshLogsNonce
+                    },
+                    success: function(response) {
+                        console.log('CCS Debug: Refresh logs response:', response);
+                        button.attr('disabled', false).text(originalText);
+                        if (response.success) {
+                            if (response.data && response.data.html) {
+                                $('#ccs-logs-display').html(response.data.html);
+                            } else {
+                                $('#ccs-logs-display').html('<div class="notice notice-info"><p>No logs data received.</p></div>');
+                            }
+                        } else {
+                            const errorMsg = response.data && response.data.message ? response.data.message : (response.data || 'Unknown error');
+                            alert('Failed to refresh logs: ' + errorMsg);
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('CCS Debug: Refresh logs error:', error, xhr.responseText);
+                        button.attr('disabled', false).text(originalText);
+                        alert('Failed to refresh logs. Please try again. Error: ' + error);
+                    }
+                });
+            }
+            
+            console.log('CCS Debug: Direct logs functionality initialized');
+        }
         </script>
         <?php
     }

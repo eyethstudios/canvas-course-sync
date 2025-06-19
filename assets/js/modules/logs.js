@@ -11,9 +11,21 @@ export function initLogManager($) {
         return;
     }
     
+    console.log('CCS Debug: Found logs buttons, setting up handlers');
+    console.log('CCS Debug: Clear logs button count:', $('#ccs-clear-logs').length);
+    console.log('CCS Debug: Refresh logs button count:', $('#ccs-refresh-logs').length);
+    
     // Clear logs functionality
-    $('#ccs-clear-logs').on('click', function() {
+    $('#ccs-clear-logs').off('click').on('click', function(e) {
+        e.preventDefault();
         console.log('CCS Debug: Clear logs button clicked');
+        
+        if (!ccsAjax || !ccsAjax.clearLogsNonce) {
+            console.error('CCS Debug: ccsAjax or clearLogsNonce not available');
+            alert('Error: AJAX configuration not available. Please refresh the page.');
+            return;
+        }
+        
         const button = $(this);
         const originalText = button.text();
         button.attr('disabled', true).text('Clearing...');
@@ -31,7 +43,9 @@ export function initLogManager($) {
                 if (response.success) {
                     $('#ccs-logs-display').html('<div class="notice notice-success"><p>Logs cleared successfully.</p></div>');
                     // Auto-refresh logs after clearing
-                    setTimeout(refreshLogs, 1000);
+                    setTimeout(function() {
+                        refreshLogs();
+                    }, 1000);
                 } else {
                     const errorMsg = response.data && response.data.message ? response.data.message : (response.data || 'Unknown error');
                     alert('Failed to clear logs: ' + errorMsg);
@@ -46,13 +60,20 @@ export function initLogManager($) {
     });
     
     // Refresh logs functionality
-    $('#ccs-refresh-logs').on('click', function() {
+    $('#ccs-refresh-logs').off('click').on('click', function(e) {
+        e.preventDefault();
         console.log('CCS Debug: Refresh logs button clicked');
         refreshLogs();
     });
     
     // Function to refresh logs
     function refreshLogs() {
+        if (!ccsAjax || !ccsAjax.refreshLogsNonce) {
+            console.error('CCS Debug: ccsAjax or refreshLogsNonce not available');
+            alert('Error: AJAX configuration not available. Please refresh the page.');
+            return;
+        }
+        
         const button = $('#ccs-refresh-logs');
         const originalText = button.text();
         button.attr('disabled', true).text('Refreshing...');
