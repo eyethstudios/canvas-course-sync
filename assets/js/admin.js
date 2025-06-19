@@ -134,15 +134,14 @@
                     var courses = [];
                     var hasValidData = false;
                     
-                    // Check if response has explicit success flag with data
+                    // Handle different response formats
                     if (response && response.success === true && response.data) {
                         console.log('Response has success flag with data');
                         if (Array.isArray(response.data)) {
                             courses = response.data;
                             hasValidData = true;
-                            console.log('Data is already an array with', courses.length, 'courses');
+                            console.log('Data is array with', courses.length, 'courses');
                         } else if (typeof response.data === 'object' && response.data !== null) {
-                            // Convert object with numeric keys to array
                             courses = Object.values(response.data);
                             hasValidData = true;
                             console.log('Converted data object to array, length:', courses.length);
@@ -154,39 +153,52 @@
                         courses = response;
                         hasValidData = true;
                     }
-                    // Check if response is an object with numeric keys (course objects)
+                    // Handle indexed object format (like your console shows: 0: {course}, 1: {course}, etc.)
                     else if (response && typeof response === 'object' && response !== null) {
                         var keys = Object.keys(response);
-                        console.log('Response keys:', keys);
+                        console.log('Response is object with keys:', keys);
                         
-                        // Check if all keys are numeric (indicating indexed course objects)
+                        // Check if keys are numeric and values look like courses
                         var hasNumericKeys = keys.length > 0 && keys.every(function(key) {
                             return !isNaN(parseInt(key));
                         });
                         
                         if (hasNumericKeys) {
-                            // Check if first item looks like a course
+                            // Verify first item looks like a course
                             var firstItem = response[keys[0]];
-                            if (firstItem && firstItem.id && firstItem.name) {
+                            if (firstItem && (firstItem.id || firstItem.name)) {
                                 courses = Object.values(response);
                                 hasValidData = true;
-                                console.log('Response is course object with numeric keys, converted to array, length:', courses.length);
+                                console.log('Response is indexed course object, converted to array, length:', courses.length);
+                            }
+                        }
+                        
+                        // Special handling for success property without explicit true value
+                        if (!hasValidData && response.success !== false && response.data) {
+                            if (Array.isArray(response.data)) {
+                                courses = response.data;
+                                hasValidData = true;
+                                console.log('Found courses in data property as array');
+                            } else if (typeof response.data === 'object') {
+                                courses = Object.values(response.data);
+                                hasValidData = true;
+                                console.log('Found courses in data property as object, converted to array');
                             }
                         }
                     }
                     
                     if (hasValidData && courses.length > 0) {
                         console.log('Successfully processed', courses.length, 'courses');
+                        console.log('First course sample:', courses[0]);
                         displayCourses(courses);
                         $('#ccs-sync-selected').show();
                     } else if (hasValidData && courses.length === 0) {
                         console.log('Valid response but no courses found');
                         $coursesList.html('<div class="notice notice-info inline"><p>No courses found.</p></div>');
                     } else {
-                        var errorMsg = 'Failed to load courses - invalid response format';
-                        console.log('Invalid response format, showing error:', errorMsg);
+                        console.error('Could not process response format');
                         console.log('Response that could not be processed:', response);
-                        $coursesList.html('<div class="notice notice-error inline"><p>' + escapeHtml(errorMsg) + '</p></div>');
+                        $coursesList.html('<div class="notice notice-error inline"><p>Could not process course data from server.</p></div>');
                     }
                 },
                 error: function(xhr, status, error) {
@@ -371,7 +383,7 @@
             sortedCourses.forEach(function(course, index) {
                 console.log('Processing course ' + index + ':', course);
                 
-                // Safely extract and convert values with detailed logging
+                // Safely extract and convert values
                 var courseId = course.id ? String(course.id) : '';
                 var courseName = course.name ? String(course.name) : 'Unnamed Course';
                 var courseCode = course.course_code ? String(course.course_code) : '';
@@ -379,6 +391,7 @@
                 var statusLabel = course.status_label ? String(course.status_label) : 'New';
                 var createdAt = course.created_at ? String(course.created_at) : '';
                 
+                // Default to checked for new courses, unchecked for existing
                 var checkboxChecked = status === 'new' ? 'checked' : '';
                 var statusClass = '';
                 var statusText = '';
@@ -396,7 +409,7 @@
                 // Add course code if available and different from name
                 var courseDisplayName = courseName;
                 if (courseCode && courseCode !== courseName) {
-                    courseDisplayName += ' (' + courseCode + ')';
+                    courseDisplayName += ' [' + courseCode + ']';
                 }
                 
                 html += '<div class="ccs-course-item ' + statusClass + '" ' +
