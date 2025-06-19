@@ -129,78 +129,55 @@
                     console.log('=== GET COURSES SUCCESS ===');
                     console.log('Raw response:', response);
                     console.log('Response type:', typeof response);
+                    console.log('Response.success:', response.success);
                     console.log('Response.data type:', typeof response.data);
                     console.log('Response.data:', response.data);
-                    console.log('Response.success:', response.success);
                     
-                    // Check if we have a successful response with data
-                    var hasValidData = false;
                     var courses = [];
+                    var hasValidData = false;
                     
-                    if (response && response.success === true && response.data) {
-                        console.log('Response marked as successful');
-                        hasValidData = true;
+                    // Check if response indicates success
+                    if (response && response.success === true) {
+                        console.log('Response marked as successful by server');
                         
-                        // Handle different response data formats
-                        if (Array.isArray(response.data)) {
-                            courses = response.data;
-                            console.log('Data is already an array');
-                        } else if (typeof response.data === 'object' && response.data !== null) {
-                            // Convert object with numbered keys to array
-                            courses = Object.values(response.data);
-                            console.log('Converted object to array, length:', courses.length);
-                        }
-                    } else if (response && response.data && typeof response.data === 'object') {
-                        // Handle case where data exists but success flag might be missing
-                        console.log('Response data exists but success flag unclear, checking data structure');
-                        
-                        if (Array.isArray(response.data)) {
-                            courses = response.data;
-                            hasValidData = true;
-                            console.log('Data is an array, treating as valid');
-                        } else if (typeof response.data === 'object' && response.data !== null) {
-                            // Check if it looks like course data (has numbered keys with course objects)
-                            var keys = Object.keys(response.data);
-                            var hasNumericKeys = keys.length > 0 && keys.every(key => !isNaN(key));
-                            
-                            if (hasNumericKeys) {
-                                courses = Object.values(response.data);
+                        if (response.data) {
+                            if (Array.isArray(response.data)) {
+                                courses = response.data;
                                 hasValidData = true;
-                                console.log('Data has numeric keys, converting to array, length:', courses.length);
+                                console.log('Data is already an array with', courses.length, 'courses');
+                            } else if (typeof response.data === 'object' && response.data !== null) {
+                                // Check if it's an object with numbered keys (like our case)
+                                var keys = Object.keys(response.data);
+                                var hasNumericKeys = keys.length > 0 && keys.every(function(key) {
+                                    return !isNaN(parseInt(key));
+                                });
+                                
+                                if (hasNumericKeys) {
+                                    courses = Object.values(response.data);
+                                    hasValidData = true;
+                                    console.log('Converted object with numeric keys to array, length:', courses.length);
+                                } else {
+                                    console.log('Object does not have numeric keys:', keys);
+                                }
                             }
                         }
+                    } else {
+                        console.log('Response not marked as successful or response.success is false');
                     }
                     
                     if (hasValidData && courses.length > 0) {
                         console.log('Successfully processed', courses.length, 'courses');
-                        
-                        // Debug each course object
-                        courses.forEach(function(course, index) {
-                            console.log('Course ' + index + ' raw data:', course);
-                            console.log('Course ' + index + ' properties:', {
-                                id: course.id,
-                                name: course.name,
-                                course_code: course.course_code,
-                                status: course.status,
-                                status_label: course.status_label,
-                                created_at: course.created_at
-                            });
-                        });
-                        
                         displayCourses(courses);
                         $('#ccs-sync-selected').show();
+                    } else if (hasValidData && courses.length === 0) {
+                        console.log('Valid response but no courses found');
+                        $coursesList.html('<div class="notice notice-info inline"><p>No courses found.</p></div>');
                     } else {
-                        var errorMsg;
-                        if (hasValidData && courses.length === 0) {
-                            errorMsg = 'No courses found.';
-                            console.log('Valid response but no courses');
-                        } else {
-                            errorMsg = (response && response.data && typeof response.data === 'string') 
-                                ? String(response.data) 
-                                : 'Failed to load courses - invalid response format';
-                            console.log('Invalid response format');
-                        }
-                        $coursesList.html('<div class="notice notice-info inline"><p>' + escapeHtml(errorMsg) + '</p></div>');
+                        var errorMsg = (response && response.data && typeof response.data === 'string') 
+                            ? String(response.data) 
+                            : 'Failed to load courses - invalid response format';
+                        console.log('Invalid response format, showing error:', errorMsg);
+                        $coursesList.html('<div class="notice notice-error inline"><p>' + escapeHtml(errorMsg) + '</p></div>');
                     }
                 },
                 error: function(xhr, status, error) {
@@ -386,43 +363,12 @@
                 console.log('Processing course ' + index + ':', course);
                 
                 // Safely extract and convert values with detailed logging
-                var courseId = '';
-                var courseName = 'Unnamed Course';
-                var courseCode = '';
-                var status = 'new';
-                var statusLabel = 'New';
-                var createdAt = '';
-                
-                // Detailed property extraction with type checking
-                if (course.hasOwnProperty('id') && course.id !== null && course.id !== undefined) {
-                    courseId = String(course.id);
-                    console.log('Course ID extracted:', courseId);
-                }
-                
-                if (course.hasOwnProperty('name') && course.name !== null && course.name !== undefined) {
-                    courseName = String(course.name);
-                    console.log('Course name extracted:', courseName);
-                }
-                
-                if (course.hasOwnProperty('course_code') && course.course_code !== null && course.course_code !== undefined) {
-                    courseCode = String(course.course_code);
-                    console.log('Course code extracted:', courseCode);
-                }
-                
-                if (course.hasOwnProperty('status') && course.status !== null && course.status !== undefined) {
-                    status = String(course.status);
-                    console.log('Status extracted:', status);
-                }
-                
-                if (course.hasOwnProperty('status_label') && course.status_label !== null && course.status_label !== undefined) {
-                    statusLabel = String(course.status_label);
-                    console.log('Status label extracted:', statusLabel);
-                }
-                
-                if (course.hasOwnProperty('created_at') && course.created_at !== null && course.created_at !== undefined) {
-                    createdAt = String(course.created_at);
-                    console.log('Created at extracted:', createdAt);
-                }
+                var courseId = course.id ? String(course.id) : '';
+                var courseName = course.name ? String(course.name) : 'Unnamed Course';
+                var courseCode = course.course_code ? String(course.course_code) : '';
+                var status = course.status ? String(course.status) : 'new';
+                var statusLabel = course.status_label ? String(course.status_label) : 'New';
+                var createdAt = course.created_at ? String(course.created_at) : '';
                 
                 var checkboxChecked = status === 'new' ? 'checked' : '';
                 var statusClass = '';
@@ -443,14 +389,6 @@
                 if (courseCode && courseCode !== courseName) {
                     courseDisplayName += ' (' + courseCode + ')';
                 }
-                
-                console.log('Final display values:', {
-                    courseId: courseId,
-                    courseDisplayName: courseDisplayName,
-                    statusText: statusText,
-                    status: status,
-                    createdAt: createdAt
-                });
                 
                 html += '<div class="ccs-course-item ' + statusClass + '" ' +
                     'data-course-name="' + escapeHtml(courseName) + '" ' +
