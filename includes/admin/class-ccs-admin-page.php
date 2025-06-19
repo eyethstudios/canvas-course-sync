@@ -40,36 +40,25 @@ class CCS_Admin_Page {
         if (class_exists('CCS_Email_Settings')) {
             $this->email_settings = new CCS_Email_Settings();
         }
-        
-        // Enqueue admin scripts and styles
-        add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
     }
 
     /**
-     * Enqueue admin scripts and styles
+     * Render admin page
      */
-    public function enqueue_admin_scripts($hook) {
-        // Only load on our admin page
-        if ($hook !== 'toplevel_page_canvas-course-sync') {
-            return;
-        }
+    public function render() {
+        // Enqueue scripts directly for this page
+        wp_enqueue_script('jquery');
         
-        // Enqueue admin script as ES6 module
+        // Enqueue admin script as regular JavaScript (not module)
         wp_enqueue_script(
             'ccs-admin',
             CCS_PLUGIN_URL . 'assets/js/admin.js',
             array('jquery'),
             CCS_VERSION,
-            array(
-                'in_footer' => true,
-                'strategy' => 'defer'
-            )
+            true
         );
         
-        // Add module type attribute
-        add_filter('script_loader_tag', array($this, 'add_module_to_script'), 10, 3);
-        
-        // Localize script with AJAX data - this must come after wp_enqueue_script
+        // Localize script with AJAX data
         wp_localize_script('ccs-admin', 'ccsAjax', array(
             'ajaxUrl' => admin_url('admin-ajax.php'),
             'testConnectionNonce' => wp_create_nonce('ccs_test_connection'),
@@ -88,22 +77,7 @@ class CCS_Admin_Page {
             array(),
             CCS_VERSION
         );
-    }
-    
-    /**
-     * Add type="module" to admin script
-     */
-    public function add_module_to_script($tag, $handle, $src) {
-        if ('ccs-admin' === $handle) {
-            $tag = str_replace('<script ', '<script type="module" ', $tag);
-        }
-        return $tag;
-    }
-
-    /**
-     * Render admin page
-     */
-    public function render() {
+        
         ?>
         <div class="wrap">
             <h1><?php _e('Canvas Course Sync', 'canvas-course-sync'); ?></h1>
