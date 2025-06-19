@@ -133,24 +133,41 @@
                     console.log('Response.data type:', typeof response.data);
                     console.log('Response.data:', response.data);
                     
-                    if (response && response.success && Array.isArray(response.data)) {
-                        console.log('Successfully received', response.data.length, 'courses');
+                    if (response && response.success && response.data) {
+                        var courses = [];
                         
-                        // Debug each course object
-                        response.data.forEach(function(course, index) {
-                            console.log('Course ' + index + ' raw data:', course);
-                            console.log('Course ' + index + ' properties:', {
-                                id: course.id,
-                                name: course.name,
-                                course_code: course.course_code,
-                                status: course.status,
-                                status_label: course.status_label,
-                                created_at: course.created_at
+                        // Handle different response data formats
+                        if (Array.isArray(response.data)) {
+                            courses = response.data;
+                            console.log('Data is already an array');
+                        } else if (typeof response.data === 'object' && response.data !== null) {
+                            // Convert object with numbered keys to array
+                            courses = Object.values(response.data);
+                            console.log('Converted object to array, length:', courses.length);
+                        }
+                        
+                        if (courses.length > 0) {
+                            console.log('Successfully processed', courses.length, 'courses');
+                            
+                            // Debug each course object
+                            courses.forEach(function(course, index) {
+                                console.log('Course ' + index + ' raw data:', course);
+                                console.log('Course ' + index + ' properties:', {
+                                    id: course.id,
+                                    name: course.name,
+                                    course_code: course.course_code,
+                                    status: course.status,
+                                    status_label: course.status_label,
+                                    created_at: course.created_at
+                                });
                             });
-                        });
-                        
-                        displayCourses(response.data);
-                        $('#ccs-sync-selected').show();
+                            
+                            displayCourses(courses);
+                            $('#ccs-sync-selected').show();
+                        } else {
+                            console.log('No courses found after processing');
+                            $coursesList.html('<div class="notice notice-info inline"><p>No courses found.</p></div>');
+                        }
                     } else {
                         var errorMsg = (response && response.data) ? String(response.data) : 'Failed to load courses - no data returned';
                         console.error('Get courses failed:', errorMsg);
