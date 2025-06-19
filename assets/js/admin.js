@@ -322,11 +322,13 @@
             sortedCourses.forEach(function(course, index) {
                 console.log('Processing course ' + index + ':', course);
                 
-                var courseId = String(course.id || '');
-                var courseName = String(course.name || 'Unnamed Course');
-                var courseCode = String(course.course_code || '');
-                var status = String(course.status || 'new');
-                var statusLabel = String(course.status_label || 'New');
+                // Ensure all values are properly converted to strings
+                var courseId = course.id ? String(course.id) : '';
+                var courseName = course.name ? String(course.name) : 'Unnamed Course';
+                var courseCode = course.course_code ? String(course.course_code) : '';
+                var status = course.status ? String(course.status) : 'new';
+                var statusLabel = course.status_label ? String(course.status_label) : 'New';
+                var createdAt = course.created_at ? String(course.created_at) : '';
                 
                 var checkboxChecked = status === 'new' ? 'checked' : '';
                 var statusClass = '';
@@ -350,7 +352,7 @@
                 
                 html += '<div class="ccs-course-item ' + statusClass + '" ' +
                     'data-course-name="' + escapeHtml(courseName) + '" ' +
-                    'data-created-at="' + escapeHtml(String(course.created_at || '')) + '" ' +
+                    'data-created-at="' + escapeHtml(createdAt) + '" ' +
                     'data-status="' + escapeHtml(status) + '">' +
                     '<label style="display: block; margin: 5px 0; padding: 5px; border-bottom: 1px solid #eee;">' +
                     '<input type="checkbox" class="ccs-course-checkbox" value="' + escapeHtml(courseId) + '" ' + checkboxChecked + '> ' +
