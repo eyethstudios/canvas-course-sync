@@ -3,7 +3,7 @@
  * Plugin Name: Canvas Course Sync
  * Plugin URI: https://github.com/eyethstudios/canvas-course-sync
  * Description: Synchronize courses from Canvas LMS to WordPress with full API integration and course management.
- * Version: 2.1.5
+ * Version: 2.1.6
  * Author: Eyeth Studios
  * Author URI: http://eyethstudios.com
  * License: GPL v2 or later
@@ -14,6 +14,7 @@
  * Tested up to: 6.4
  * Requires PHP: 7.4
  * Network: false
+ * GitHub Plugin URI: https://github.com/eyethstudios/canvas-course-sync
  */
 
 // Prevent direct access
@@ -22,10 +23,11 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('CCS_VERSION', '2.1.5');
+define('CCS_VERSION', '2.1.6');
 define('CCS_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('CCS_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('CCS_PLUGIN_FILE', __FILE__);
+define('CCS_GITHUB_REPO', 'eyethstudios/canvas-course-sync');
 
 /**
  * Main plugin class
@@ -62,6 +64,11 @@ class Canvas_Course_Sync {
     public $scheduler;
 
     /**
+     * GitHub updater instance
+     */
+    public $github_updater;
+
+    /**
      * Get instance
      */
     public static function get_instance() {
@@ -83,6 +90,18 @@ class Canvas_Course_Sync {
         // Add WordPress hooks for proper integration
         add_action('wp_loaded', array($this, 'wp_loaded'));
         add_filter('plugin_action_links_' . plugin_basename(__FILE__), array($this, 'add_plugin_action_links'));
+        
+        // Initialize GitHub updater
+        add_action('init', array($this, 'init_github_updater'));
+    }
+
+    /**
+     * Initialize GitHub updater
+     */
+    public function init_github_updater() {
+        if (is_admin()) {
+            $this->github_updater = new CCS_GitHub_Updater(CCS_PLUGIN_FILE, CCS_GITHUB_REPO, CCS_VERSION);
+        }
     }
 
     /**
@@ -111,7 +130,8 @@ class Canvas_Course_Sync {
             'includes/logger.php',
             'includes/canvas-api.php',
             'includes/importer.php',
-            'includes/class-ccs-scheduler.php'
+            'includes/class-ccs-scheduler.php',
+            'includes/class-ccs-github-updater.php'
         );
         
         foreach ($required_files as $file) {
