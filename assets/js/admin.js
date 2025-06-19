@@ -1,6 +1,6 @@
 
 import { initConnectionTester } from './modules/connection.js';
-import { initCourseFetcher } from './modules/courses.js';
+import { initCourseManager } from './modules/courses.js';
 import { initSyncManager } from './modules/sync.js';
 import { initAutoSyncManager } from './modules/auto-sync.js';
 import { initLogManager } from './modules/logs.js';
@@ -16,7 +16,7 @@ jQuery(document).ready(function($) {
     
     // Initialize all modules
     initConnectionTester($);
-    initCourseFetcher($);
+    initCourseManager($);
     initSyncManager($);
     initAutoSyncManager($);
     initLogManager($);
