@@ -3,14 +3,17 @@
  * Course synchronization functionality
  */
 export function initSyncManager($) {
-    $('#ccs-sync-courses').on('click', function() {
-        console.log('Sync button clicked');
+    console.log('CCS Debug: Initializing sync manager');
+    
+    $('#ccs-sync-courses').on('click', function(e) {
+        e.preventDefault();
+        console.log('CCS Debug: Sync button clicked');
         
         const selectedCourses = $('.ccs-course-checkbox:checked').map(function() {
             return $(this).val();
         }).get();
         
-        console.log('Selected courses:', selectedCourses);
+        console.log('CCS Debug: Selected courses:', selectedCourses);
         
         if (selectedCourses.length === 0) {
             alert('Please select at least one course to sync.');
@@ -23,15 +26,17 @@ export function initSyncManager($) {
         const statusText = $('#ccs-sync-status');
         const progressBar = $('#ccs-sync-progress-bar');
         
-        console.log('Starting sync process...');
+        console.log('CCS Debug: Starting sync process...');
         
-        button.attr('disabled', true);
+        // Disable button and show progress
+        button.prop('disabled', true);
         progress.show();
         results.hide();
         
         // Clear any previous messages
         $('#ccs-sync-message').empty();
         
+        // Status polling interval
         let syncInterval = setInterval(function() {
             $.ajax({
                 url: ccsAjax.ajaxUrl,
@@ -41,21 +46,23 @@ export function initSyncManager($) {
                     nonce: ccsAjax.syncStatusNonce
                 },
                 success: function(response) {
-                    console.log('Status response:', response);
+                    console.log('CCS Debug: Status response:', response);
                     if (response.success && response.data) {
-                        statusText.html(response.data.status);
+                        statusText.html(response.data.status || 'Processing...');
                         if (response.data.processed && response.data.total) {
-                            const percent = (response.data.processed / response.data.total) * 100;
+                            const percent = Math.round((response.data.processed / response.data.total) * 100);
                             progressBar.css('width', percent + '%');
+                            progressBar.text(percent + '%');
                         }
                     }
                 },
                 error: function(xhr, status, error) {
-                    console.error('Status check error:', error, xhr.responseText);
+                    console.error('CCS Debug: Status check error:', error, xhr.responseText);
                 }
             });
         }, 2000);
         
+        // Start the sync process
         $.ajax({
             url: ccsAjax.ajaxUrl,
             type: 'POST',
@@ -65,45 +72,51 @@ export function initSyncManager($) {
                 course_ids: selectedCourses
             },
             success: function(response) {
-                console.log('Sync response:', response);
+                console.log('CCS Debug: Sync response:', response);
                 clearInterval(syncInterval);
-                button.attr('disabled', false);
+                button.prop('disabled', false);
                 progress.hide();
                 
-                if (response.success) {
-                    $('#ccs-sync-message').html('<div class="notice notice-success inline"><p>' + response.data.message + '</p></div>');
-                    $('#ccs-imported').text(response.data.imported || 0);
-                    $('#ccs-skipped').text(response.data.skipped || 0);
-                    $('#ccs-errors').text(response.data.errors || 0);
+                if (response.success && response.data) {
+                    const data = response.data;
+                    $('#ccs-sync-message').html('<div class="notice notice-success inline"><p>' + (data.message || 'Sync completed successfully!') + '</p></div>');
+                    $('#ccs-imported').text(data.imported || 0);
+                    $('#ccs-skipped').text(data.skipped || 0);
+                    $('#ccs-errors').text(data.errors || 0);
                 } else {
-                    const errorMessage = response.data && response.data.message ? response.data.message : 'Sync failed.';
+                    const errorMessage = response.data && response.data.message ? response.data.message : 'Sync failed with unknown error.';
                     $('#ccs-sync-message').html('<div class="notice notice-error inline"><p>' + errorMessage + '</p></div>');
-                    console.error('Sync failed:', response);
+                    console.error('CCS Debug: Sync failed:', response);
                 }
                 
                 results.show();
                 
+                // Auto-refresh after 5 seconds
                 setTimeout(function() {
-                    location.reload();
-                }, 5000);
+                    if (confirm('Sync completed. Would you like to refresh the page to see updated results?')) {
+                        location.reload();
+                    }
+                }, 3000);
             },
             error: function(xhr, status, error) {
-                console.error('Sync error:', error, xhr.responseText);
+                console.error('CCS Debug: Sync AJAX error:', error, xhr.responseText);
                 clearInterval(syncInterval);
-                button.attr('disabled', false);
+                button.prop('disabled', false);
                 progress.hide();
                 
                 let errorDetails = '';
                 try {
                     const errorResponse = JSON.parse(xhr.responseText);
-                    errorDetails = errorResponse.data ? errorResponse.data : xhr.responseText;
+                    errorDetails = errorResponse.data && errorResponse.data.message ? errorResponse.data.message : xhr.responseText;
                 } catch (e) {
                     errorDetails = xhr.responseText || error;
                 }
                 
-                $('#ccs-sync-message').html('<div class="notice notice-error inline"><p>Connection error occurred. Please try again. Error: ' + error + '<br>Details: ' + errorDetails + '</p></div>');
+                $('#ccs-sync-message').html('<div class="notice notice-error inline"><p><strong>Connection Error:</strong> ' + error + '<br><small>Details: ' + errorDetails + '</small></p></div>');
                 results.show();
             }
         });
     });
+    
+    console.log('CCS Debug: Sync manager initialized');
 }

@@ -160,42 +160,76 @@ function ccs_ajax_sync_courses() {
     // Verify nonce
     if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ccs_sync_courses')) {
         error_log('CCS Debug: Nonce verification failed');
-        wp_send_json_error(__('Security check failed.', 'canvas-course-sync'));
+        wp_send_json_error(array('message' => __('Security check failed.', 'canvas-course-sync')));
     }
     
     if (!current_user_can('manage_options')) {
         error_log('CCS Debug: User does not have manage_options capability');
-        wp_send_json_error(__('You do not have sufficient permissions to access this page.', 'canvas-course-sync'));
+        wp_send_json_error(array('message' => __('You do not have sufficient permissions to access this page.', 'canvas-course-sync')));
     }
     
     // Sanitize course IDs
     $course_ids = array();
     if (isset($_POST['course_ids']) && is_array($_POST['course_ids'])) {
         $course_ids = array_map('intval', wp_unslash($_POST['course_ids']));
+        $course_ids = array_filter($course_ids, function($id) { return $id > 0; });
     }
     
     error_log('CCS Debug: Course IDs to sync: ' . print_r($course_ids, true));
     
     if (empty($course_ids)) {
-        error_log('CCS Debug: No courses selected for sync');
-        wp_send_json_error(__('No courses selected for sync.', 'canvas-course-sync'));
+        error_log('CCS Debug: No valid courses selected for sync');
+        wp_send_json_error(array('message' => __('No valid courses selected for sync.', 'canvas-course-sync')));
     }
     
     $canvas_course_sync = canvas_course_sync();
-    if (!$canvas_course_sync || !$canvas_course_sync->importer) {
-        error_log('CCS Debug: Plugin not properly initialized - missing importer');
-        wp_send_json_error(__('Plugin not properly initialized.', 'canvas-course-sync'));
+    if (!$canvas_course_sync) {
+        error_log('CCS Debug: Canvas Course Sync instance not found');
+        wp_send_json_error(array('message' => __('Plugin not properly initialized.', 'canvas-course-sync')));
     }
+    
+    if (!$canvas_course_sync->importer) {
+        error_log('CCS Debug: Importer not initialized');
+        wp_send_json_error(array('message' => __('Course importer not properly initialized.', 'canvas-course-sync')));
+    }
+    
+    // Set sync status for polling
+    set_transient('ccs_sync_status', array(
+        'status' => __('Starting course sync...', 'canvas-course-sync'),
+        'processed' => 0,
+        'total' => count($course_ids)
+    ), 300);
     
     error_log('CCS Debug: Starting course import process');
     
     try {
         $results = $canvas_course_sync->importer->import_courses($course_ids);
         error_log('CCS Debug: Import results: ' . print_r($results, true));
+        
+        // Clear sync status
+        delete_transient('ccs_sync_status');
+        
+        // Ensure we have proper result structure
+        if (!isset($results['message'])) {
+            $results['message'] = sprintf(
+                __('Import completed: %d imported, %d skipped, %d errors', 'canvas-course-sync'),
+                $results['imported'] ?? 0,
+                $results['skipped'] ?? 0,
+                $results['errors'] ?? 0
+            );
+        }
+        
         wp_send_json_success($results);
     } catch (Exception $e) {
         error_log('CCS Debug: Exception during import: ' . $e->getMessage());
-        wp_send_json_error(array('message' => 'Import failed: ' . $e->getMessage()));
+        error_log('CCS Debug: Exception trace: ' . $e->getTraceAsString());
+        
+        // Clear sync status
+        delete_transient('ccs_sync_status');
+        
+        wp_send_json_error(array(
+            'message' => sprintf(__('Import failed: %s', 'canvas-course-sync'), $e->getMessage())
+        ));
     }
 }
 
