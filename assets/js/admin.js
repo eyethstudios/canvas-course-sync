@@ -1,4 +1,3 @@
-
 (function($) {
     'use strict';
 
@@ -132,9 +131,15 @@
                     console.log('Response type:', typeof response);
                     console.log('Response.data type:', typeof response.data);
                     console.log('Response.data:', response.data);
+                    console.log('Response.success:', response.success);
                     
-                    if (response && response.success && response.data) {
-                        var courses = [];
+                    // Check if we have a successful response with data
+                    var hasValidData = false;
+                    var courses = [];
+                    
+                    if (response && response.success === true && response.data) {
+                        console.log('Response marked as successful');
+                        hasValidData = true;
                         
                         // Handle different response data formats
                         if (Array.isArray(response.data)) {
@@ -145,33 +150,57 @@
                             courses = Object.values(response.data);
                             console.log('Converted object to array, length:', courses.length);
                         }
+                    } else if (response && response.data && typeof response.data === 'object') {
+                        // Handle case where data exists but success flag might be missing
+                        console.log('Response data exists but success flag unclear, checking data structure');
                         
-                        if (courses.length > 0) {
-                            console.log('Successfully processed', courses.length, 'courses');
+                        if (Array.isArray(response.data)) {
+                            courses = response.data;
+                            hasValidData = true;
+                            console.log('Data is an array, treating as valid');
+                        } else if (typeof response.data === 'object' && response.data !== null) {
+                            // Check if it looks like course data (has numbered keys with course objects)
+                            var keys = Object.keys(response.data);
+                            var hasNumericKeys = keys.length > 0 && keys.every(key => !isNaN(key));
                             
-                            // Debug each course object
-                            courses.forEach(function(course, index) {
-                                console.log('Course ' + index + ' raw data:', course);
-                                console.log('Course ' + index + ' properties:', {
-                                    id: course.id,
-                                    name: course.name,
-                                    course_code: course.course_code,
-                                    status: course.status,
-                                    status_label: course.status_label,
-                                    created_at: course.created_at
-                                });
-                            });
-                            
-                            displayCourses(courses);
-                            $('#ccs-sync-selected').show();
-                        } else {
-                            console.log('No courses found after processing');
-                            $coursesList.html('<div class="notice notice-info inline"><p>No courses found.</p></div>');
+                            if (hasNumericKeys) {
+                                courses = Object.values(response.data);
+                                hasValidData = true;
+                                console.log('Data has numeric keys, converting to array, length:', courses.length);
+                            }
                         }
+                    }
+                    
+                    if (hasValidData && courses.length > 0) {
+                        console.log('Successfully processed', courses.length, 'courses');
+                        
+                        // Debug each course object
+                        courses.forEach(function(course, index) {
+                            console.log('Course ' + index + ' raw data:', course);
+                            console.log('Course ' + index + ' properties:', {
+                                id: course.id,
+                                name: course.name,
+                                course_code: course.course_code,
+                                status: course.status,
+                                status_label: course.status_label,
+                                created_at: course.created_at
+                            });
+                        });
+                        
+                        displayCourses(courses);
+                        $('#ccs-sync-selected').show();
                     } else {
-                        var errorMsg = (response && response.data) ? String(response.data) : 'Failed to load courses - no data returned';
-                        console.error('Get courses failed:', errorMsg);
-                        $coursesList.html('<div class="notice notice-error inline"><p>' + escapeHtml(errorMsg) + '</p></div>');
+                        var errorMsg;
+                        if (hasValidData && courses.length === 0) {
+                            errorMsg = 'No courses found.';
+                            console.log('Valid response but no courses');
+                        } else {
+                            errorMsg = (response && response.data && typeof response.data === 'string') 
+                                ? String(response.data) 
+                                : 'Failed to load courses - invalid response format';
+                            console.log('Invalid response format');
+                        }
+                        $coursesList.html('<div class="notice notice-info inline"><p>' + escapeHtml(errorMsg) + '</p></div>');
                     }
                 },
                 error: function(xhr, status, error) {
