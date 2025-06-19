@@ -1,3 +1,4 @@
+
 <?php
 /**
  * GitHub Updater for Canvas Course Sync
@@ -111,6 +112,11 @@ class CCS_GitHub_Updater {
         // Get remote version
         $remote_version = $this->get_remote_version();
         
+        // Debug logging
+        error_log('CCS Debug: Current version: ' . $this->version);
+        error_log('CCS Debug: Remote version: ' . $remote_version);
+        error_log('CCS Debug: Version comparison: ' . (version_compare($this->version, $remote_version, '<') ? 'UPDATE AVAILABLE' : 'UP TO DATE'));
+        
         if (version_compare($this->version, $remote_version, '<')) {
             $transient->response[$this->plugin_slug] = (object) array(
                 'slug' => $this->plugin_basename,
@@ -122,6 +128,8 @@ class CCS_GitHub_Updater {
                 'requires_php' => '7.4',
                 'compatibility' => new stdClass()
             );
+            
+            error_log('CCS Debug: Update added to transient');
         }
         
         return $transient;
@@ -131,18 +139,24 @@ class CCS_GitHub_Updater {
      * Get remote version from GitHub
      */
     private function get_remote_version() {
-        // Check cache first
-        $cache_key = 'ccs_github_version_' . md5($this->github_repo);
-        $cached_version = get_transient($cache_key);
+        // For manual checks, always bypass cache
+        $bypass_cache = isset($_POST['action']) && $_POST['action'] === 'ccs_check_updates';
         
-        if ($cached_version !== false) {
-            return $cached_version;
+        // Check cache first (unless bypassing)
+        $cache_key = 'ccs_github_version_' . md5($this->github_repo);
+        if (!$bypass_cache) {
+            $cached_version = get_transient($cache_key);
+            if ($cached_version !== false) {
+                return $cached_version;
+            }
         }
         
+        // Make GitHub API request
         $request = wp_remote_get('https://api.github.com/repos/' . $this->github_repo . '/releases/latest', array(
-            'timeout' => 10,
+            'timeout' => 15,
             'headers' => array(
-                'Accept' => 'application/vnd.github.v3+json'
+                'Accept' => 'application/vnd.github.v3+json',
+                'User-Agent' => 'WordPress-Canvas-Course-Sync'
             )
         ));
         
@@ -151,13 +165,19 @@ class CCS_GitHub_Updater {
             $data = json_decode($body, true);
             
             if (isset($data['tag_name'])) {
+                // Clean version number (remove 'v' prefix if present)
                 $version = ltrim($data['tag_name'], 'v');
-                // Cache for 12 hours
-                set_transient($cache_key, $version, 12 * HOUR_IN_SECONDS);
-                return $version;
+                
+                // Validate version format
+                if (preg_match('/^\d+\.\d+(\.\d+)?/', $version)) {
+                    // Cache for 6 hours (shorter cache for more frequent checks)
+                    set_transient($cache_key, $version, 6 * HOUR_IN_SECONDS);
+                    return $version;
+                }
             }
         }
         
+        // If we can't get remote version, return current version
         return $this->version;
     }
     
@@ -238,8 +258,14 @@ class CCS_GitHub_Updater {
         $cache_key = 'ccs_github_version_' . md5($this->github_repo);
         delete_transient($cache_key);
         
+        // Clear WordPress update cache too
+        delete_site_transient('update_plugins');
+        
         // Get fresh version from GitHub
         $remote_version = $this->get_remote_version();
+        
+        // Log the check
+        error_log('CCS Debug: Manual update check - Current: ' . $this->version . ', Remote: ' . $remote_version);
         
         if (version_compare($this->version, $remote_version, '<')) {
             wp_send_json_success(array(
@@ -250,7 +276,7 @@ class CCS_GitHub_Updater {
             ));
         } else {
             wp_send_json_success(array(
-                'message' => __('Plugin is up to date!', 'canvas-course-sync'),
+                'message' => sprintf(__('Plugin is up to date! Current version: %s', 'canvas-course-sync'), $this->version),
                 'update_available' => false,
                 'current_version' => $this->version,
                 'remote_version' => $remote_version
