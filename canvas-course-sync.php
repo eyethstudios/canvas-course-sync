@@ -1,10 +1,11 @@
 <?php
 /**
  * Plugin Name: Canvas Course Sync
- * Plugin URI: https://github.com/yourusername/canvas-course-sync
+ * Plugin URI: http://eyethstudios.com
  * Description: Synchronize courses from Canvas LMS to WordPress
- * Version: 2.2.2
+ * Version: 2.2.3
  * Author: Eyeth Studios
+ * Author URI: http://eyethstudios.com
  * License: GPL v2 or later
  * Text Domain: canvas-course-sync
  */
@@ -15,12 +16,12 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('CCS_VERSION', '2.2.2');
+define('CCS_VERSION', '2.2.3');
 define('CCS_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('CCS_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('CCS_PLUGIN_BASENAME', plugin_basename(__FILE__));
 define('CCS_PLUGIN_FILE', __FILE__);
-define('CCS_GITHUB_REPO', 'yourusername/canvas-course-sync');
+define('CCS_GITHUB_REPO', 'eyethstudios/canvas-course-sync');
 
 /**
  * Main plugin class
