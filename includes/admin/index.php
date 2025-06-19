@@ -1,4 +1,3 @@
-
 <?php
 /**
  * Admin includes for Canvas Course Sync
@@ -16,6 +15,7 @@ add_action('wp_ajax_ccs_test_connection', 'ccs_ajax_test_connection');
 add_action('wp_ajax_ccs_get_courses', 'ccs_ajax_get_courses');
 add_action('wp_ajax_ccs_sync_courses', 'ccs_ajax_sync_courses');
 add_action('wp_ajax_ccs_clear_logs', 'ccs_ajax_clear_logs');
+add_action('wp_ajax_ccs_run_auto_sync', 'ccs_ajax_run_auto_sync');
 
 /**
  * AJAX handler for testing connection
@@ -173,4 +173,33 @@ function ccs_ajax_clear_logs() {
     $canvas_course_sync->logger->clear_logs();
     
     wp_send_json_success(__('Logs cleared successfully.', 'canvas-course-sync'));
+}
+
+/**
+ * AJAX handler for running auto-sync manually
+ */
+function ccs_ajax_run_auto_sync() {
+    // Verify nonce
+    if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ccs_run_auto_sync')) {
+        wp_send_json_error(__('Security check failed.', 'canvas-course-sync'));
+    }
+    
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(__('You do not have sufficient permissions to access this page.', 'canvas-course-sync'));
+    }
+    
+    $canvas_course_sync = canvas_course_sync();
+    if (!$canvas_course_sync || !$canvas_course_sync->scheduler) {
+        wp_send_json_error(__('Scheduler not properly initialized.', 'canvas-course-sync'));
+    }
+    
+    $result = $canvas_course_sync->scheduler->run_auto_sync();
+    
+    if ($result) {
+        wp_send_json_success(array(
+            'message' => __('Auto-sync completed successfully. Check the logs for details.', 'canvas-course-sync')
+        ));
+    } else {
+        wp_send_json_error(__('Auto-sync failed. Check the logs for details.', 'canvas-course-sync'));
+    }
 }

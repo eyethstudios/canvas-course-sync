@@ -1,10 +1,9 @@
-
 <?php
 /**
  * Plugin Name: Canvas Course Sync
  * Plugin URI: https://github.com/eyethstudios/canvas-course-sync
  * Description: Synchronize courses from Canvas LMS to WordPress with full API integration and course management.
- * Version: 1.0.0
+ * Version: 2.1.5
  * Author: Eyeth Studios
  * Author URI: http://eyethstudios.com
  * License: GPL v2 or later
@@ -23,7 +22,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('CCS_VERSION', '1.0.0');
+define('CCS_VERSION', '2.1.5');
 define('CCS_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('CCS_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('CCS_PLUGIN_FILE', __FILE__);
@@ -56,6 +55,11 @@ class Canvas_Course_Sync {
      * Admin menu instance
      */
     public $admin_menu;
+
+    /**
+     * Scheduler instance
+     */
+    public $scheduler;
 
     /**
      * Get instance
@@ -106,7 +110,8 @@ class Canvas_Course_Sync {
             'includes/functions.php',
             'includes/logger.php',
             'includes/canvas-api.php',
-            'includes/importer.php'
+            'includes/importer.php',
+            'includes/class-ccs-scheduler.php'
         );
         
         foreach ($required_files as $file) {
@@ -122,7 +127,8 @@ class Canvas_Course_Sync {
                 'includes/admin/index.php',
                 'includes/admin/class-ccs-admin-menu.php',
                 'includes/admin/class-ccs-admin-page.php',
-                'includes/admin/class-ccs-logs-display.php'
+                'includes/admin/class-ccs-logs-display.php',
+                'includes/admin/class-ccs-email-settings.php'
             );
             
             foreach ($admin_files as $file) {
@@ -151,6 +157,11 @@ class Canvas_Course_Sync {
         // Initialize importer
         if (class_exists('CCS_Course_Importer')) {
             $this->importer = new CCS_Course_Importer();
+        }
+        
+        // Initialize scheduler
+        if (class_exists('CCS_Scheduler')) {
+            $this->scheduler = new CCS_Scheduler();
         }
         
         // Initialize admin components
@@ -311,7 +322,7 @@ class Canvas_Course_Sync {
                 'getCoursesNonce' => wp_create_nonce('ccs_get_courses'),
                 'syncCoursesNonce' => wp_create_nonce('ccs_sync_courses'),
                 'clearLogsNonce' => wp_create_nonce('ccs_clear_logs'),
-                'autoSyncNonce' => wp_create_nonce('ccs_auto_sync'),
+                'autoSyncNonce' => wp_create_nonce('ccs_run_auto_sync'),
                 'syncStatusNonce' => wp_create_nonce('ccs_sync_status'),
                 'strings' => array(
                     'testing' => __('Testing...', 'canvas-course-sync'),
