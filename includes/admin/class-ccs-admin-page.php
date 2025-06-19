@@ -23,11 +23,23 @@ class CCS_Admin_Page {
     private $logger;
 
     /**
+     * Email settings instance
+     *
+     * @var CCS_Email_Settings
+     */
+    private $email_settings;
+
+    /**
      * Constructor
      */
     public function __construct() {
         $canvas_course_sync = canvas_course_sync();
         $this->logger = ($canvas_course_sync && isset($canvas_course_sync->logger)) ? $canvas_course_sync->logger : null;
+        
+        // Initialize email settings
+        if (class_exists('CCS_Email_Settings')) {
+            $this->email_settings = new CCS_Email_Settings();
+        }
     }
 
     /**
@@ -121,6 +133,11 @@ class CCS_Admin_Page {
                         <div id="ccs-sync-status" class="ccs-sync-status" style="margin-top: 10px;"></div>
                     </div>
                 </div>
+
+                <!-- Auto-Sync Settings Panel -->
+                <?php if ($this->email_settings): ?>
+                    <?php $this->email_settings->render(); ?>
+                <?php endif; ?>
 
                 <!-- Debug Panel -->
                 <div class="ccs-panel" style="margin-top: 20px; padding: 15px; background: #f9f9f9; border-left: 4px solid #00a0d2;">

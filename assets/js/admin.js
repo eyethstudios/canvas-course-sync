@@ -135,7 +135,7 @@
                         displayCourses(response.data);
                         $('#ccs-sync-selected').show();
                     } else {
-                        var errorMsg = (response && response.data) ? response.data : 'Failed to load courses - no data returned';
+                        var errorMsg = (response && response.data) ? String(response.data) : 'Failed to load courses - no data returned';
                         console.error('Get courses failed:', errorMsg);
                         $coursesList.html('<div class="notice notice-error inline"><p>' + escapeHtml(errorMsg) + '</p></div>');
                     }
@@ -155,7 +155,7 @@
                         try {
                             var responseObj = JSON.parse(xhr.responseText);
                             if (responseObj && responseObj.data) {
-                                errorMsg = 'Server error: ' + responseObj.data;
+                                errorMsg = 'Server error: ' + String(responseObj.data);
                             }
                         } catch (e) {
                             errorMsg += ' (Server response: ' + xhr.responseText.substring(0, 200) + ')';
@@ -322,11 +322,11 @@
             sortedCourses.forEach(function(course, index) {
                 console.log('Processing course ' + index + ':', course);
                 
-                var courseId = course.id || '';
-                var courseName = course.name || 'Unnamed Course';
-                var courseCode = course.course_code || '';
-                var status = course.status || 'new';
-                var statusLabel = course.status_label || 'New';
+                var courseId = String(course.id || '');
+                var courseName = String(course.name || 'Unnamed Course');
+                var courseCode = String(course.course_code || '');
+                var status = String(course.status || 'new');
+                var statusLabel = String(course.status_label || 'New');
                 
                 var checkboxChecked = status === 'new' ? 'checked' : '';
                 var statusClass = '';
@@ -334,12 +334,12 @@
                 
                 if (status === 'synced') {
                     statusClass = 'ccs-course-exists';
-                    statusText = ' <span class="ccs-status-badge ccs-exists-canvas-id">(' + statusLabel + ')</span>';
+                    statusText = ' <span class="ccs-status-badge ccs-exists-canvas-id">(' + escapeHtml(statusLabel) + ')</span>';
                 } else if (status === 'exists') {
                     statusClass = 'ccs-course-exists';
-                    statusText = ' <span class="ccs-status-badge ccs-exists-title">(' + statusLabel + ')</span>';
+                    statusText = ' <span class="ccs-status-badge ccs-exists-title">(' + escapeHtml(statusLabel) + ')</span>';
                 } else {
-                    statusText = ' <span class="ccs-status-badge ccs-new-course">(' + statusLabel + ')</span>';
+                    statusText = ' <span class="ccs-status-badge ccs-new-course">(' + escapeHtml(statusLabel) + ')</span>';
                 }
                 
                 // Add course code if available and different from name
@@ -350,7 +350,7 @@
                 
                 html += '<div class="ccs-course-item ' + statusClass + '" ' +
                     'data-course-name="' + escapeHtml(courseName) + '" ' +
-                    'data-created-at="' + escapeHtml(course.created_at || '') + '" ' +
+                    'data-created-at="' + escapeHtml(String(course.created_at || '')) + '" ' +
                     'data-status="' + escapeHtml(status) + '">' +
                     '<label style="display: block; margin: 5px 0; padding: 5px; border-bottom: 1px solid #eee;">' +
                     '<input type="checkbox" class="ccs-course-checkbox" value="' + escapeHtml(courseId) + '" ' + checkboxChecked + '> ' +
