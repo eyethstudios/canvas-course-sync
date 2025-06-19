@@ -16,6 +16,7 @@ add_action('wp_ajax_ccs_get_courses', 'ccs_ajax_get_courses');
 add_action('wp_ajax_ccs_sync_courses', 'ccs_ajax_sync_courses');
 add_action('wp_ajax_ccs_sync_status', 'ccs_ajax_sync_status');
 add_action('wp_ajax_ccs_clear_logs', 'ccs_ajax_clear_logs');
+add_action('wp_ajax_ccs_refresh_logs', 'ccs_ajax_refresh_logs');
 add_action('wp_ajax_ccs_run_auto_sync', 'ccs_ajax_run_auto_sync');
 
 /**
@@ -246,6 +247,88 @@ function ccs_ajax_clear_logs() {
     $canvas_course_sync->logger->clear_logs();
     
     wp_send_json_success(__('Logs cleared successfully.', 'canvas-course-sync'));
+}
+
+/**
+ * AJAX handler for refreshing logs
+ */
+function ccs_ajax_refresh_logs() {
+    // Verify nonce
+    if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ccs_refresh_logs')) {
+        wp_send_json_error(__('Security check failed.', 'canvas-course-sync'));
+    }
+    
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(__('You do not have sufficient permissions to access this page.', 'canvas-course-sync'));
+    }
+    
+    $canvas_course_sync = canvas_course_sync();
+    if (!$canvas_course_sync || !$canvas_course_sync->logger) {
+        wp_send_json_error(__('Plugin not properly initialized.', 'canvas-course-sync'));
+    }
+    
+    // Get fresh logs
+    $logs = $canvas_course_sync->logger->get_recent_logs(50);
+    
+    // Generate HTML for logs
+    ob_start();
+    if (empty($logs)) {
+        echo '<div class="notice notice-info"><p>' . __('No logs found.', 'canvas-course-sync') . '</p></div>';
+    } else {
+        ?>
+        <table class="wp-list-table widefat fixed striped">
+            <thead>
+                <tr>
+                    <th scope="col" style="width: 150px;"><?php _e('Timestamp', 'canvas-course-sync'); ?></th>
+                    <th scope="col" style="width: 80px;"><?php _e('Level', 'canvas-course-sync'); ?></th>
+                    <th scope="col"><?php _e('Message', 'canvas-course-sync'); ?></th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($logs as $log): ?>
+                    <tr>
+                        <td>
+                            <?php 
+                            $timestamp = isset($log->timestamp) ? $log->timestamp : '';
+                            echo esc_html(mysql2date('Y-m-d H:i:s', $timestamp));
+                            ?>
+                        </td>
+                        <td>
+                            <span class="ccs-log-level ccs-log-level-<?php echo esc_attr($log->level ?? 'info'); ?>">
+                                <?php echo esc_html(strtoupper($log->level ?? 'INFO')); ?>
+                            </span>
+                        </td>
+                        <td><?php echo esc_html($log->message ?? ''); ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+        
+        <style>
+        .ccs-log-level {
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        .ccs-log-level-info {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        .ccs-log-level-warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .ccs-log-level-error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        </style>
+        <?php
+    }
+    $html = ob_get_clean();
+    
+    wp_send_json_success(array('html' => $html));
 }
 
 /**

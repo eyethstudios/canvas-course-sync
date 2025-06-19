@@ -59,6 +59,13 @@ class CCS_Logs_Display {
                 <?php endif; ?>
             </div>
         </div>
+        
+        <script>
+        jQuery(document).ready(function($) {
+            console.log('CCS Debug: Logs page loaded');
+            console.log('CCS Debug: ccsAjax object:', typeof ccsAjax !== 'undefined' ? ccsAjax : 'Not available');
+        });
+        </script>
         <?php
     }
     
