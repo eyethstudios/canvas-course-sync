@@ -69,10 +69,10 @@ function ccs_ajax_get_courses() {
     if (is_wp_error($courses)) {
         wp_send_json_error($courses->get_error_message());
     } else {
-        // Filter out courses with "SHELL" or "Template" in the name
+        // Filter out excluded courses
         $courses = array_filter($courses, function($course) {
             $course_name = isset($course['name']) ? $course['name'] : '';
-            return stripos($course_name, 'SHELL') === false && stripos($course_name, 'Template') === false;
+            return !ccs_is_course_excluded($course_name);
         });
         
         // Get existing WordPress courses for comparison
