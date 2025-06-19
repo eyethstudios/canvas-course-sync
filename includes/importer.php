@@ -66,10 +66,13 @@ class CCS_Course_Importer {
      * @return array Import results
      */
     public function import_courses($course_ids) {
+        error_log('CCS Debug: Import courses called with IDs: ' . print_r($course_ids, true));
+        
         $api = $this->get_api();
         $logger = $this->get_logger();
         
         if (!$api || !$logger) {
+            error_log('CCS Debug: API or Logger not available');
             return array(
                 'imported' => 0,
                 'skipped' => 0,
@@ -87,21 +90,29 @@ class CCS_Course_Importer {
             'message' => ''
         );
         
+        error_log('CCS Debug: Starting import process for ' . count($course_ids) . ' courses');
+        
         foreach ($course_ids as $course_id) {
+            error_log('CCS Debug: Processing course ID: ' . $course_id);
+            
             $course_details = $api->get_course_details($course_id);
             
             if (is_wp_error($course_details)) {
                 $results['errors']++;
-                $logger->log('Failed to get course details for ID ' . $course_id . ': ' . $course_details->get_error_message(), 'error');
+                $error_msg = 'Failed to get course details for ID ' . $course_id . ': ' . $course_details->get_error_message();
+                $logger->log($error_msg, 'error');
+                error_log('CCS Debug: ' . $error_msg);
                 continue;
             }
             
             $course_name = isset($course_details['name']) ? $course_details['name'] : '';
+            error_log('CCS Debug: Retrieved course details for "' . $course_name . '"');
             
             // Check if course should be excluded
             if (ccs_is_course_excluded($course_name)) {
                 $results['skipped']++;
                 $logger->log('Skipped excluded course: ' . $course_name . ' (ID: ' . $course_id . ')');
+                error_log('CCS Debug: Skipped excluded course: ' . $course_name);
                 continue;
             }
             
@@ -117,6 +128,7 @@ class CCS_Course_Importer {
             if (!empty($existing)) {
                 $results['skipped']++;
                 $logger->log('Course already exists: ' . $course_name . ' (ID: ' . $course_id . ')');
+                error_log('CCS Debug: Course already exists: ' . $course_name);
                 continue;
             }
             
@@ -132,6 +144,8 @@ class CCS_Course_Importer {
                 'post_author' => get_current_user_id()
             );
             
+            error_log('CCS Debug: Creating WordPress post with data: ' . print_r($post_data, true));
+            
             $post_id = wp_insert_post($post_data);
             
             if ($post_id && !is_wp_error($post_id)) {
@@ -144,10 +158,12 @@ class CCS_Course_Importer {
                 
                 $results['imported']++;
                 $logger->log('Successfully imported course: ' . $course_name . ' (ID: ' . $course_id . ')');
+                error_log('CCS Debug: Successfully imported course: ' . $course_name . ' (Post ID: ' . $post_id . ')');
             } else {
                 $results['errors']++;
                 $error_message = is_wp_error($post_id) ? $post_id->get_error_message() : 'Unknown error';
                 $logger->log('Failed to create WordPress post for course ID: ' . $course_id . ' - ' . $error_message, 'error');
+                error_log('CCS Debug: Failed to create WordPress post: ' . $error_message);
             }
         }
         
@@ -157,6 +173,8 @@ class CCS_Course_Importer {
             $results['skipped'],
             $results['errors']
         );
+        
+        error_log('CCS Debug: Import completed with results: ' . print_r($results, true));
         
         return $results;
     }

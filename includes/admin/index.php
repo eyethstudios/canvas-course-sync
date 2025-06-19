@@ -1,4 +1,3 @@
-
 <?php
 /**
  * Admin includes for Canvas Course Sync
@@ -155,12 +154,16 @@ function ccs_ajax_get_courses() {
  * AJAX handler for syncing courses
  */
 function ccs_ajax_sync_courses() {
+    error_log('CCS Debug: Sync courses AJAX handler called');
+    
     // Verify nonce
     if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ccs_sync_courses')) {
+        error_log('CCS Debug: Nonce verification failed');
         wp_send_json_error(__('Security check failed.', 'canvas-course-sync'));
     }
     
     if (!current_user_can('manage_options')) {
+        error_log('CCS Debug: User does not have manage_options capability');
         wp_send_json_error(__('You do not have sufficient permissions to access this page.', 'canvas-course-sync'));
     }
     
@@ -170,18 +173,29 @@ function ccs_ajax_sync_courses() {
         $course_ids = array_map('intval', wp_unslash($_POST['course_ids']));
     }
     
+    error_log('CCS Debug: Course IDs to sync: ' . print_r($course_ids, true));
+    
     if (empty($course_ids)) {
+        error_log('CCS Debug: No courses selected for sync');
         wp_send_json_error(__('No courses selected for sync.', 'canvas-course-sync'));
     }
     
     $canvas_course_sync = canvas_course_sync();
     if (!$canvas_course_sync || !$canvas_course_sync->importer) {
+        error_log('CCS Debug: Plugin not properly initialized - missing importer');
         wp_send_json_error(__('Plugin not properly initialized.', 'canvas-course-sync'));
     }
     
-    $results = $canvas_course_sync->importer->import_courses($course_ids);
+    error_log('CCS Debug: Starting course import process');
     
-    wp_send_json_success($results);
+    try {
+        $results = $canvas_course_sync->importer->import_courses($course_ids);
+        error_log('CCS Debug: Import results: ' . print_r($results, true));
+        wp_send_json_success($results);
+    } catch (Exception $e) {
+        error_log('CCS Debug: Exception during import: ' . $e->getMessage());
+        wp_send_json_error(array('message' => 'Import failed: ' . $e->getMessage()));
+    }
 }
 
 /**
