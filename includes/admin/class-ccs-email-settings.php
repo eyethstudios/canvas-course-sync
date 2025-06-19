@@ -14,15 +14,24 @@ class CCS_Email_Settings {
      * Constructor
      */
     public function __construct() {
-        // This component is rendered directly in the admin page, not via action hooks
+        // Register settings on init
+        add_action('admin_init', array($this, 'register_settings'));
     }
 
     /**
      * Register settings
      */
     public function register_settings() {
-        register_setting('ccs_email_settings', 'ccs_notification_email');
-        register_setting('ccs_email_settings', 'ccs_auto_sync_enabled');
+        register_setting('ccs_settings', 'ccs_notification_email', array(
+            'type' => 'string',
+            'sanitize_callback' => 'sanitize_email',
+            'default' => get_option('admin_email')
+        ));
+        register_setting('ccs_settings', 'ccs_auto_sync_enabled', array(
+            'type' => 'boolean',
+            'sanitize_callback' => 'rest_sanitize_boolean',
+            'default' => false
+        ));
     }
 
     /**
@@ -30,11 +39,12 @@ class CCS_Email_Settings {
      */
     public function render() {
         $auto_sync_enabled = get_option('ccs_auto_sync_enabled', false);
+        $notification_email = get_option('ccs_notification_email', get_option('admin_email'));
         ?>
         <div class="ccs-panel">
             <h2><?php _e('Auto-Sync Settings', 'canvas-course-sync'); ?></h2>
             <form method="post" action="options.php">
-                <?php settings_fields('ccs_email_settings'); ?>
+                <?php settings_fields('ccs_settings'); ?>
                 <table class="form-table">
                     <tr>
                         <th scope="row">
@@ -55,7 +65,7 @@ class CCS_Email_Settings {
                         </th>
                         <td>
                             <input type="email" name="ccs_notification_email" id="ccs_notification_email" class="regular-text" 
-                                   value="<?php echo esc_attr(get_option('ccs_notification_email', get_option('admin_email'))); ?>" 
+                                   value="<?php echo esc_attr($notification_email); ?>" 
                                    <?php echo $auto_sync_enabled ? 'required' : ''; ?> />
                             <p class="description"><?php _e('Email address to receive notifications when new courses are synced', 'canvas-course-sync'); ?></p>
                         </td>
@@ -125,16 +135,13 @@ class CCS_Email_Settings {
             $('#ccs_auto_sync_enabled').change(function() {
                 const isChecked = $(this).is(':checked');
                 const emailRow = $('#ccs-email-row');
-                const manualSync = $('#ccs-manual-sync');
                 const emailInput = $('#ccs_notification_email');
                 
                 if (isChecked) {
                     emailRow.show();
-                    manualSync.show();
                     emailInput.prop('required', true);
                 } else {
                     emailRow.hide();
-                    manualSync.hide();
                     emailInput.prop('required', false);
                 }
             });
@@ -143,3 +150,4 @@ class CCS_Email_Settings {
         <?php
     }
 }
+?>
