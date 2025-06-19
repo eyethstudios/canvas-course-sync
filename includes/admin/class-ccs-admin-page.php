@@ -40,6 +40,48 @@ class CCS_Admin_Page {
         if (class_exists('CCS_Email_Settings')) {
             $this->email_settings = new CCS_Email_Settings();
         }
+        
+        // Enqueue admin scripts and styles
+        add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
+    }
+
+    /**
+     * Enqueue admin scripts and styles
+     */
+    public function enqueue_admin_scripts($hook) {
+        // Only load on our admin page
+        if ($hook !== 'toplevel_page_canvas-course-sync') {
+            return;
+        }
+        
+        // Enqueue admin script
+        wp_enqueue_script(
+            'ccs-admin',
+            CCS_PLUGIN_URL . 'assets/js/admin.js',
+            array('jquery'),
+            CCS_VERSION,
+            true
+        );
+        
+        // Localize script with AJAX data
+        wp_localize_script('ccs-admin', 'ccsAjax', array(
+            'ajaxUrl' => admin_url('admin-ajax.php'),
+            'testConnectionNonce' => wp_create_nonce('ccs_test_connection'),
+            'getCoursesNonce' => wp_create_nonce('ccs_get_courses'),
+            'syncCoursesNonce' => wp_create_nonce('ccs_sync_courses'),
+            'syncStatusNonce' => wp_create_nonce('ccs_sync_status'),
+            'clearLogsNonce' => wp_create_nonce('ccs_clear_logs'),
+            'refreshLogsNonce' => wp_create_nonce('ccs_refresh_logs'),
+            'runAutoSyncNonce' => wp_create_nonce('ccs_run_auto_sync')
+        ));
+        
+        // Enqueue admin styles
+        wp_enqueue_style(
+            'ccs-admin',
+            CCS_PLUGIN_URL . 'assets/css/admin.css',
+            array(),
+            CCS_VERSION
+        );
     }
 
     /**
@@ -159,6 +201,9 @@ class CCS_Admin_Page {
                         document.getElementById('js-status').textContent = 'Yes';
                         console.log('CCS Debug: Admin page loaded, jQuery available:', typeof jQuery !== 'undefined');
                         console.log('CCS Debug: ccsAjax available:', typeof ccsAjax !== 'undefined');
+                        if (typeof ccsAjax !== 'undefined') {
+                            console.log('CCS Debug: ccsAjax object:', ccsAjax);
+                        }
                     </script>
                 </div>
             </div>
