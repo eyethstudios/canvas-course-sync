@@ -51,9 +51,51 @@ class CCS_GitHub_Updater {
         $this->plugin_slug = plugin_basename($plugin_file);
         $this->plugin_basename = dirname($this->plugin_slug);
         
+        // Hook into WordPress update system
         add_filter('pre_set_site_transient_update_plugins', array($this, 'check_for_update'));
         add_filter('plugins_api', array($this, 'plugin_info'), 20, 3);
         add_filter('upgrader_post_install', array($this, 'after_install'), 10, 3);
+        
+        // Add custom update checker
+        add_action('load-plugins.php', array($this, 'load_plugins_page'));
+        add_action('load-update-core.php', array($this, 'load_plugins_page'));
+        
+        // Add plugin row meta for GitHub link
+        add_filter('plugin_row_meta', array($this, 'plugin_row_meta'), 10, 2);
+    }
+    
+    /**
+     * Load plugins page hooks
+     */
+    public function load_plugins_page() {
+        add_action('admin_notices', array($this, 'update_notice'));
+    }
+    
+    /**
+     * Add plugin row meta
+     */
+    public function plugin_row_meta($links, $file) {
+        if ($file === $this->plugin_slug) {
+            $links[] = '<a href="https://github.com/' . $this->github_repo . '" target="_blank">' . __('View on GitHub', 'canvas-course-sync') . '</a>';
+            $links[] = '<a href="#" onclick="wp.updates.checkPluginUpdates(\'' . $this->plugin_slug . '\'); return false;">' . __('Check for updates', 'canvas-course-sync') . '</a>';
+        }
+        return $links;
+    }
+    
+    /**
+     * Show update notice if available
+     */
+    public function update_notice() {
+        $remote_version = $this->get_remote_version();
+        if (version_compare($this->version, $remote_version, '<')) {
+            echo '<div class="notice notice-warning is-dismissible">';
+            echo '<p>' . sprintf(
+                __('Canvas Course Sync version %s is available. <a href="%s">Update now</a>', 'canvas-course-sync'),
+                $remote_version,
+                wp_nonce_url(self_admin_url('update.php?action=upgrade-plugin&plugin=' . $this->plugin_slug), 'upgrade-plugin_' . $this->plugin_slug)
+            ) . '</p>';
+            echo '</div>';
+        }
     }
     
     /**
@@ -68,12 +110,15 @@ class CCS_GitHub_Updater {
         $remote_version = $this->get_remote_version();
         
         if (version_compare($this->version, $remote_version, '<')) {
-            $transient->response[$this->plugin_slug] = array(
+            $transient->response[$this->plugin_slug] = (object) array(
                 'slug' => $this->plugin_basename,
                 'plugin' => $this->plugin_slug,
                 'new_version' => $remote_version,
                 'url' => 'https://github.com/' . $this->github_repo,
-                'package' => $this->get_download_url()
+                'package' => $this->get_download_url(),
+                'tested' => '6.4',
+                'requires_php' => '7.4',
+                'compatibility' => new stdClass()
             );
         }
         
@@ -84,14 +129,30 @@ class CCS_GitHub_Updater {
      * Get remote version from GitHub
      */
     private function get_remote_version() {
-        $request = wp_remote_get('https://api.github.com/repos/' . $this->github_repo . '/releases/latest');
+        // Check cache first
+        $cache_key = 'ccs_github_version_' . md5($this->github_repo);
+        $cached_version = get_transient($cache_key);
+        
+        if ($cached_version !== false) {
+            return $cached_version;
+        }
+        
+        $request = wp_remote_get('https://api.github.com/repos/' . $this->github_repo . '/releases/latest', array(
+            'timeout' => 10,
+            'headers' => array(
+                'Accept' => 'application/vnd.github.v3+json'
+            )
+        ));
         
         if (!is_wp_error($request) && wp_remote_retrieve_response_code($request) === 200) {
             $body = wp_remote_retrieve_body($request);
             $data = json_decode($body, true);
             
             if (isset($data['tag_name'])) {
-                return ltrim($data['tag_name'], 'v');
+                $version = ltrim($data['tag_name'], 'v');
+                // Cache for 12 hours
+                set_transient($cache_key, $version, 12 * HOUR_IN_SECONDS);
+                return $version;
             }
         }
         
@@ -113,7 +174,12 @@ class CCS_GitHub_Updater {
             return $result;
         }
         
-        $request = wp_remote_get('https://api.github.com/repos/' . $this->github_repo);
+        $request = wp_remote_get('https://api.github.com/repos/' . $this->github_repo, array(
+            'timeout' => 10,
+            'headers' => array(
+                'Accept' => 'application/vnd.github.v3+json'
+            )
+        ));
         
         if (!is_wp_error($request) && wp_remote_retrieve_response_code($request) === 200) {
             $body = wp_remote_retrieve_body($request);
@@ -123,14 +189,18 @@ class CCS_GitHub_Updater {
             $result->name = 'Canvas Course Sync';
             $result->slug = $this->plugin_basename;
             $result->version = $this->get_remote_version();
-            $result->author = 'Eyeth Studios';
+            $result->author = '<a href="http://eyethstudios.com">Eyeth Studios</a>';
             $result->homepage = $data['html_url'];
-            $result->short_description = $data['description'];
+            $result->short_description = $data['description'] ?? 'Synchronize courses from Canvas LMS to WordPress';
             $result->sections = array(
-                'description' => $data['description'],
-                'changelog' => 'View changelog on GitHub'
+                'description' => $data['description'] ?? 'Synchronize courses from Canvas LMS to WordPress with full API integration and course management.',
+                'changelog' => 'View changelog on <a href="' . $data['html_url'] . '/releases" target="_blank">GitHub</a>'
             );
             $result->download_link = $this->get_download_url();
+            $result->requires = '5.0';
+            $result->tested = '6.4';
+            $result->requires_php = '7.4';
+            $result->last_updated = $data['updated_at'] ?? date('Y-m-d');
         }
         
         return $result;
