@@ -1,4 +1,3 @@
-
 <?php
 /**
  * Course Importer class for Canvas Course Sync
@@ -98,10 +97,10 @@ class CCS_Course_Importer {
             
             $course_name = isset($course_details['name']) ? $course_details['name'] : '';
             
-            // Skip courses with "SHELL" in the name
-            if (stripos($course_name, 'SHELL') !== false) {
+            // Skip courses with "SHELL" or "Template" in the name
+            if (stripos($course_name, 'SHELL') !== false || stripos($course_name, 'Template') !== false) {
                 $results['skipped']++;
-                $logger->log('Skipped SHELL course: ' . $course_name . ' (ID: ' . $course_id . ')');
+                $logger->log('Skipped filtered course: ' . $course_name . ' (ID: ' . $course_id . ')');
                 continue;
             }
             
