@@ -1,4 +1,3 @@
-
 (function($) {
     'use strict';
 
@@ -134,57 +133,59 @@
                     var courses = [];
                     var hasValidData = false;
                     
-                    // Handle different response formats
+                    // First, check if response has a success property and data
                     if (response && response.success === true && response.data) {
-                        console.log('Response has success flag with data');
+                        console.log('Response has success=true with data property');
+                        
                         if (Array.isArray(response.data)) {
                             courses = response.data;
                             hasValidData = true;
                             console.log('Data is array with', courses.length, 'courses');
                         } else if (typeof response.data === 'object' && response.data !== null) {
+                            // Convert object to array
                             courses = Object.values(response.data);
                             hasValidData = true;
                             console.log('Converted data object to array, length:', courses.length);
                         }
                     }
-                    // Check if response is directly an array of courses
+                    // Check if response is an object with numeric keys (your case)
+                    else if (response && typeof response === 'object' && response !== null && !Array.isArray(response)) {
+                        var keys = Object.keys(response);
+                        console.log('Response is object with keys:', keys);
+                        
+                        // Check if this looks like a courses object (has numeric keys or course-like properties)
+                        var hasNumericKeys = keys.length > 0 && keys.some(function(key) {
+                            return !isNaN(parseInt(key)) && response[key] && (response[key].id || response[key].name);
+                        });
+                        
+                        // Also check for 'success' property that might not be explicitly true
+                        var hasSuccessProperty = 'success' in response;
+                        
+                        if (hasNumericKeys || (!hasSuccessProperty && keys.length > 0)) {
+                            console.log('Detected object with course data, converting to array');
+                            
+                            // Filter out non-course properties and convert to array
+                            var courseEntries = [];
+                            keys.forEach(function(key) {
+                                var item = response[key];
+                                // Check if this looks like a course object
+                                if (item && typeof item === 'object' && (item.id || item.name)) {
+                                    courseEntries.push(item);
+                                }
+                            });
+                            
+                            if (courseEntries.length > 0) {
+                                courses = courseEntries;
+                                hasValidData = true;
+                                console.log('Successfully extracted', courses.length, 'courses from object');
+                            }
+                        }
+                    }
+                    // Check if response is directly an array
                     else if (Array.isArray(response)) {
                         console.log('Response is directly an array');
                         courses = response;
                         hasValidData = true;
-                    }
-                    // Handle indexed object format (like your console shows: 0: {course}, 1: {course}, etc.)
-                    else if (response && typeof response === 'object' && response !== null) {
-                        var keys = Object.keys(response);
-                        console.log('Response is object with keys:', keys);
-                        
-                        // Check if keys are numeric and values look like courses
-                        var hasNumericKeys = keys.length > 0 && keys.every(function(key) {
-                            return !isNaN(parseInt(key));
-                        });
-                        
-                        if (hasNumericKeys) {
-                            // Verify first item looks like a course
-                            var firstItem = response[keys[0]];
-                            if (firstItem && (firstItem.id || firstItem.name)) {
-                                courses = Object.values(response);
-                                hasValidData = true;
-                                console.log('Response is indexed course object, converted to array, length:', courses.length);
-                            }
-                        }
-                        
-                        // Special handling for success property without explicit true value
-                        if (!hasValidData && response.success !== false && response.data) {
-                            if (Array.isArray(response.data)) {
-                                courses = response.data;
-                                hasValidData = true;
-                                console.log('Found courses in data property as array');
-                            } else if (typeof response.data === 'object') {
-                                courses = Object.values(response.data);
-                                hasValidData = true;
-                                console.log('Found courses in data property as object, converted to array');
-                            }
-                        }
                     }
                     
                     if (hasValidData && courses.length > 0) {
@@ -198,7 +199,7 @@
                     } else {
                         console.error('Could not process response format');
                         console.log('Response that could not be processed:', response);
-                        $coursesList.html('<div class="notice notice-error inline"><p>Could not process course data from server.</p></div>');
+                        $coursesList.html('<div class="notice notice-error inline"><p>Could not process course data from server. Please check console logs.</p></div>');
                     }
                 },
                 error: function(xhr, status, error) {
