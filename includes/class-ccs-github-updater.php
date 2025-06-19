@@ -64,6 +64,9 @@ class CCS_GitHub_Updater {
         
         // Add AJAX handler for manual update check
         add_action('wp_ajax_ccs_check_updates', array($this, 'ajax_check_updates'));
+        
+        // Enhanced automatic checking
+        add_action('wp_update_plugins', array($this, 'force_update_check'));
     }
     
     /**
@@ -97,7 +100,9 @@ class CCS_GitHub_Updater {
      */
     public function update_notice() {
         $remote_version = $this->get_remote_version();
-        if (version_compare($this->version, $remote_version, '<')) {
+        $current_version = $this->get_current_version();
+        
+        if ($this->is_update_available($current_version, $remote_version)) {
             echo '<div class="notice notice-warning is-dismissible">';
             echo '<p>' . sprintf(
                 __('Canvas Course Sync version %s is available. <a href="%s">Update now</a>', 'canvas-course-sync'),
@@ -109,6 +114,60 @@ class CCS_GitHub_Updater {
     }
     
     /**
+     * Check if update is available with proper version comparison
+     */
+    private function is_update_available($current_version, $remote_version) {
+        // Normalize versions to ensure proper comparison
+        $current_normalized = $this->normalize_version($current_version);
+        $remote_normalized = $this->normalize_version($remote_version);
+        
+        // Log for debugging
+        error_log('CCS Debug: Version comparison - Current: ' . $current_normalized . ', Remote: ' . $remote_normalized);
+        
+        return version_compare($current_normalized, $remote_normalized, '<');
+    }
+    
+    /**
+     * Normalize version numbers for consistent comparison
+     */
+    private function normalize_version($version) {
+        // Remove any non-numeric prefixes (like 'v')
+        $version = preg_replace('/^[^0-9]*/', '', $version);
+        
+        // Ensure we have at least three parts (major.minor.patch)
+        $parts = explode('.', $version);
+        while (count($parts) < 3) {
+            $parts[] = '0';
+        }
+        
+        // Take only the first three parts and join them
+        return implode('.', array_slice($parts, 0, 3));
+    }
+    
+    /**
+     * Force update check to bypass caches
+     */
+    public function force_update_check() {
+        // Clear all related caches
+        $this->clear_version_cache();
+        
+        // Force check for updates
+        $transient = get_site_transient('update_plugins');
+        if ($transient) {
+            $this->check_for_update($transient);
+        }
+    }
+    
+    /**
+     * Clear version cache
+     */
+    private function clear_version_cache() {
+        $cache_key = 'ccs_github_version_' . md5($this->github_repo);
+        delete_transient($cache_key);
+        delete_site_transient('update_plugins');
+    }
+    
+    /**
      * Check for plugin updates
      */
     public function check_for_update($transient) {
@@ -116,85 +175,125 @@ class CCS_GitHub_Updater {
             return $transient;
         }
         
-        // Get remote version
+        // Get remote version from GitHub
         $remote_version = $this->get_remote_version();
-        
-        // Always use CCS_VERSION constant for accurate comparison
         $current_version = $this->get_current_version();
         
-        // Debug logging
+        // Enhanced debug logging
+        error_log('CCS Debug: Update check initiated');
         error_log('CCS Debug: Current version (CCS_VERSION): ' . $current_version);
-        error_log('CCS Debug: Remote version: ' . $remote_version);
-        error_log('CCS Debug: Version comparison: ' . (version_compare($current_version, $remote_version, '<') ? 'UPDATE AVAILABLE' : 'UP TO DATE'));
+        error_log('CCS Debug: Remote version from GitHub: ' . $remote_version);
         
-        if (version_compare($current_version, $remote_version, '<')) {
-            $transient->response[$this->plugin_slug] = (object) array(
+        // Use improved version comparison
+        if ($this->is_update_available($current_version, $remote_version)) {
+            $update_data = array(
                 'slug' => $this->plugin_basename,
                 'plugin' => $this->plugin_slug,
                 'new_version' => $remote_version,
                 'url' => 'https://github.com/' . $this->github_repo,
-                'package' => $this->get_download_url(),
+                'package' => $this->get_download_url($remote_version),
                 'tested' => '6.4',
                 'requires_php' => '7.4',
-                'compatibility' => new stdClass()
+                'compatibility' => new stdClass(),
+                'icons' => array(
+                    'default' => plugin_dir_url($this->plugin_file) . 'assets/icon-128x128.png'
+                )
             );
             
-            error_log('CCS Debug: Update added to transient');
+            $transient->response[$this->plugin_slug] = (object) $update_data;
+            
+            error_log('CCS Debug: Update available - added to WordPress update system');
+            error_log('CCS Debug: Download URL: ' . $this->get_download_url($remote_version));
+        } else {
+            error_log('CCS Debug: Plugin is up to date');
+            
+            // Remove from response if it was previously there
+            if (isset($transient->response[$this->plugin_slug])) {
+                unset($transient->response[$this->plugin_slug]);
+            }
         }
         
         return $transient;
     }
     
     /**
-     * Get remote version from GitHub
+     * Get remote version from GitHub with enhanced error handling
      */
     private function get_remote_version() {
         // For manual checks, always bypass cache
-        $bypass_cache = isset($_POST['action']) && $_POST['action'] === 'ccs_check_updates';
+        $bypass_cache = (isset($_POST['action']) && $_POST['action'] === 'ccs_check_updates') || 
+                       (isset($_GET['force-check']) && $_GET['force-check'] === '1');
         
         // Check cache first (unless bypassing)
         $cache_key = 'ccs_github_version_' . md5($this->github_repo);
         if (!$bypass_cache) {
             $cached_version = get_transient($cache_key);
             if ($cached_version !== false) {
+                error_log('CCS Debug: Using cached version: ' . $cached_version);
                 return $cached_version;
             }
         }
         
-        // Make GitHub API request
+        error_log('CCS Debug: Fetching version from GitHub API: ' . $this->github_repo);
+        
+        // Make GitHub API request with enhanced headers
         $request = wp_remote_get('https://api.github.com/repos/' . $this->github_repo . '/releases/latest', array(
-            'timeout' => 15,
+            'timeout' => 20,
             'headers' => array(
                 'Accept' => 'application/vnd.github.v3+json',
-                'User-Agent' => 'WordPress-Canvas-Course-Sync'
-            )
+                'User-Agent' => 'WordPress-Canvas-Course-Sync-' . $this->get_current_version(),
+                'Cache-Control' => 'no-cache'
+            ),
+            'sslverify' => true
         ));
         
-        if (!is_wp_error($request) && wp_remote_retrieve_response_code($request) === 200) {
+        if (is_wp_error($request)) {
+            error_log('CCS Debug: GitHub API request failed: ' . $request->get_error_message());
+            return $this->get_current_version();
+        }
+        
+        $response_code = wp_remote_retrieve_response_code($request);
+        error_log('CCS Debug: GitHub API response code: ' . $response_code);
+        
+        if ($response_code === 200) {
             $body = wp_remote_retrieve_body($request);
             $data = json_decode($body, true);
             
             if (isset($data['tag_name'])) {
-                // Clean version number (remove 'v' prefix if present)
-                $version = ltrim($data['tag_name'], 'v');
+                $version = $this->normalize_version($data['tag_name']);
+                
+                error_log('CCS Debug: Found GitHub release version: ' . $data['tag_name'] . ' (normalized: ' . $version . ')');
                 
                 // Validate version format
-                if (preg_match('/^\d+\.\d+(\.\d+)?/', $version)) {
-                    // Cache for 6 hours (shorter cache for more frequent checks)
-                    set_transient($cache_key, $version, 6 * HOUR_IN_SECONDS);
+                if (preg_match('/^\d+\.\d+\.\d+$/', $version)) {
+                    // Cache for 1 hour for automatic checks, 10 minutes for manual checks
+                    $cache_time = $bypass_cache ? 10 * MINUTE_IN_SECONDS : HOUR_IN_SECONDS;
+                    set_transient($cache_key, $version, $cache_time);
                     return $version;
+                } else {
+                    error_log('CCS Debug: Invalid version format from GitHub: ' . $version);
                 }
+            } else {
+                error_log('CCS Debug: No tag_name found in GitHub response');
             }
+        } else {
+            error_log('CCS Debug: GitHub API request failed with response code: ' . $response_code);
         }
         
         // If we can't get remote version, return current version
-        return defined('CCS_VERSION') ? CCS_VERSION : $this->version;
+        return $this->get_current_version();
     }
     
     /**
-     * Get download URL
+     * Get download URL for specific version
      */
-    private function get_download_url() {
+    private function get_download_url($version = null) {
+        if ($version) {
+            // Try to get the specific release download URL
+            return 'https://github.com/' . $this->github_repo . '/archive/refs/tags/v' . $version . '.zip';
+        }
+        
+        // Fallback to main branch
         return 'https://github.com/' . $this->github_repo . '/archive/refs/heads/main.zip';
     }
     
@@ -256,7 +355,7 @@ class CCS_GitHub_Updater {
     }
     
     /**
-     * AJAX handler for manual update check
+     * AJAX handler for manual update check with enhanced feedback
      */
     public function ajax_check_updates() {
         // Verify nonce for security
@@ -264,35 +363,33 @@ class CCS_GitHub_Updater {
             wp_die('Security check failed');
         }
         
+        error_log('CCS Debug: Manual update check initiated via AJAX');
+        
         // Clear ALL related caches to force fresh check
-        $cache_key = 'ccs_github_version_' . md5($this->github_repo);
-        delete_transient($cache_key);
-        
-        // Clear WordPress update cache too
-        delete_site_transient('update_plugins');
-        
-        // Clear any other related transients
-        delete_transient('ccs_update_check_' . $this->plugin_slug);
+        $this->clear_version_cache();
         
         // Get fresh version from GitHub (this will bypass cache due to POST action)
         $remote_version = $this->get_remote_version();
-        
-        // Always use CCS_VERSION constant for accurate comparison
         $current_version = $this->get_current_version();
         
-        // Log the check with actual current version from constant
-        error_log('CCS Debug: Manual update check - Current (CCS_VERSION): ' . $current_version . ', Remote: ' . $remote_version);
+        // Log the check with actual versions
+        error_log('CCS Debug: Manual update check - Current: ' . $current_version . ', Remote: ' . $remote_version);
         
-        if (version_compare($current_version, $remote_version, '<')) {
+        // Enhanced version comparison
+        if ($this->is_update_available($current_version, $remote_version)) {
+            // Force WordPress to recognize the update
+            $this->force_update_check();
+            
             wp_send_json_success(array(
-                'message' => sprintf(__('Update available! Version %s is ready to install.', 'canvas-course-sync'), $remote_version),
+                'message' => sprintf(__('Update available! Version %s is ready to install. Please refresh the page to see the update notice.', 'canvas-course-sync'), $remote_version),
                 'update_available' => true,
                 'current_version' => $current_version,
-                'remote_version' => $remote_version
+                'remote_version' => $remote_version,
+                'download_url' => $this->get_download_url($remote_version)
             ));
         } else {
             wp_send_json_success(array(
-                'message' => sprintf(__('Plugin is up to date! Current version: %s', 'canvas-course-sync'), $current_version),
+                'message' => sprintf(__('Plugin is up to date! Current version: %s, GitHub version: %s', 'canvas-course-sync'), $current_version, $remote_version),
                 'update_available' => false,
                 'current_version' => $current_version,
                 'remote_version' => $remote_version
