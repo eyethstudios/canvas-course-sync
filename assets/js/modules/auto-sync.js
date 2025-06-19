@@ -15,7 +15,7 @@ export function initAutoSync($) {
             type: 'POST',
             data: {
                 action: 'ccs_run_auto_sync',
-                nonce: ccsAjax.autoSyncNonce
+                nonce: ccsAjax.runAutoSyncNonce
             },
             success: function(response) {
                 button.attr('disabled', false);

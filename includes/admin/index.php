@@ -1,3 +1,4 @@
+
 <?php
 /**
  * Admin includes for Canvas Course Sync
@@ -14,6 +15,7 @@ if (!defined('ABSPATH')) {
 add_action('wp_ajax_ccs_test_connection', 'ccs_ajax_test_connection');
 add_action('wp_ajax_ccs_get_courses', 'ccs_ajax_get_courses');
 add_action('wp_ajax_ccs_sync_courses', 'ccs_ajax_sync_courses');
+add_action('wp_ajax_ccs_sync_status', 'ccs_ajax_sync_status');
 add_action('wp_ajax_ccs_clear_logs', 'ccs_ajax_clear_logs');
 add_action('wp_ajax_ccs_run_auto_sync', 'ccs_ajax_run_auto_sync');
 
@@ -180,6 +182,33 @@ function ccs_ajax_sync_courses() {
     $results = $canvas_course_sync->importer->import_courses($course_ids);
     
     wp_send_json_success($results);
+}
+
+/**
+ * AJAX handler for sync status
+ */
+function ccs_ajax_sync_status() {
+    // Verify nonce
+    if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ccs_sync_status')) {
+        wp_send_json_error(__('Security check failed.', 'canvas-course-sync'));
+    }
+    
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(__('You do not have sufficient permissions to access this page.', 'canvas-course-sync'));
+    }
+    
+    // Get sync status from transient or option
+    $sync_status = get_transient('ccs_sync_status');
+    
+    if ($sync_status) {
+        wp_send_json_success($sync_status);
+    } else {
+        wp_send_json_success(array(
+            'status' => __('No sync in progress', 'canvas-course-sync'),
+            'processed' => 0,
+            'total' => 0
+        ));
+    }
 }
 
 /**

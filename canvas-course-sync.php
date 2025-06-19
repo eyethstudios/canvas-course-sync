@@ -315,15 +315,15 @@ class Canvas_Course_Sync {
                 true
             );
 
-            // Localize script with AJAX data
+            // Localize script with AJAX data - use consistent nonce names
             wp_localize_script('ccs-admin', 'ccsAjax', array(
                 'ajaxUrl' => admin_url('admin-ajax.php'),
                 'testConnectionNonce' => wp_create_nonce('ccs_test_connection'),
                 'getCoursesNonce' => wp_create_nonce('ccs_get_courses'),
                 'syncCoursesNonce' => wp_create_nonce('ccs_sync_courses'),
-                'clearLogsNonce' => wp_create_nonce('ccs_clear_logs'),
-                'autoSyncNonce' => wp_create_nonce('ccs_run_auto_sync'),
                 'syncStatusNonce' => wp_create_nonce('ccs_sync_status'),
+                'clearLogsNonce' => wp_create_nonce('ccs_clear_logs'),
+                'runAutoSyncNonce' => wp_create_nonce('ccs_run_auto_sync'),
                 'strings' => array(
                     'testing' => __('Testing...', 'canvas-course-sync'),
                     'loading' => __('Loading...', 'canvas-course-sync'),
