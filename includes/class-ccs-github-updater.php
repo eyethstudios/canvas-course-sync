@@ -67,6 +67,14 @@ class CCS_GitHub_Updater {
     }
     
     /**
+     * Get current plugin version
+     */
+    private function get_current_version() {
+        // Always use CCS_VERSION constant as it's the authoritative source
+        return defined('CCS_VERSION') ? CCS_VERSION : $this->version;
+    }
+    
+    /**
      * Load plugins page hooks
      */
     public function load_plugins_page() {
@@ -111,8 +119,8 @@ class CCS_GitHub_Updater {
         // Get remote version
         $remote_version = $this->get_remote_version();
         
-        // Use CCS_VERSION constant for accurate comparison
-        $current_version = defined('CCS_VERSION') ? CCS_VERSION : $this->version;
+        // Always use CCS_VERSION constant for accurate comparison
+        $current_version = $this->get_current_version();
         
         // Debug logging
         error_log('CCS Debug: Current version (CCS_VERSION): ' . $current_version);
@@ -269,8 +277,8 @@ class CCS_GitHub_Updater {
         // Get fresh version from GitHub (this will bypass cache due to POST action)
         $remote_version = $this->get_remote_version();
         
-        // Use CCS_VERSION constant for accurate comparison
-        $current_version = defined('CCS_VERSION') ? CCS_VERSION : $this->version;
+        // Always use CCS_VERSION constant for accurate comparison
+        $current_version = $this->get_current_version();
         
         // Log the check with actual current version from constant
         error_log('CCS Debug: Manual update check - Current (CCS_VERSION): ' . $current_version . ', Remote: ' . $remote_version);
