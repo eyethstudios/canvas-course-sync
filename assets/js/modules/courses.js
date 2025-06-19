@@ -28,102 +28,123 @@ export function initCourseManager($) {
             success: function(response) {
                 console.log('Full AJAX response:', response);
                 
-                if (response.success && Array.isArray(response.data)) {
-                    console.log('Courses received:', response.data);
-                    
-                    // Sort courses by status priority and then by creation date
-                    const sortedCourses = response.data.sort((a, b) => {
-                        const statusPriority = { 'new': 1, 'exists': 2, 'synced': 3 };
-                        const priorityA = statusPriority[a.status] || 999;
-                        const priorityB = statusPriority[b.status] || 999;
-                        
-                        if (priorityA !== priorityB) {
-                            return priorityA - priorityB;
-                        }
-                        
-                        return new Date(b.created_at || 0) - new Date(a.created_at || 0);
-                    });
-                    
-                    let html = '<div class="ccs-controls-section">' +
-                        '<div class="ccs-select-all">' +
-                        '<label>' +
-                        '<input type="checkbox" id="ccs-select-all-checkbox" checked> ' +
-                        'Select/Deselect All</label>' +
-                        '</div>' +
-                        '<div class="ccs-filter-controls">' +
-                        '<label for="ccs-status-filter">Filter by Status: </label>' +
-                        '<select id="ccs-status-filter" class="ccs-filter-dropdown">' +
-                        '<option value="all">All Courses</option>' +
-                        '<option value="new">New Only</option>' +
-                        '<option value="exists">Title Exists Only</option>' +
-                        '<option value="synced">Already Synced Only</option>' +
-                        '</select>' +
-                        '</div>' +
-                        '<div class="ccs-sort-controls">' +
-                        '<label for="ccs-sort-select">Sort by: </label>' +
-                        '<select id="ccs-sort-select" class="ccs-sort-dropdown">' +
-                        '<option value="status">Status (New → Existing → Synced)</option>' +
-                        '<option value="name">Course Name (A-Z)</option>' +
-                        '<option value="date">Creation Date (Newest First)</option>' +
-                        '</select>' +
-                        '</div>' +
-                        '</div>';
-                        
-                    sortedCourses.forEach(function(course) {
-                        let statusClass = '';
-                        let statusText = '';
-                        let checkboxChecked = 'checked';
-                        
-                        console.log('Processing course:', course.name, 'status:', course.status, 'status_label:', course.status_label);
-                        
-                        // Use the explicit status from backend
-                        if (course.status === 'synced') {
-                            statusClass = 'ccs-course-exists';
-                            statusText = ' <span class="ccs-status-badge ccs-exists-canvas-id">(' + course.status_label + ')</span>';
-                            checkboxChecked = '';
-                        } else if (course.status === 'exists') {
-                            statusClass = 'ccs-course-exists';
-                            statusText = ' <span class="ccs-status-badge ccs-exists-title">(' + course.status_label + ')</span>';
-                            checkboxChecked = '';
-                        } else {
-                            statusText = ' <span class="ccs-status-badge ccs-new-course">(' + course.status_label + ')</span>';
-                        }
-                        
-                        // Add course code if available
-                        let courseDisplayName = course.name;
-                        if (course.course_code && course.course_code !== course.name) {
-                            courseDisplayName += ' (' + course.course_code + ')';
-                        }
-                        
-                        html += '<div class="ccs-course-item ' + statusClass + '" ' +
-                            'data-course-name="' + course.name + '" ' +
-                            'data-created-at="' + (course.created_at || '') + '" ' +
-                            'data-status="' + course.status + '">' +
-                            '<label>' +
-                            '<input type="checkbox" class="ccs-course-checkbox course-checkbox" ' +
-                            'value="' + course.id + '" ' + checkboxChecked + '> ' +
-                            courseDisplayName + statusText + '</label>' +
-                            '</div>';
-                    });
-                    
-                    courseList.html(html);
-                    if (coursesWrapper.length) {
-                        coursesWrapper.show();
-                    }
-                    
-                    // Enable sync button
-                    $('#ccs-sync-selected').prop('disabled', false);
-                    
-                    // Show success notice if showNotice function exists
-                    if (typeof showNotice === 'function') {
-                        showNotice('Loaded ' + response.data.length + ' courses', 'success');
-                    }
+                // Check if response has success property and data, or if it's direct course data
+                let coursesData = null;
+                if (response && response.success && Array.isArray(response.data)) {
+                    coursesData = response.data;
+                } else if (Array.isArray(response)) {
+                    coursesData = response;
+                } else if (response && Array.isArray(response.data)) {
+                    coursesData = response.data;
                 } else {
-                    const errorMessage = response.data || 'Error loading courses. Please try again.';
-                    courseList.html('<p class="error">Error loading courses: ' + errorMessage + '</p>');
+                    console.error('Unexpected response format:', response);
+                    courseList.html('<p class="error">Unexpected response format from server.</p>');
                     if (coursesWrapper.length) {
                         coursesWrapper.show();
                     }
+                    return;
+                }
+                
+                console.log('Courses received:', coursesData);
+                
+                if (!coursesData || coursesData.length === 0) {
+                    courseList.html('<p>No courses found.</p>');
+                    if (coursesWrapper.length) {
+                        coursesWrapper.show();
+                    }
+                    return;
+                }
+                
+                // Sort courses by status priority and then by creation date
+                const sortedCourses = coursesData.sort((a, b) => {
+                    const statusPriority = { 'new': 1, 'exists': 2, 'synced': 3 };
+                    const priorityA = statusPriority[a.status] || 999;
+                    const priorityB = statusPriority[b.status] || 999;
+                    
+                    if (priorityA !== priorityB) {
+                        return priorityA - priorityB;
+                    }
+                    
+                    return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+                });
+                
+                let html = '<div class="ccs-controls-section">' +
+                    '<div class="ccs-select-all">' +
+                    '<label>' +
+                    '<input type="checkbox" id="ccs-select-all-checkbox" checked> ' +
+                    'Select/Deselect All</label>' +
+                    '</div>' +
+                    '<div class="ccs-filter-controls">' +
+                    '<label for="ccs-status-filter">Filter by Status: </label>' +
+                    '<select id="ccs-status-filter" class="ccs-filter-dropdown">' +
+                    '<option value="all">All Courses</option>' +
+                    '<option value="new">New Only</option>' +
+                    '<option value="exists">Title Exists Only</option>' +
+                    '<option value="synced">Already Synced Only</option>' +
+                    '</select>' +
+                    '</div>' +
+                    '<div class="ccs-sort-controls">' +
+                    '<label for="ccs-sort-select">Sort by: </label>' +
+                    '<select id="ccs-sort-select" class="ccs-sort-dropdown">' +
+                    '<option value="status">Status (New → Existing → Synced)</option>' +
+                    '<option value="name">Course Name (A-Z)</option>' +
+                    '<option value="date">Creation Date (Newest First)</option>' +
+                    '</select>' +
+                    '</div>' +
+                    '</div>';
+                    
+                sortedCourses.forEach(function(course) {
+                    let statusClass = '';
+                    let statusText = '';
+                    let checkboxChecked = 'checked';
+                    
+                    console.log('Processing course:', course.name, 'status:', course.status, 'status_label:', course.status_label);
+                    
+                    // Use the explicit status from backend with proper labeling
+                    if (course.status === 'synced') {
+                        statusClass = 'ccs-course-exists';
+                        statusText = ' <span class="ccs-status-badge ccs-exists-canvas-id">' + 
+                                   (course.status_label || 'Already synced') + '</span>';
+                        checkboxChecked = ''; // Don't pre-select already synced courses
+                    } else if (course.status === 'exists') {
+                        statusClass = 'ccs-course-exists';
+                        statusText = ' <span class="ccs-status-badge ccs-exists-title">' + 
+                                   (course.status_label || 'Title exists in WP') + '</span>';
+                        checkboxChecked = ''; // Don't pre-select existing title courses
+                    } else {
+                        // New course
+                        statusText = ' <span class="ccs-status-badge ccs-new-course">' + 
+                                   (course.status_label || 'New') + '</span>';
+                    }
+                    
+                    // Add course code if available and different from name
+                    let courseDisplayName = course.name || 'Unnamed Course';
+                    if (course.course_code && course.course_code !== course.name) {
+                        courseDisplayName += ' (' + course.course_code + ')';
+                    }
+                    
+                    html += '<div class="ccs-course-item ' + statusClass + '" ' +
+                        'data-course-name="' + (course.name || '').replace(/"/g, '&quot;') + '" ' +
+                        'data-created-at="' + (course.created_at || '') + '" ' +
+                        'data-status="' + (course.status || 'new') + '">' +
+                        '<label>' +
+                        '<input type="checkbox" class="ccs-course-checkbox course-checkbox" ' +
+                        'value="' + (course.id || '') + '" ' + checkboxChecked + '> ' +
+                        courseDisplayName.replace(/</g, '&lt;').replace(/>/g, '&gt;') + statusText + '</label>' +
+                        '</div>';
+                });
+                
+                courseList.html(html);
+                if (coursesWrapper.length) {
+                    coursesWrapper.show();
+                }
+                
+                // Enable sync button
+                $('#ccs-sync-selected').prop('disabled', false);
+                
+                // Show success notice if showNotice function exists
+                if (typeof showNotice === 'function') {
+                    showNotice('Loaded ' + coursesData.length + ' courses', 'success');
                 }
             },
             error: function(xhr, status, error) {
@@ -181,12 +202,14 @@ export function initCourseManager($) {
             
             switch(sortBy) {
                 case 'name':
-                    return $a.data('course-name').localeCompare($b.data('course-name'));
+                    const nameA = $a.data('course-name') || '';
+                    const nameB = $b.data('course-name') || '';
+                    return nameA.localeCompare(nameB);
                     
                 case 'date':
                     const dateA = new Date($a.data('created-at') || 0);
                     const dateB = new Date($b.data('created-at') || 0);
-                    return dateB - dateA;
+                    return dateB - dateA; // Newest first
                     
                 case 'status':
                 default:
@@ -198,6 +221,7 @@ export function initCourseManager($) {
                         return priorityA - priorityB;
                     }
                     
+                    // Secondary sort by date (newest first)
                     const dateA2 = new Date($a.data('created-at') || 0);
                     const dateB2 = new Date($b.data('created-at') || 0);
                     return dateB2 - dateA2;
