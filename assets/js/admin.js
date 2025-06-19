@@ -1,3 +1,4 @@
+
 (function($) {
     'use strict';
 
@@ -274,24 +275,88 @@
                 return;
             }
 
+            // Sort courses by status priority and then by creation date
+            var sortedCourses = courses.sort(function(a, b) {
+                var statusPriority = { 'new': 1, 'exists': 2, 'synced': 3 };
+                var priorityA = statusPriority[a.status] || 999;
+                var priorityB = statusPriority[b.status] || 999;
+                
+                if (priorityA !== priorityB) {
+                    return priorityA - priorityB;
+                }
+                
+                return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+            });
+
             var html = '<div class="ccs-courses-wrapper">';
             html += '<h3>Select courses to sync (' + courses.length + ' found):</h3>';
+            
+            // Add controls section
+            html += '<div class="ccs-controls-section">' +
+                '<div class="ccs-select-all">' +
+                '<label>' +
+                '<input type="checkbox" id="ccs-select-all-checkbox" checked> ' +
+                'Select/Deselect All</label>' +
+                '</div>' +
+                '<div class="ccs-filter-controls">' +
+                '<label for="ccs-status-filter">Filter by Status: </label>' +
+                '<select id="ccs-status-filter" class="ccs-filter-dropdown">' +
+                '<option value="all">All Courses</option>' +
+                '<option value="new">New Only</option>' +
+                '<option value="exists">Title Exists Only</option>' +
+                '<option value="synced">Already Synced Only</option>' +
+                '</select>' +
+                '</div>' +
+                '<div class="ccs-sort-controls">' +
+                '<label for="ccs-sort-select">Sort by: </label>' +
+                '<select id="ccs-sort-select" class="ccs-sort-dropdown">' +
+                '<option value="status">Status (New → Existing → Synced)</option>' +
+                '<option value="name">Course Name (A-Z)</option>' +
+                '<option value="date">Creation Date (Newest First)</option>' +
+                '</select>' +
+                '</div>' +
+                '</div>';
+            
             html += '<div class="ccs-course-list" style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; margin: 10px 0; background: #f9f9f9;">';
             
-            courses.forEach(function(course, index) {
+            sortedCourses.forEach(function(course, index) {
                 console.log('Processing course ' + index + ':', course);
                 
                 var courseId = course.id || '';
                 var courseName = course.name || 'Unnamed Course';
-                var existsInWp = course.exists_in_wp || false;
-                var disabled = existsInWp ? 'disabled' : '';
-                var status = existsInWp ? ' (Already exists)' : ' (New)';
-                var statusClass = existsInWp ? 'style="color: #666;"' : 'style="color: #0073aa; font-weight: bold;"';
+                var courseCode = course.course_code || '';
+                var status = course.status || 'new';
+                var statusLabel = course.status_label || 'New';
                 
-                html += '<label style="display: block; margin: 5px 0; padding: 5px; border-bottom: 1px solid #eee;">';
-                html += '<input type="checkbox" class="ccs-course-checkbox" value="' + escapeHtml(courseId) + '" ' + disabled + '> ';
-                html += '<span ' + statusClass + '>' + escapeHtml(courseName) + status + '</span>';
-                html += '</label>';
+                var checkboxChecked = status === 'new' ? 'checked' : '';
+                var statusClass = '';
+                var statusText = '';
+                
+                if (status === 'synced') {
+                    statusClass = 'ccs-course-exists';
+                    statusText = ' <span class="ccs-status-badge ccs-exists-canvas-id">(' + statusLabel + ')</span>';
+                } else if (status === 'exists') {
+                    statusClass = 'ccs-course-exists';
+                    statusText = ' <span class="ccs-status-badge ccs-exists-title">(' + statusLabel + ')</span>';
+                } else {
+                    statusText = ' <span class="ccs-status-badge ccs-new-course">(' + statusLabel + ')</span>';
+                }
+                
+                // Add course code if available and different from name
+                var courseDisplayName = courseName;
+                if (courseCode && courseCode !== courseName) {
+                    courseDisplayName += ' (' + courseCode + ')';
+                }
+                
+                html += '<div class="ccs-course-item ' + statusClass + '" ' +
+                    'data-course-name="' + escapeHtml(courseName) + '" ' +
+                    'data-created-at="' + escapeHtml(course.created_at || '') + '" ' +
+                    'data-status="' + escapeHtml(status) + '">' +
+                    '<label style="display: block; margin: 5px 0; padding: 5px; border-bottom: 1px solid #eee;">' +
+                    '<input type="checkbox" class="ccs-course-checkbox" value="' + escapeHtml(courseId) + '" ' + checkboxChecked + '> ' +
+                    '<span>' + escapeHtml(courseDisplayName) + statusText + '</span>' +
+                    '</label>' +
+                    '</div>';
             });
             
             html += '</div>';
@@ -300,6 +365,104 @@
             
             $coursesList.html(html);
             console.log('Courses displayed successfully');
+            
+            // Bind control handlers
+            bindCourseControls();
+        }
+
+        // Helper function to bind course control handlers
+        function bindCourseControls() {
+            // Handle select all checkbox
+            $(document).off('change', '#ccs-select-all-checkbox').on('change', '#ccs-select-all-checkbox', function() {
+                var isChecked = $(this).prop('checked');
+                $('.ccs-course-checkbox:visible').prop('checked', isChecked);
+            });
+            
+            // Handle status filter dropdown
+            $(document).off('change', '#ccs-status-filter').on('change', '#ccs-status-filter', function() {
+                var filterValue = $(this).val();
+                var courseItems = $('.ccs-course-item');
+                
+                courseItems.each(function() {
+                    var $item = $(this);
+                    var status = $item.data('status');
+                    
+                    if (filterValue === 'all' || status === filterValue) {
+                        $item.show();
+                    } else {
+                        $item.hide();
+                    }
+                });
+                
+                updateSelectAllCheckbox();
+            });
+            
+            // Handle sort dropdown change
+            $(document).off('change', '#ccs-sort-select').on('change', '#ccs-sort-select', function() {
+                var sortBy = $(this).val();
+                var courseItems = $('.ccs-course-item').toArray();
+                
+                courseItems.sort(function(a, b) {
+                    var $a = $(a);
+                    var $b = $(b);
+                    
+                    switch(sortBy) {
+                        case 'name':
+                            return $a.data('course-name').localeCompare($b.data('course-name'));
+                            
+                        case 'date':
+                            var dateA = new Date($a.data('created-at') || 0);
+                            var dateB = new Date($b.data('created-at') || 0);
+                            return dateB - dateA;
+                            
+                        case 'status':
+                        default:
+                            var statusPriority = { 'new': 1, 'exists': 2, 'synced': 3 };
+                            var priorityA = statusPriority[$a.data('status')] || 999;
+                            var priorityB = statusPriority[$b.data('status')] || 999;
+                            
+                            if (priorityA !== priorityB) {
+                                return priorityA - priorityB;
+                            }
+                            
+                            var dateA2 = new Date($a.data('created-at') || 0);
+                            var dateB2 = new Date($b.data('created-at') || 0);
+                            return dateB2 - dateA2;
+                    }
+                });
+                
+                // Re-append sorted items
+                var courseList = $('.ccs-course-list');
+                var controlsSection = $('.ccs-controls-section');
+                
+                courseList.empty();
+                
+                courseItems.forEach(function(item) {
+                    courseList.append(item);
+                });
+            });
+            
+            // Update select all checkbox when individual checkboxes change
+            $(document).off('change', '.ccs-course-checkbox').on('change', '.ccs-course-checkbox', function() {
+                updateSelectAllCheckbox();
+            });
+        }
+        
+        // Helper function to update select all checkbox
+        function updateSelectAllCheckbox() {
+            var visibleCheckboxes = $('.ccs-course-checkbox:visible');
+            var checkedVisibleCheckboxes = $('.ccs-course-checkbox:visible:checked');
+            var selectAllCheckbox = $('#ccs-select-all-checkbox');
+            
+            if (visibleCheckboxes.length === 0) {
+                selectAllCheckbox.prop('indeterminate', false).prop('checked', false);
+            } else if (checkedVisibleCheckboxes.length === visibleCheckboxes.length) {
+                selectAllCheckbox.prop('indeterminate', false).prop('checked', true);
+            } else if (checkedVisibleCheckboxes.length > 0) {
+                selectAllCheckbox.prop('indeterminate', true);
+            } else {
+                selectAllCheckbox.prop('indeterminate', false).prop('checked', false);
+            }
         }
 
         // Helper function to display sync results
