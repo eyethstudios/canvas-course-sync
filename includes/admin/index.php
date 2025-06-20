@@ -1,4 +1,3 @@
-
 <?php
 /**
  * Admin includes for Canvas Course Sync
@@ -59,11 +58,14 @@ function ccs_ajax_test_connection() {
  * AJAX handler for getting courses
  */
 function ccs_ajax_get_courses() {
-    error_log('CCS Debug: Get courses AJAX handler called');
+    error_log('CCS Debug: ===== GET COURSES AJAX HANDLER START =====');
+    error_log('CCS Debug: POST data: ' . print_r($_POST, true));
     
     // Verify nonce
     if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ccs_get_courses')) {
         error_log('CCS Debug: Get courses nonce verification failed');
+        error_log('CCS Debug: Expected nonce action: ccs_get_courses');
+        error_log('CCS Debug: Received nonce: ' . (isset($_POST['nonce']) ? $_POST['nonce'] : 'NOT SET'));
         wp_send_json_error(__('Security check failed.', 'canvas-course-sync'));
     }
     
@@ -72,37 +74,79 @@ function ccs_ajax_get_courses() {
         wp_send_json_error(__('You do not have sufficient permissions to access this page.', 'canvas-course-sync'));
     }
     
+    // Check if Canvas Course Sync plugin is loaded
+    error_log('CCS Debug: Checking plugin initialization...');
     $canvas_course_sync = canvas_course_sync();
-    if (!$canvas_course_sync || !$canvas_course_sync->api) {
-        error_log('CCS Debug: Plugin or API not properly initialized for get courses');
-        wp_send_json_error(__('Plugin not properly initialized.', 'canvas-course-sync'));
+    error_log('CCS Debug: Plugin instance: ' . ($canvas_course_sync ? 'EXISTS' : 'NULL'));
+    
+    if (!$canvas_course_sync) {
+        error_log('CCS Debug: Canvas Course Sync plugin instance not found');
+        wp_send_json_error(__('Plugin not properly initialized - main instance missing.', 'canvas-course-sync'));
     }
     
-    error_log('CCS Debug: Calling API get_courses method');
-    $courses = $canvas_course_sync->api->get_courses();
+    error_log('CCS Debug: Plugin API instance: ' . (isset($canvas_course_sync->api) && $canvas_course_sync->api ? 'EXISTS' : 'NULL'));
     
-    if (is_wp_error($courses)) {
-        error_log('CCS Debug: API get_courses returned error: ' . $courses->get_error_message());
-        wp_send_json_error($courses->get_error_message());
-    } else {
-        error_log('CCS Debug: API get_courses successful, found ' . count($courses) . ' courses');
-        error_log('CCS Debug: Sample course data: ' . print_r(array_slice($courses, 0, 2), true));
+    if (!$canvas_course_sync->api) {
+        error_log('CCS Debug: Plugin API not properly initialized');
+        wp_send_json_error(__('Plugin not properly initialized - API missing.', 'canvas-course-sync'));
+    }
+    
+    // Check Canvas credentials
+    $canvas_domain = get_option('ccs_canvas_domain');
+    $canvas_token = get_option('ccs_canvas_token');
+    error_log('CCS Debug: Canvas domain set: ' . (!empty($canvas_domain) ? 'YES' : 'NO'));
+    error_log('CCS Debug: Canvas token set: ' . (!empty($canvas_token) ? 'YES' : 'NO'));
+    
+    if (empty($canvas_domain) || empty($canvas_token)) {
+        error_log('CCS Debug: Canvas credentials not properly configured');
+        wp_send_json_error(__('Canvas credentials not configured. Please check your API settings.', 'canvas-course-sync'));
+    }
+    
+    error_log('CCS Debug: Calling API get_courses method...');
+    
+    try {
+        $courses = $canvas_course_sync->api->get_courses();
+        error_log('CCS Debug: API get_courses call completed');
+        error_log('CCS Debug: Result type: ' . gettype($courses));
+        
+        if (is_wp_error($courses)) {
+            error_log('CCS Debug: API get_courses returned WP_Error: ' . $courses->get_error_message());
+            error_log('CCS Debug: Error code: ' . $courses->get_error_code());
+            wp_send_json_error($courses->get_error_message());
+        }
+        
+        if (!is_array($courses)) {
+            error_log('CCS Debug: API get_courses did not return an array. Type: ' . gettype($courses));
+            error_log('CCS Debug: Actual value: ' . print_r($courses, true));
+            wp_send_json_error(__('Invalid response format from Canvas API.', 'canvas-course-sync'));
+        }
+        
+        error_log('CCS Debug: Raw courses count from API: ' . count($courses));
+        error_log('CCS Debug: First 2 raw courses: ' . print_r(array_slice($courses, 0, 2), true));
         
         // Filter out excluded courses
+        $original_count = count($courses);
         $courses = array_filter($courses, function($course) {
             $course_name = isset($course['name']) ? $course['name'] : '';
-            return !ccs_is_course_excluded($course_name);
+            $is_excluded = ccs_is_course_excluded($course_name);
+            if ($is_excluded) {
+                error_log('CCS Debug: Excluding course: ' . $course_name);
+            }
+            return !$is_excluded;
         });
         
-        error_log('CCS Debug: After filtering, ' . count($courses) . ' courses remain');
+        error_log('CCS Debug: After filtering exclusions: ' . count($courses) . ' courses (was ' . $original_count . ')');
         
         // Get existing WordPress courses for comparison
+        error_log('CCS Debug: Getting existing WP courses...');
         $existing_wp_courses = get_posts(array(
             'post_type'      => 'courses',
             'post_status'    => array('draft', 'publish', 'private', 'pending'),
             'posts_per_page' => -1,
             'fields'         => 'ids'
         ));
+        
+        error_log('CCS Debug: Found ' . count($existing_wp_courses) . ' existing WP courses');
         
         $existing_titles = array();
         $existing_canvas_ids = array();
@@ -119,7 +163,8 @@ function ccs_ajax_get_courses() {
             }
         }
         
-        error_log('CCS Debug: Found ' . count($existing_wp_courses) . ' existing WP courses');
+        error_log('CCS Debug: Existing title count: ' . count($existing_titles));
+        error_log('CCS Debug: Existing Canvas ID count: ' . count($existing_canvas_ids));
         
         // Check which courses already exist in WordPress
         foreach ($courses as $key => $course) {
@@ -160,11 +205,28 @@ function ccs_ajax_get_courses() {
             }
         }
         
-        error_log('CCS Debug: Sending response with ' . count($courses) . ' processed courses');
-        error_log('CCS Debug: Final response structure: ' . print_r(array('success' => true, 'data' => array_slice($courses, 0, 2)), true));
+        error_log('CCS Debug: Final processed courses count: ' . count($courses));
+        error_log('CCS Debug: Sample processed course: ' . print_r(array_slice($courses, 0, 1), true));
+        
+        // Reset array keys to ensure proper JSON encoding
+        $courses = array_values($courses);
+        
+        error_log('CCS Debug: About to send JSON success response');
+        error_log('CCS Debug: ===== GET COURSES AJAX HANDLER SUCCESS =====');
         
         wp_send_json_success($courses);
+        
+    } catch (Exception $e) {
+        error_log('CCS Debug: Exception in get_courses: ' . $e->getMessage());
+        error_log('CCS Debug: Exception trace: ' . $e->getTraceAsString());
+        wp_send_json_error(__('An error occurred while fetching courses: ', 'canvas-course-sync') . $e->getMessage());
+    } catch (Error $e) {
+        error_log('CCS Debug: Fatal error in get_courses: ' . $e->getMessage());
+        error_log('CCS Debug: Error trace: ' . $e->getTraceAsString());
+        wp_send_json_error(__('A fatal error occurred while fetching courses: ', 'canvas-course-sync') . $e->getMessage());
     }
+    
+    error_log('CCS Debug: ===== GET COURSES AJAX HANDLER END (should not reach here) =====');
 }
 
 /**
