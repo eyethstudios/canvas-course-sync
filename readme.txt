@@ -1,3 +1,4 @@
+
 === Canvas Course Sync ===
 Contributors: eyethstudios
 Donate link: http://eyethstudios.com/donate
@@ -5,7 +6,7 @@ Tags: canvas, lms, course, sync, education
 Requires at least: 5.0
 Tested up to: 6.4
 Requires PHP: 7.4
-Stable tag: 2.4.2
+Stable tag: 2.4.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -46,6 +47,11 @@ The token needs read access to courses and basic user information.
 3. Logging and status monitoring
 
 == Changelog ==
+
+= 2.4.3 =
+* Fixed missing "Omit Selected Courses" button in sync controls
+* Fixed non-functional sync selected courses button functionality
+* Improved course selection and synchronization interface
 
 = 2.4.2 =
 * Added functionality to select and omit specific courses from syncing
@@ -149,6 +155,9 @@ The token needs read access to courses and basic user information.
 * Logging system
 
 == Upgrade Notice ==
+
+= 2.4.3 =
+Fixed missing omit courses button and sync functionality issues.
 
 = 2.4.2 =
 Added functionality to select and omit specific courses from syncing operations.
