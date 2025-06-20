@@ -23,13 +23,17 @@ window.ccsCheckForUpdates = function() {
     formData.append('action', 'ccs_check_updates');
     formData.append('nonce', typeof ccsUpdaterNonce !== 'undefined' ? ccsUpdaterNonce : '');
     
-    // Make AJAX request
+    // Make AJAX request with better error handling
     fetch(ajaxurl, {
         method: 'POST',
-        body: formData
+        body: formData,
+        credentials: 'same-origin'
     })
     .then(response => {
         console.log('CCS Debug: Update check response status:', response.status);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
         return response.json();
     })
     .then(data => {
@@ -53,7 +57,8 @@ window.ccsCheckForUpdates = function() {
             }
         } else {
             const errorMsg = data.data && data.data.message ? data.data.message : 'Failed to check for updates. Please try again.';
-            alert(errorMsg);
+            console.error('CCS Debug: Update check failed:', errorMsg);
+            alert('Update check failed: ' + errorMsg);
         }
     })
     .catch(error => {
@@ -66,8 +71,13 @@ window.ccsCheckForUpdates = function() {
             link.style.opacity = '1';
         });
         
-        alert('Network error while checking for updates. Please try again.');
+        alert('Network error while checking for updates: ' + error.message + '. Please try again.');
     });
 };
+
+// Ensure the function is available globally
+if (typeof window !== 'undefined') {
+    window.ccsCheckForUpdates = window.ccsCheckForUpdates;
+}
 
 console.log('CCS Debug: Updater module loaded successfully');

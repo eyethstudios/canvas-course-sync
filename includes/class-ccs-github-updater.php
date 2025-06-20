@@ -55,6 +55,7 @@ class CCS_GitHub_Updater {
         add_filter('pre_set_site_transient_update_plugins', array($this, 'check_for_update'));
         add_filter('plugins_api', array($this, 'plugin_info'), 20, 3);
         add_filter('upgrader_post_install', array($this, 'after_install'), 10, 3);
+        add_filter('upgrader_source_selection', array($this, 'source_selection'), 10, 4);
         
         // Add custom update checker
         add_action('load-plugins.php', array($this, 'load_plugins_page'));
@@ -272,6 +273,54 @@ class CCS_GitHub_Updater {
     }
     
     /**
+     * Source selection filter for proper folder structure
+     */
+    public function source_selection($source, $remote_source, $upgrader, $hook_extra = null) {
+        // Only process our plugin
+        if (!isset($hook_extra['plugin']) || $hook_extra['plugin'] !== $this->plugin_slug) {
+            return $source;
+        }
+        
+        global $wp_filesystem;
+        
+        // Check if source is a directory
+        if (!$wp_filesystem->is_dir($source)) {
+            return new WP_Error('source_not_dir', 'Source is not a directory');
+        }
+        
+        // Get the expected plugin folder name
+        $plugin_folder = $this->plugin_basename;
+        
+        // Check if the source already has the correct name
+        if (basename($source) === $plugin_folder) {
+            return $source;
+        }
+        
+        // Look for the actual plugin folder inside the extracted archive
+        $files = $wp_filesystem->dirlist($source);
+        
+        if (!empty($files)) {
+            foreach ($files as $file => $file_data) {
+                if ($file_data['type'] === 'd') {
+                    $potential_source = trailingslashit($source) . $file;
+                    
+                    // Check if this folder contains our main plugin file
+                    if ($wp_filesystem->exists($potential_source . '/' . basename($this->plugin_file))) {
+                        $corrected_source = trailingslashit($remote_source) . $plugin_folder;
+                        
+                        // Rename the folder to match expected name
+                        if ($wp_filesystem->move($potential_source, $corrected_source)) {
+                            return $corrected_source;
+                        }
+                    }
+                }
+            }
+        }
+        
+        return $source;
+    }
+    
+    /**
      * AJAX handler for manual update checks
      */
     public function ajax_check_updates() {
@@ -351,6 +400,11 @@ class CCS_GitHub_Updater {
      * Post install actions
      */
     public function after_install($response, $hook_extra, $result) {
+        // Only process our plugin
+        if (!isset($hook_extra['plugin']) || $hook_extra['plugin'] !== $this->plugin_slug) {
+            return $response;
+        }
+        
         global $wp_filesystem;
         
         $install_directory = plugin_dir_path($this->plugin_file);
