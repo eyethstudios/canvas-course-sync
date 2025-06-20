@@ -46,10 +46,25 @@ class CCS_Admin_Page {
      * Render admin page
      */
     public function render() {
-        // Enqueue scripts directly for this page
+        // Handle form submission first
+        if (isset($_POST['submit']) && check_admin_referer('ccs_settings_nonce', 'ccs_settings_nonce')) {
+            $domain = isset($_POST['ccs_canvas_domain']) ? esc_url_raw(wp_unslash($_POST['ccs_canvas_domain'])) : '';
+            $token = isset($_POST['ccs_canvas_token']) ? sanitize_text_field(wp_unslash($_POST['ccs_canvas_token'])) : '';
+            
+            update_option('ccs_canvas_domain', $domain);
+            update_option('ccs_canvas_token', $token);
+            
+            echo '<div class="notice notice-success"><p>' . __('Settings saved!', 'canvas-course-sync') . '</p></div>';
+            
+            if ($this->logger) {
+                $this->logger->log('Settings updated via admin page');
+            }
+        }
+
+        // Enqueue scripts and styles
         wp_enqueue_script('jquery');
         
-        // Enqueue admin script as regular JavaScript (not module)
+        // Enqueue admin script
         wp_enqueue_script(
             'ccs-admin',
             CCS_PLUGIN_URL . 'assets/js/admin.js',
@@ -81,23 +96,6 @@ class CCS_Admin_Page {
         ?>
         <div class="wrap">
             <h1><?php _e('Canvas Course Sync', 'canvas-course-sync'); ?></h1>
-            
-            <?php
-            // Handle form submission
-            if (isset($_POST['submit']) && check_admin_referer('ccs_settings_nonce', 'ccs_settings_nonce')) {
-                $domain = isset($_POST['ccs_canvas_domain']) ? esc_url_raw(wp_unslash($_POST['ccs_canvas_domain'])) : '';
-                $token = isset($_POST['ccs_canvas_token']) ? sanitize_text_field(wp_unslash($_POST['ccs_canvas_token'])) : '';
-                
-                update_option('ccs_canvas_domain', $domain);
-                update_option('ccs_canvas_token', $token);
-                
-                echo '<div class="notice notice-success"><p>' . __('Settings saved!', 'canvas-course-sync') . '</p></div>';
-                
-                if ($this->logger) {
-                    $this->logger->log('Settings updated via admin page');
-                }
-            }
-            ?>
 
             <div class="ccs-admin-container">
                 <!-- API Settings Panel -->
@@ -171,6 +169,47 @@ class CCS_Admin_Page {
                     <?php $this->email_settings->render(); ?>
                 <?php endif; ?>
 
+                <!-- Logs Panel -->
+                <div class="ccs-panel">
+                    <h2><?php _e('System Logs', 'canvas-course-sync'); ?></h2>
+                    <div class="ccs-log-controls">
+                        <button type="button" id="ccs-refresh-logs" class="button button-secondary">
+                            <?php _e('Refresh Logs', 'canvas-course-sync'); ?>
+                        </button>
+                        <button type="button" id="ccs-clear-logs" class="button button-secondary">
+                            <?php _e('Clear Logs', 'canvas-course-sync'); ?>
+                        </button>
+                    </div>
+                    <div id="ccs-logs-display" style="margin-top: 15px;">
+                        <?php
+                        // Display initial logs
+                        if ($this->logger) {
+                            $logs = $this->logger->get_recent_logs(20);
+                            if (!empty($logs)) {
+                                echo '<table class="wp-list-table widefat fixed striped">';
+                                echo '<thead><tr>';
+                                echo '<th scope="col" style="width: 150px;">' . __('Timestamp', 'canvas-course-sync') . '</th>';
+                                echo '<th scope="col" style="width: 80px;">' . __('Level', 'canvas-course-sync') . '</th>';
+                                echo '<th scope="col">' . __('Message', 'canvas-course-sync') . '</th>';
+                                echo '</tr></thead><tbody>';
+                                
+                                foreach ($logs as $log) {
+                                    echo '<tr>';
+                                    echo '<td>' . esc_html(mysql2date('Y-m-d H:i:s', $log->timestamp ?? '')) . '</td>';
+                                    echo '<td><span class="ccs-log-level ccs-log-level-' . esc_attr($log->level ?? 'info') . '">' . esc_html(strtoupper($log->level ?? 'INFO')) . '</span></td>';
+                                    echo '<td>' . esc_html($log->message ?? '') . '</td>';
+                                    echo '</tr>';
+                                }
+                                
+                                echo '</tbody></table>';
+                            } else {
+                                echo '<div class="notice notice-info"><p>' . __('No logs found.', 'canvas-course-sync') . '</p></div>';
+                            }
+                        }
+                        ?>
+                    </div>
+                </div>
+
                 <!-- Debug Panel -->
                 <div class="ccs-panel" style="margin-top: 20px; padding: 15px; background: #f9f9f9; border-left: 4px solid #00a0d2;">
                     <h3><?php _e('Debug Information', 'canvas-course-sync'); ?></h3>
@@ -186,18 +225,69 @@ class CCS_Admin_Page {
                         echo $table_exists ? 'Created' : 'Missing';
                         ?>
                     </p>
-                    <p><strong>JavaScript Loaded:</strong> <span id="js-status">Checking...</span></p>
+                    <p><strong>JavaScript Status:</strong> <span id="js-status">Loading...</span></p>
+                    <p><strong>AJAX Object:</strong> <span id="ajax-status">Checking...</span></p>
+                    
                     <script>
-                        document.getElementById('js-status').textContent = 'Yes';
-                        console.log('CCS Debug: Admin page loaded, jQuery available:', typeof jQuery !== 'undefined');
-                        console.log('CCS Debug: ccsAjax available:', typeof ccsAjax !== 'undefined');
-                        if (typeof ccsAjax !== 'undefined') {
-                            console.log('CCS Debug: ccsAjax object:', ccsAjax);
-                        }
+                        jQuery(document).ready(function($) {
+                            console.log('CCS Debug: Admin page DOM ready');
+                            
+                            // Update status indicators
+                            $('#js-status').text('Loaded');
+                            
+                            if (typeof ccsAjax !== 'undefined') {
+                                $('#ajax-status').html('<span style="color: green;">Available</span>');
+                                console.log('CCS Debug: ccsAjax object:', ccsAjax);
+                            } else {
+                                $('#ajax-status').html('<span style="color: red;">Missing</span>');
+                                console.error('CCS Debug: ccsAjax object not available');
+                            }
+                            
+                            // Check if buttons exist
+                            console.log('CCS Debug: Test connection button exists:', $('#ccs-test-connection').length > 0);
+                            console.log('CCS Debug: Get courses button exists:', $('#ccs-get-courses').length > 0);
+                            console.log('CCS Debug: Clear logs button exists:', $('#ccs-clear-logs').length > 0);
+                            console.log('CCS Debug: Refresh logs button exists:', $('#ccs-refresh-logs').length > 0);
+                        });
                     </script>
                 </div>
             </div>
         </div>
+        
+        <style>
+        .ccs-log-level {
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        .ccs-log-level-info {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        .ccs-log-level-warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .ccs-log-level-error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .ccs-success {
+            color: green; 
+            padding: 10px; 
+            background: #d4edda; 
+            border: 1px solid #c3e6cb; 
+            border-radius: 4px;
+        }
+        .ccs-error {
+            color: #721c24; 
+            padding: 10px; 
+            background: #f8d7da; 
+            border: 1px solid #f5c6cb; 
+            border-radius: 4px;
+        }
+        </style>
         <?php
     }
 }

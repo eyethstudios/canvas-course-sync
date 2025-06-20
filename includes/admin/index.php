@@ -23,25 +23,33 @@ add_action('wp_ajax_ccs_run_auto_sync', 'ccs_ajax_run_auto_sync');
  * AJAX handler for testing connection
  */
 function ccs_ajax_test_connection() {
+    error_log('CCS Debug: Test connection AJAX handler called');
+    
     // Verify nonce
     if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ccs_test_connection')) {
+        error_log('CCS Debug: Test connection nonce verification failed');
         wp_send_json_error(__('Security check failed.', 'canvas-course-sync'));
     }
     
     if (!current_user_can('manage_options')) {
+        error_log('CCS Debug: Test connection user does not have manage_options capability');
         wp_send_json_error(__('You do not have sufficient permissions to access this page.', 'canvas-course-sync'));
     }
     
     $canvas_course_sync = canvas_course_sync();
     if (!$canvas_course_sync || !$canvas_course_sync->api) {
+        error_log('CCS Debug: Plugin or API not properly initialized');
         wp_send_json_error(__('Plugin not properly initialized.', 'canvas-course-sync'));
     }
     
+    error_log('CCS Debug: Calling API test_connection method');
     $result = $canvas_course_sync->api->test_connection();
     
     if (is_wp_error($result)) {
+        error_log('CCS Debug: API test_connection returned error: ' . $result->get_error_message());
         wp_send_json_error($result->get_error_message());
     } else {
+        error_log('CCS Debug: API test_connection successful');
         wp_send_json_success(__('Connection successful!', 'canvas-course-sync'));
     }
 }
@@ -50,25 +58,34 @@ function ccs_ajax_test_connection() {
  * AJAX handler for getting courses
  */
 function ccs_ajax_get_courses() {
+    error_log('CCS Debug: Get courses AJAX handler called');
+    
     // Verify nonce
     if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ccs_get_courses')) {
+        error_log('CCS Debug: Get courses nonce verification failed');
         wp_send_json_error(__('Security check failed.', 'canvas-course-sync'));
     }
     
     if (!current_user_can('manage_options')) {
+        error_log('CCS Debug: Get courses user does not have manage_options capability');
         wp_send_json_error(__('You do not have sufficient permissions to access this page.', 'canvas-course-sync'));
     }
     
     $canvas_course_sync = canvas_course_sync();
     if (!$canvas_course_sync || !$canvas_course_sync->api) {
+        error_log('CCS Debug: Plugin or API not properly initialized for get courses');
         wp_send_json_error(__('Plugin not properly initialized.', 'canvas-course-sync'));
     }
     
+    error_log('CCS Debug: Calling API get_courses method');
     $courses = $canvas_course_sync->api->get_courses();
     
     if (is_wp_error($courses)) {
+        error_log('CCS Debug: API get_courses returned error: ' . $courses->get_error_message());
         wp_send_json_error($courses->get_error_message());
     } else {
+        error_log('CCS Debug: API get_courses successful, found ' . count($courses) . ' courses');
+        
         // Filter out excluded courses
         $courses = array_filter($courses, function($course) {
             $course_name = isset($course['name']) ? $course['name'] : '';
@@ -91,7 +108,6 @@ function ccs_ajax_get_courses() {
             $canvas_id = get_post_meta($post_id, 'canvas_course_id', true);
             
             if (!empty($title)) {
-                // Store both original and normalized versions for comparison
                 $existing_titles[strtolower(trim($title))] = $title;
             }
             if (!empty($canvas_id)) {
@@ -99,10 +115,7 @@ function ccs_ajax_get_courses() {
             }
         }
         
-        // Debug logging
         error_log('CCS Debug: Found ' . count($existing_wp_courses) . ' existing WP courses');
-        error_log('CCS Debug: Existing titles: ' . print_r(array_values($existing_titles), true));
-        error_log('CCS Debug: Existing Canvas IDs: ' . print_r($existing_canvas_ids, true));
         
         // Check which courses already exist in WordPress
         foreach ($courses as $key => $course) {
@@ -116,14 +129,12 @@ function ccs_ajax_get_courses() {
             if ($course_id > 0 && in_array($course_id, $existing_canvas_ids)) {
                 $exists_in_wp = true;
                 $match_type = 'canvas_id';
-                error_log('CCS Debug: Course "' . $course_name . '" matched by Canvas ID: ' . $course_id);
             } else if (!empty($course_name)) {
                 // Check by title (case-insensitive, trimmed)
                 $course_name_normalized = strtolower($course_name);
                 if (isset($existing_titles[$course_name_normalized])) {
                     $exists_in_wp = true;
                     $match_type = 'title';
-                    error_log('CCS Debug: Course "' . $course_name . '" matched by title');
                 }
             }
             
@@ -143,8 +154,6 @@ function ccs_ajax_get_courses() {
                 $courses[$key]['status'] = 'new';
                 $courses[$key]['status_label'] = 'New';
             }
-            
-            error_log('CCS Debug: Course "' . $course_name . '" final status: ' . $courses[$key]['status']);
         }
         
         wp_send_json_success($courses);
