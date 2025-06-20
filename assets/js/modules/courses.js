@@ -1,9 +1,14 @@
 
-
 /**
  * Course management functionality
  */
-export function initCourseManager($) {
+
+// Export the initialization function for use by admin.js
+if (typeof window !== 'undefined') {
+    window.initCourseManager = initCourseManager;
+}
+
+function initCourseManager($) {
     // Load courses button handler - support both old and new IDs
     $('#ccs-load-courses, #ccs-get-courses').on('click', function() {
         const button = $(this);
@@ -185,6 +190,13 @@ export function initCourseManager($) {
                         '</label>' +
                         '</div>';
                 });
+                
+                // Add sync button section at the bottom
+                html += '<div class="ccs-action-buttons" style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #ddd;">' +
+                    '<button id="ccs-sync-selected" class="button button-primary" disabled>' +
+                    'Sync Selected Courses' +
+                    '</button>' +
+                    '</div>';
                 
                 console.log('CCS Debug: Generated HTML length:', html.length);
                 courseList.html(html);

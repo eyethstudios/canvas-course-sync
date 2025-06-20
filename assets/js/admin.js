@@ -14,6 +14,13 @@
     
     console.log('CCS Debug: ccsAjax object:', ccsAjax);
     
+    // Global nonces object for course module
+    window.ccsNonces = {
+        get_courses: ccsAjax.getCoursesNonce,
+        sync_courses: ccsAjax.syncCoursesNonce,
+        sync_status: ccsAjax.syncStatusNonce
+    };
+    
     // Connection tester functionality
     function initConnectionTester() {
         console.log('CCS Debug: Initializing connection tester');
@@ -86,70 +93,6 @@
         });
         
         console.log('CCS Debug: Connection tester event handler attached');
-    }
-    
-    // Course manager functionality
-    function initCourseManager() {
-        console.log('CCS Debug: Initializing course manager');
-        
-        $('#ccs-load-courses, #ccs-get-courses').off('click').on('click', function(e) {
-            e.preventDefault();
-            console.log('CCS Debug: Get courses button clicked');
-            
-            const button = $(this);
-            const courseList = $('#ccs-course-list, #ccs-courses-list');
-            
-            button.attr('disabled', true).text('Loading...');
-            courseList.html('<div style="padding: 10px;">Loading courses...</div>');
-            
-            $.ajax({
-                url: ccsAjax.ajaxUrl,
-                type: 'POST',
-                data: {
-                    action: 'ccs_get_courses',
-                    nonce: ccsAjax.getCoursesNonce
-                },
-                success: function(response) {
-                    console.log('CCS Debug: Get courses response:', response);
-                    
-                    let coursesData = null;
-                    if (response && response.success && Array.isArray(response.data)) {
-                        coursesData = response.data;
-                    } else if (Array.isArray(response)) {
-                        coursesData = response;
-                    }
-                    
-                    if (!coursesData || coursesData.length === 0) {
-                        courseList.html('<p>No courses found.</p>');
-                        return;
-                    }
-                    
-                    let html = '<div class="ccs-courses-container">';
-                    coursesData.forEach(function(course) {
-                        const courseName = course.name || 'Unnamed Course';
-                        const courseId = course.id || '';
-                        
-                        html += '<div class="ccs-course-item" style="margin: 5px 0; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">';
-                        html += '<label>';
-                        html += '<input type="checkbox" class="ccs-course-checkbox" value="' + courseId + '" checked> ';
-                        html += courseName.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                        html += '</label>';
-                        html += '</div>';
-                    });
-                    html += '</div>';
-                    
-                    courseList.html(html);
-                    $('#ccs-sync-selected').show().prop('disabled', false);
-                },
-                error: function(xhr, status, error) {
-                    console.error('CCS Debug: Get courses error:', error);
-                    courseList.html('<p style="color: red;">Error loading courses: ' + error + '</p>');
-                },
-                complete: function() {
-                    button.attr('disabled', false).text('Get Courses');
-                }
-            });
-        });
     }
     
     // Log manager functionality
@@ -237,13 +180,7 @@
     
     // Initialize all functionality when document is ready
     $(document).ready(function() {
-        console.log('CCS Debug: Document ready, initializing all modules');
-        
-        // Test if buttons exist
-        console.log('CCS Debug: Test connection button exists:', $('#ccs-test-connection').length > 0);
-        console.log('CCS Debug: Get courses button exists:', $('#ccs-get-courses').length > 0);
-        console.log('CCS Debug: Clear logs button exists:', $('#ccs-clear-logs').length > 0);
-        console.log('CCS Debug: Refresh logs button exists:', $('#ccs-refresh-logs').length > 0);
+        console.log('CCS Debug: Document ready, initializing admin modules');
         
         try {
             initConnectionTester();
@@ -253,20 +190,23 @@
         }
         
         try {
-            initCourseManager();
-            console.log('CCS Debug: Course manager initialized');
-        } catch (error) {
-            console.error('CCS Debug: Failed to initialize course manager:', error);
-        }
-        
-        try {
             initLogManager();
             console.log('CCS Debug: Log manager initialized');
         } catch (error) {
             console.error('CCS Debug: Failed to initialize log manager:', error);
         }
         
-        console.log('CCS Debug: All modules initialization completed');
+        // Initialize course manager if the module is loaded
+        if (typeof initCourseManager === 'function') {
+            try {
+                initCourseManager($);
+                console.log('CCS Debug: Course manager initialized');
+            } catch (error) {
+                console.error('CCS Debug: Failed to initialize course manager:', error);
+            }
+        }
+        
+        console.log('CCS Debug: All admin modules initialization completed');
     });
     
 })(jQuery);
