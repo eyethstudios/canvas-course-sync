@@ -6,7 +6,7 @@ Tags: canvas, lms, course, sync, education
 Requires at least: 5.0
 Tested up to: 6.4
 Requires PHP: 7.4
-Stable tag: 2.3.3
+Stable tag: 2.3.5
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -47,6 +47,16 @@ The token needs read access to courses and basic user information.
 3. Logging and status monitoring
 
 == Changelog ==
+
+= 2.3.5 =
+* Fixed "no courses found" JavaScript response handling issue
+* Enhanced course data processing and display in admin interface
+* Improved error handling and debugging for course retrieval operations
+
+= 2.3.4 =
+* Enhanced course data debugging and response handling
+* Improved AJAX response format detection for get courses functionality
+* Added detailed console logging for course retrieval troubleshooting
 
 = 2.3.3 =
 * Enhanced course data debugging and response handling
@@ -107,6 +117,12 @@ The token needs read access to courses and basic user information.
 * Logging system
 
 == Upgrade Notice ==
+
+= 2.3.5 =
+Fixed JavaScript response handling issue for course retrieval operations.
+
+= 2.3.4 =
+Enhanced course data debugging and improved response handling for better troubleshooting.
 
 = 2.3.3 =
 Enhanced course data debugging and improved response handling for better troubleshooting.
