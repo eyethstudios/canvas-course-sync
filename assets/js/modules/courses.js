@@ -1,3 +1,4 @@
+
 /**
  * Course management functionality
  */
@@ -112,6 +113,7 @@ export function initCourseManager($) {
                     return new Date(b.created_at || 0) - new Date(a.created_at || 0);
                 });
                 
+                // Build controls section HTML
                 let html = '<div class="ccs-controls-section">' +
                     '<div class="ccs-select-all">' +
                     '<label>' +
@@ -137,6 +139,7 @@ export function initCourseManager($) {
                     '</div>' +
                     '</div>';
                     
+                // Build course items HTML
                 sortedCourses.forEach(function(course) {
                     let statusClass = '';
                     let statusText = '';

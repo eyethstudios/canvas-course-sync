@@ -1,13 +1,18 @@
+
 <?php
 /**
  * Plugin Name: Canvas Course Sync
- * Plugin URI: http://eyethstudios.com
- * Description: Synchronize courses from Canvas LMS to WordPress
- * Version: 2.3.6
- * Author: Eyeth Studios
- * Author URI: http://eyethstudios.com
+ * Plugin URI: https://github.com/adamdehaven/canvas-course-sync
+ * Description: Sync course information from Canvas LMS to WordPress
+ * Version: 2.3.7
+ * Author: Adam DeHaven
+ * Author URI: https://adamdehaven.com
  * License: GPL v2 or later
+ * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: canvas-course-sync
+ * Domain Path: /languages
+ * 
+ * @package Canvas_Course_Sync
  */
 
 // Exit if accessed directly

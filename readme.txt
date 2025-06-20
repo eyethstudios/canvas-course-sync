@@ -1,11 +1,11 @@
 === Canvas Course Sync ===
-Contributors: eyethstudios
+Contributors: adamdehaven
 Donate link: http://eyethstudios.com/donate
 Tags: canvas, lms, course, sync, education
 Requires at least: 5.0
 Tested up to: 6.4
 Requires PHP: 7.4
-Stable tag: 2.3.6
+Stable tag: 2.3.7
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -47,16 +47,22 @@ The token needs read access to courses and basic user information.
 
 == Changelog ==
 
+= 2.3.7 =
+* Restored filtering and sorting controls for course management
+* Fixed course status filtering (New/Existing/Already Synced)
+* Fixed course sorting by date, name, and status
+* Improved course display with proper status badges
+
 = 2.3.6 =
-* Fixed GitHub updater functionality and improved version detection
-* Enhanced cache management and WordPress update system integration
-* Improved manual update checking with better error handling
-* Optimized update checking frequency to reduce server load
+* Fixed plugin updater functionality
+* Improved version detection and cache management
+* Better WordPress integration for updates
+* Enhanced GitHub release detection
 
 = 2.3.5 =
-* Fixed "no courses found" JavaScript response handling issue
-* Enhanced course data processing and display in admin interface
-* Improved error handling and debugging for course retrieval operations
+* Fixed "no courses found" display issue
+* Improved JavaScript response handling for course data
+* Better error messaging for course loading
 
 = 2.3.4 =
 * Enhanced course data debugging and response handling
@@ -69,21 +75,13 @@ The token needs read access to courses and basic user information.
 * Added detailed console logging for course retrieval troubleshooting
 
 = 2.3.2 =
-* Fixed plugin update version detection and caching issues
-* Enhanced version comparison for proper GitHub update checking
-* Improved cache clearing for manual update checks
+* Fixed plugin update version detection and improved GitHub update checking reliability
 
 = 2.3.1 =
-* Fixed admin button functionality for test connection and get courses
-* Enhanced JavaScript loading and AJAX handling in admin interface
-* Improved debugging and error reporting for admin operations
+* Fixed admin button functionality and improved JavaScript handling in admin interface
 
 = 2.3.0 =
-* Fixed JavaScript loading issues preventing buttons from working
-* Replaced ES6 modules with traditional WordPress-compatible JavaScript
-* Fixed AJAX handling for test connection, get courses, and logs buttons
-* Improved script loading and initialization in admin interface
-* Enhanced debugging and error reporting
+* Fixed critical JavaScript issues preventing admin buttons from working properly
 
 = 2.2.9 =
 * Enhanced GitHub updater with improved version comparison and update detection
@@ -123,8 +121,11 @@ The token needs read access to courses and basic user information.
 
 == Upgrade Notice ==
 
+= 2.3.7 =
+Restored filtering and sorting controls for course management.
+
 = 2.3.6 =
-Fixed GitHub updater functionality and improved plugin update detection.
+Fixed plugin updater functionality and improved plugin update detection.
 
 = 2.3.5 =
 Fixed JavaScript response handling issue for course retrieval operations.
