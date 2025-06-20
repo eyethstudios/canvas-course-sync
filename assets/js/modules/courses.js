@@ -1,4 +1,3 @@
-
 /**
  * Course management functionality
  */
@@ -33,39 +32,64 @@ export function initCourseManager($) {
                 console.log('CCS Debug: ===== AJAX SUCCESS RESPONSE =====');
                 console.log('CCS Debug: Full AJAX response:', response);
                 console.log('CCS Debug: Response type:', typeof response);
-                console.log('CCS Debug: Response success property:', response.success);
-                console.log('CCS Debug: Response data property:', response.data);
-                console.log('CCS Debug: Response data type:', typeof response.data);
-                console.log('CCS Debug: Response data length:', Array.isArray(response.data) ? response.data.length : 'not array');
-                console.log('CCS Debug: Response keys:', response ? Object.keys(response) : 'no response');
                 
-                // Check if response has success property and data, or if it's direct course data
+                // Handle different response formats more robustly
                 let coursesData = null;
-                if (response && response.success === true && Array.isArray(response.data)) {
+                
+                // WordPress AJAX responses can come in different formats
+                if (response && response.success === true) {
+                    // Standard wp_send_json_success format
                     coursesData = response.data;
-                    console.log('CCS Debug: Using response.data (wp_send_json_success format)');
+                    console.log('CCS Debug: Using wp_send_json_success format');
+                } else if (response && response.success === false) {
+                    // Error response from wp_send_json_error
+                    console.error('CCS Debug: Server returned error:', response.data);
+                    courseList.html('<p class="error">Server error: ' + (response.data || 'Unknown error') + '</p>');
+                    if (coursesWrapper.length) {
+                        coursesWrapper.show();
+                    }
+                    return;
                 } else if (Array.isArray(response)) {
+                    // Direct array response
                     coursesData = response;
-                    console.log('CCS Debug: Using direct response array');
+                    console.log('CCS Debug: Using direct array format');
                 } else if (response && Array.isArray(response.data)) {
+                    // Response with data property
                     coursesData = response.data;
-                    console.log('CCS Debug: Using response.data (direct format)');
+                    console.log('CCS Debug: Using response.data format');
                 } else {
-                    console.error('CCS Debug: Unexpected response format:', response);
-                    console.error('CCS Debug: Response structure:', JSON.stringify(response, null, 2));
-                    courseList.html('<p class="error">Unexpected response format from server. Check browser console for details.</p>');
+                    // Try to extract data from any nested structure
+                    console.log('CCS Debug: Attempting to find course data in response structure');
+                    if (response && typeof response === 'object') {
+                        // Look for arrays in the response object
+                        const keys = Object.keys(response);
+                        for (let key of keys) {
+                            if (Array.isArray(response[key])) {
+                                coursesData = response[key];
+                                console.log('CCS Debug: Found array data at key:', key);
+                                break;
+                            }
+                        }
+                    }
+                }
+                
+                console.log('CCS Debug: Final courses data:', coursesData);
+                console.log('CCS Debug: Courses data type:', typeof coursesData);
+                console.log('CCS Debug: Is array?', Array.isArray(coursesData));
+                console.log('CCS Debug: Array length:', coursesData ? coursesData.length : 'N/A');
+                
+                if (!Array.isArray(coursesData)) {
+                    console.error('CCS Debug: coursesData is not an array:', coursesData);
+                    courseList.html('<p class="error">Invalid response format. Expected array of courses but got: ' + typeof coursesData + '</p>');
                     if (coursesWrapper.length) {
                         coursesWrapper.show();
                     }
                     return;
                 }
                 
-                console.log('CCS Debug: Final courses data:', coursesData);
-                console.log('CCS Debug: Number of courses:', coursesData ? coursesData.length : 'null/undefined');
-                
-                if (!coursesData || coursesData.length === 0) {
-                    console.log('CCS Debug: No courses found - showing no courses message');
-                    courseList.html('<p>No courses found. Check the PHP error log and browser console for debugging information.</p>');
+                if (coursesData.length === 0) {
+                    console.log('CCS Debug: Empty courses array received');
+                    courseList.html('<p>No courses found after filtering. The server found courses but they may all be excluded by your filter settings.</p>');
                     if (coursesWrapper.length) {
                         coursesWrapper.show();
                     }
@@ -73,6 +97,7 @@ export function initCourseManager($) {
                 }
                 
                 console.log('CCS Debug: Processing ' + coursesData.length + ' courses');
+                console.log('CCS Debug: First course sample:', coursesData[0]);
                 
                 // Sort courses by status priority and then by creation date
                 const sortedCourses = coursesData.sort((a, b) => {
@@ -117,7 +142,7 @@ export function initCourseManager($) {
                     let statusText = '';
                     let checkboxChecked = 'checked';
                     
-                    console.log('CCS Debug: Processing course:', course.name, 'status:', course.status, 'status_label:', course.status_label);
+                    console.log('CCS Debug: Processing course:', course.name, 'status:', course.status);
                     
                     // Use the explicit status from backend with proper labeling
                     if (course.status === 'synced') {
@@ -163,6 +188,7 @@ export function initCourseManager($) {
                 $('#ccs-sync-selected').prop('disabled', false);
                 
                 console.log('CCS Debug: ===== COURSES LOADED SUCCESSFULLY =====');
+                console.log('CCS Debug: Displayed ' + coursesData.length + ' courses');
                 
                 // Show success notice if showNotice function exists
                 if (typeof showNotice === 'function') {
@@ -175,7 +201,22 @@ export function initCourseManager($) {
                 console.error('CCS Debug: Response text:', xhr.responseText);
                 console.error('CCS Debug: Status code:', xhr.status);
                 console.error('CCS Debug: Status text:', xhr.statusText);
-                courseList.html('<p class="error">Connection error occurred. Please try again. Check browser console and PHP error log for details.</p>');
+                
+                let errorMessage = 'Connection error occurred. ';
+                if (xhr.responseText) {
+                    try {
+                        const errorResponse = JSON.parse(xhr.responseText);
+                        if (errorResponse.data) {
+                            errorMessage += errorResponse.data;
+                        }
+                    } catch (e) {
+                        errorMessage += xhr.responseText;
+                    }
+                } else {
+                    errorMessage += 'Status: ' + xhr.status + ' ' + xhr.statusText;
+                }
+                
+                courseList.html('<p class="error">' + errorMessage + '</p>');
                 if (coursesWrapper.length) {
                     coursesWrapper.show();
                 }
