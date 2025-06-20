@@ -1,4 +1,5 @@
 
+
 /**
  * Course management functionality
  */
@@ -113,16 +114,17 @@ export function initCourseManager($) {
                     return new Date(b.created_at || 0) - new Date(a.created_at || 0);
                 });
                 
-                // Build controls section HTML
-                let html = '<div class="ccs-controls-section">' +
-                    '<div class="ccs-select-all">' +
-                    '<label>' +
-                    '<input type="checkbox" id="ccs-select-all-checkbox" checked> ' +
+                // Build controls section HTML with proper styling
+                let html = '<div class="ccs-controls-section" style="background: #f9f9f9; padding: 15px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px;">' +
+                    '<div class="ccs-select-all" style="margin-bottom: 10px;">' +
+                    '<label style="font-weight: bold;">' +
+                    '<input type="checkbox" id="ccs-select-all-checkbox" checked style="margin-right: 5px;"> ' +
                     'Select/Deselect All</label>' +
                     '</div>' +
+                    '<div class="ccs-filter-sort-row" style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">' +
                     '<div class="ccs-filter-controls">' +
-                    '<label for="ccs-status-filter">Filter by Status: </label>' +
-                    '<select id="ccs-status-filter" class="ccs-filter-dropdown">' +
+                    '<label for="ccs-status-filter" style="margin-right: 5px; font-weight: bold;">Filter by Status: </label>' +
+                    '<select id="ccs-status-filter" class="ccs-filter-dropdown" style="padding: 5px;">' +
                     '<option value="all">All Courses</option>' +
                     '<option value="new">New Only</option>' +
                     '<option value="exists">Title Exists Only</option>' +
@@ -130,12 +132,13 @@ export function initCourseManager($) {
                     '</select>' +
                     '</div>' +
                     '<div class="ccs-sort-controls">' +
-                    '<label for="ccs-sort-select">Sort by: </label>' +
-                    '<select id="ccs-sort-select" class="ccs-sort-dropdown">' +
+                    '<label for="ccs-sort-select" style="margin-right: 5px; font-weight: bold;">Sort by: </label>' +
+                    '<select id="ccs-sort-select" class="ccs-sort-dropdown" style="padding: 5px;">' +
                     '<option value="status">Status (New → Existing → Synced)</option>' +
                     '<option value="name">Course Name (A-Z)</option>' +
                     '<option value="date">Creation Date (Newest First)</option>' +
                     '</select>' +
+                    '</div>' +
                     '</div>' +
                     '</div>';
                     
@@ -150,17 +153,17 @@ export function initCourseManager($) {
                     // Use the explicit status from backend with proper labeling
                     if (course.status === 'synced') {
                         statusClass = 'ccs-course-exists';
-                        statusText = ' <span class="ccs-status-badge ccs-exists-canvas-id">' + 
+                        statusText = ' <span class="ccs-status-badge ccs-exists-canvas-id" style="background: #dc3545; color: white; padding: 3px 8px; border-radius: 3px; font-size: 12px; margin-left: 10px;">' + 
                                    (course.status_label || 'Already synced') + '</span>';
                         checkboxChecked = ''; // Don't pre-select already synced courses
                     } else if (course.status === 'exists') {
                         statusClass = 'ccs-course-exists';
-                        statusText = ' <span class="ccs-status-badge ccs-exists-title">' + 
+                        statusText = ' <span class="ccs-status-badge ccs-exists-title" style="background: #ffc107; color: #212529; padding: 3px 8px; border-radius: 3px; font-size: 12px; margin-left: 10px;">' + 
                                    (course.status_label || 'Title exists in WP') + '</span>';
                         checkboxChecked = ''; // Don't pre-select existing title courses
                     } else {
                         // New course
-                        statusText = ' <span class="ccs-status-badge ccs-new-course">' + 
+                        statusText = ' <span class="ccs-status-badge ccs-new-course" style="background: #28a745; color: white; padding: 3px 8px; border-radius: 3px; font-size: 12px; margin-left: 10px;">' + 
                                    (course.status_label || 'New') + '</span>';
                     }
                     
@@ -173,11 +176,13 @@ export function initCourseManager($) {
                     html += '<div class="ccs-course-item ' + statusClass + '" ' +
                         'data-course-name="' + (course.name || '').replace(/"/g, '&quot;') + '" ' +
                         'data-created-at="' + (course.created_at || '') + '" ' +
-                        'data-status="' + (course.status || 'new') + '">' +
-                        '<label>' +
+                        'data-status="' + (course.status || 'new') + '" ' +
+                        'style="margin: 8px 0; padding: 12px; border: 1px solid #ddd; border-radius: 4px; background: white;">' +
+                        '<label style="display: flex; align-items: center; cursor: pointer;">' +
                         '<input type="checkbox" class="ccs-course-checkbox course-checkbox" ' +
-                        'value="' + (course.id || '') + '" ' + checkboxChecked + '> ' +
-                        courseDisplayName.replace(/</g, '&lt;').replace(/>/g, '&gt;') + statusText + '</label>' +
+                        'value="' + (course.id || '') + '" ' + checkboxChecked + ' style="margin-right: 10px;"> ' +
+                        '<span style="flex: 1;">' + courseDisplayName.replace(/</g, '&lt;').replace(/>/g, '&gt;') + statusText + '</span>' +
+                        '</label>' +
                         '</div>';
                 });
                 
@@ -240,12 +245,15 @@ export function initCourseManager($) {
     $(document).on('change', '#ccs-select-all-checkbox', function() {
         const isChecked = $(this).prop('checked');
         $('.ccs-course-checkbox:visible').prop('checked', isChecked);
+        console.log('CCS Debug: Select all checkbox changed to:', isChecked);
     });
     
     // Handle status filter dropdown
     $(document).on('change', '#ccs-status-filter', function() {
         const filterValue = $(this).val();
         const courseItems = $('.ccs-course-item');
+        
+        console.log('CCS Debug: Filtering courses by status:', filterValue);
         
         courseItems.each(function() {
             const $item = $(this);
@@ -266,6 +274,8 @@ export function initCourseManager($) {
     $(document).on('change', '#ccs-sort-select', function() {
         const sortBy = $(this).val();
         const courseItems = $('.ccs-course-item').toArray();
+        
+        console.log('CCS Debug: Sorting courses by:', sortBy);
         
         courseItems.sort(function(a, b) {
             const $a = $(a);

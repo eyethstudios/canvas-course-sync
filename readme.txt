@@ -1,5 +1,5 @@
 === Canvas Course Sync ===
-Contributors: adamdehaven
+Contributors: eyethstudios
 Donate link: http://eyethstudios.com/donate
 Tags: canvas, lms, course, sync, education
 Requires at least: 5.0
@@ -52,6 +52,8 @@ The token needs read access to courses and basic user information.
 * Fixed course status filtering (New/Existing/Already Synced)
 * Fixed course sorting by date, name, and status
 * Improved course display with proper status badges
+* Moved sync buttons below course listing for better UX
+* Corrected plugin author information
 
 = 2.3.6 =
 * Fixed plugin updater functionality
