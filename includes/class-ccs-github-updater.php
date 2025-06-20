@@ -1,3 +1,4 @@
+
 <?php
 /**
  * GitHub Updater for Canvas Course Sync
@@ -352,8 +353,8 @@ class CCS_GitHub_Updater {
         
         error_log('CCS Debug: ===== MANUAL UPDATE CHECK STARTED =====');
         
-        // Clear ALL caches to force fresh check
-        $this->clear_version_cache();
+        // Force clear ALL caches including WordPress version cache
+        $this->force_clear_all_caches();
         
         // Get fresh versions
         $current_version = $this->get_current_version();
@@ -382,6 +383,25 @@ class CCS_GitHub_Updater {
         }
         
         error_log('CCS Debug: ===== MANUAL UPDATE CHECK COMPLETED =====');
+    }
+    
+    /**
+     * Force clear all caches including WordPress core caches
+     */
+    private function force_clear_all_caches() {
+        // Clear plugin-specific caches
+        $this->clear_version_cache();
+        
+        // Clear WordPress core update caches
+        delete_site_transient('update_plugins');
+        delete_transient('update_plugins');
+        delete_option('_site_transient_update_plugins');
+        delete_option('_transient_update_plugins');
+        
+        // Clear our specific version storage
+        delete_option('ccs_stored_version');
+        
+        error_log('CCS Debug: All caches forcefully cleared including WordPress core caches');
     }
     
     /**
@@ -448,9 +468,10 @@ class CCS_GitHub_Updater {
         $stored_version = get_option('ccs_stored_version');
         $current_version = $this->get_current_version();
         
-        if ($stored_version !== $current_version) {
-            error_log('CCS Debug: Version changed from ' . $stored_version . ' to ' . $current_version . ' - clearing cache');
-            $this->clear_version_cache();
+        // Force clear cache if version has changed or if stored version is missing
+        if ($stored_version !== $current_version || empty($stored_version)) {
+            error_log('CCS Debug: Version changed from ' . $stored_version . ' to ' . $current_version . ' - force clearing all caches');
+            $this->force_clear_all_caches();
             update_option('ccs_stored_version', $current_version);
         }
     }
