@@ -41,22 +41,9 @@ class CCS_GitHub_Updater {
         add_filter('upgrader_source_selection', array($this, 'source_selection'), 10, 4);
         add_filter('plugin_row_meta', array($this, 'plugin_row_meta'), 10, 2);
         add_action('wp_ajax_ccs_check_updates', array($this, 'ajax_check_updates'));
-        add_action('admin_init', array($this, 'maybe_check_updates'));
         
         if (is_admin()) {
-            add_action('load-plugins.php', array($this, 'load_plugins_page'));
-            add_action('load-update-core.php', array($this, 'load_plugins_page'));
-        }
-    }
-    
-    /**
-     * Maybe check for updates (throttled)
-     */
-    public function maybe_check_updates() {
-        $last_check = get_transient('ccs_last_update_check');
-        if ($last_check === false) {
-            $this->force_update_check();
-            set_transient('ccs_last_update_check', time(), HOUR_IN_SECONDS);
+            add_action('admin_notices', array($this, 'update_notice'));
         }
     }
     
@@ -65,13 +52,6 @@ class CCS_GitHub_Updater {
      */
     private function get_current_version() {
         return defined('CCS_VERSION') ? CCS_VERSION : $this->version;
-    }
-    
-    /**
-     * Load plugins page hooks
-     */
-    public function load_plugins_page() {
-        add_action('admin_notices', array($this, 'update_notice'));
     }
     
     /**
@@ -89,6 +69,12 @@ class CCS_GitHub_Updater {
      * Show update notice if available
      */
     public function update_notice() {
+        // Only show on plugins page
+        $screen = get_current_screen();
+        if (!$screen || $screen->id !== 'plugins') {
+            return;
+        }
+        
         $remote_version = $this->get_remote_version();
         $current_version = $this->get_current_version();
         
@@ -160,19 +146,20 @@ class CCS_GitHub_Updater {
                 'new_version' => $remote_version,
                 'url' => 'https://github.com/' . $this->github_repo,
                 'package' => $this->get_download_url($remote_version),
-                'tested' => '6.4',
+                'tested' => get_bloginfo('version'),
                 'requires_php' => '7.4',
-                'compatibility' => new stdClass(),
-                'icons' => array(
-                    'default' => plugin_dir_url($this->plugin_file) . 'assets/icon-128x128.png'
-                )
+                'compatibility' => new stdClass()
             );
             
             $transient->response[$this->plugin_slug] = (object) $update_data;
             error_log('CCS Debug: Update available - added to WordPress update system');
         } else {
+            // Make sure to remove from no_update as well
             if (isset($transient->response[$this->plugin_slug])) {
                 unset($transient->response[$this->plugin_slug]);
+            }
+            if (isset($transient->no_update[$this->plugin_slug])) {
+                unset($transient->no_update[$this->plugin_slug]);
             }
         }
         
@@ -282,16 +269,25 @@ class CCS_GitHub_Updater {
      * AJAX handler for manual update checks
      */
     public function ajax_check_updates() {
-        if (!current_user_can('manage_options') || !wp_verify_nonce($_POST['nonce'] ?? '', 'ccs_check_updates')) {
-            wp_die('Security check failed');
+        // Verify nonce and capabilities
+        if (!current_user_can('update_plugins')) {
+            wp_send_json_error(array('message' => 'Insufficient permissions'));
+            return;
         }
+        
+        $nonce = isset($_POST['nonce']) ? sanitize_text_field($_POST['nonce']) : '';
+        if (!wp_verify_nonce($nonce, 'ccs_check_updates')) {
+            wp_send_json_error(array('message' => 'Security check failed'));
+            return;
+        }
+        
+        // Force fresh check
+        $this->force_update_check();
         
         $current_version = $this->get_current_version();
         $remote_version = $this->get_remote_version(true);
         
         if ($this->is_update_available($current_version, $remote_version)) {
-            delete_site_transient('update_plugins');
-            
             wp_send_json_success(array(
                 'message' => sprintf(__('Update available! Version %s is ready. Please refresh this page to see the update.', 'canvas-course-sync'), $remote_version),
                 'update_available' => true,
@@ -341,7 +337,7 @@ class CCS_GitHub_Updater {
             );
             $result->download_link = $this->get_download_url();
             $result->requires = '5.0';
-            $result->tested = '6.4';
+            $result->tested = get_bloginfo('version');
             $result->requires_php = '7.4';
             $result->last_updated = $data['updated_at'] ?? date('Y-m-d');
         }
