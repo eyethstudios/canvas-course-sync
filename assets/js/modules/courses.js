@@ -1,5 +1,4 @@
 
-
 /**
  * Course management functionality
  */
@@ -19,6 +18,10 @@ export function initCourseManager($) {
         }
         courseList.html('');
         
+        console.log('CCS Debug: Starting AJAX request to get courses');
+        console.log('CCS Debug: Using AJAX URL:', window.ajaxurl || ccsAjax.ajaxUrl);
+        console.log('CCS Debug: Using nonce:', window.ccsNonces?.get_courses || ccsAjax.getCoursesNonce);
+        
         $.ajax({
             url: window.ajaxurl || ccsAjax.ajaxUrl,
             type: 'POST',
@@ -27,43 +30,49 @@ export function initCourseManager($) {
                 nonce: window.ccsNonces?.get_courses || ccsAjax.getCoursesNonce
             },
             success: function(response) {
-                console.log('Full AJAX response:', response);
-                console.log('Response type:', typeof response);
-                console.log('Response success:', response.success);
-                console.log('Response data type:', typeof response.data);
-                console.log('Response data length:', Array.isArray(response.data) ? response.data.length : 'not array');
+                console.log('CCS Debug: ===== AJAX SUCCESS RESPONSE =====');
+                console.log('CCS Debug: Full AJAX response:', response);
+                console.log('CCS Debug: Response type:', typeof response);
+                console.log('CCS Debug: Response success property:', response.success);
+                console.log('CCS Debug: Response data property:', response.data);
+                console.log('CCS Debug: Response data type:', typeof response.data);
+                console.log('CCS Debug: Response data length:', Array.isArray(response.data) ? response.data.length : 'not array');
+                console.log('CCS Debug: Response keys:', response ? Object.keys(response) : 'no response');
                 
                 // Check if response has success property and data, or if it's direct course data
                 let coursesData = null;
                 if (response && response.success === true && Array.isArray(response.data)) {
                     coursesData = response.data;
-                    console.log('Using response.data (wp_send_json_success format)');
+                    console.log('CCS Debug: Using response.data (wp_send_json_success format)');
                 } else if (Array.isArray(response)) {
                     coursesData = response;
-                    console.log('Using direct response array');
+                    console.log('CCS Debug: Using direct response array');
                 } else if (response && Array.isArray(response.data)) {
                     coursesData = response.data;
-                    console.log('Using response.data (direct format)');
+                    console.log('CCS Debug: Using response.data (direct format)');
                 } else {
-                    console.error('Unexpected response format:', response);
-                    console.error('Response keys:', Object.keys(response));
-                    courseList.html('<p class="error">Unexpected response format from server. Check console for details.</p>');
+                    console.error('CCS Debug: Unexpected response format:', response);
+                    console.error('CCS Debug: Response structure:', JSON.stringify(response, null, 2));
+                    courseList.html('<p class="error">Unexpected response format from server. Check browser console for details.</p>');
                     if (coursesWrapper.length) {
                         coursesWrapper.show();
                     }
                     return;
                 }
                 
-                console.log('Courses received:', coursesData);
-                console.log('Number of courses:', coursesData.length);
+                console.log('CCS Debug: Final courses data:', coursesData);
+                console.log('CCS Debug: Number of courses:', coursesData ? coursesData.length : 'null/undefined');
                 
                 if (!coursesData || coursesData.length === 0) {
-                    courseList.html('<p>No courses found.</p>');
+                    console.log('CCS Debug: No courses found - showing no courses message');
+                    courseList.html('<p>No courses found. Check the PHP error log and browser console for debugging information.</p>');
                     if (coursesWrapper.length) {
                         coursesWrapper.show();
                     }
                     return;
                 }
+                
+                console.log('CCS Debug: Processing ' + coursesData.length + ' courses');
                 
                 // Sort courses by status priority and then by creation date
                 const sortedCourses = coursesData.sort((a, b) => {
@@ -108,7 +117,7 @@ export function initCourseManager($) {
                     let statusText = '';
                     let checkboxChecked = 'checked';
                     
-                    console.log('Processing course:', course.name, 'status:', course.status, 'status_label:', course.status_label);
+                    console.log('CCS Debug: Processing course:', course.name, 'status:', course.status, 'status_label:', course.status_label);
                     
                     // Use the explicit status from backend with proper labeling
                     if (course.status === 'synced') {
@@ -144,6 +153,7 @@ export function initCourseManager($) {
                         '</div>';
                 });
                 
+                console.log('CCS Debug: Generated HTML length:', html.length);
                 courseList.html(html);
                 if (coursesWrapper.length) {
                     coursesWrapper.show();
@@ -152,15 +162,20 @@ export function initCourseManager($) {
                 // Enable sync button
                 $('#ccs-sync-selected').prop('disabled', false);
                 
+                console.log('CCS Debug: ===== COURSES LOADED SUCCESSFULLY =====');
+                
                 // Show success notice if showNotice function exists
                 if (typeof showNotice === 'function') {
                     showNotice('Loaded ' + coursesData.length + ' courses', 'success');
                 }
             },
             error: function(xhr, status, error) {
-                console.error('AJAX error:', xhr, status, error);
-                console.error('Response text:', xhr.responseText);
-                courseList.html('<p class="error">Connection error occurred. Please try again.</p>');
+                console.error('CCS Debug: ===== AJAX ERROR =====');
+                console.error('CCS Debug: AJAX error:', xhr, status, error);
+                console.error('CCS Debug: Response text:', xhr.responseText);
+                console.error('CCS Debug: Status code:', xhr.status);
+                console.error('CCS Debug: Status text:', xhr.statusText);
+                courseList.html('<p class="error">Connection error occurred. Please try again. Check browser console and PHP error log for details.</p>');
                 if (coursesWrapper.length) {
                     coursesWrapper.show();
                 }
@@ -172,6 +187,7 @@ export function initCourseManager($) {
                 } else {
                     button.text('Get Courses');
                 }
+                console.log('CCS Debug: AJAX request completed');
             }
         });
     });
@@ -273,4 +289,3 @@ export function initCourseManager($) {
         updateSelectAllCheckbox();
     });
 }
-
