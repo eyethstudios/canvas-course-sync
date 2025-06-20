@@ -1,3 +1,4 @@
+
 <?php
 /**
  * Plugin Name: Canvas Course Sync
@@ -18,6 +19,14 @@
 if (!defined('ABSPATH')) {
     exit;
 }
+
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// IMPORTANT: When adding new features or making significant changes, remember to:
+// 1. Update the version number in the plugin header above
+// 2. Update the CCS_VERSION constant below
+// 3. Update the Stable tag in readme.txt
+// 4. Add a changelog entry in readme.txt
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 // Define plugin constants
 define('CCS_VERSION', '2.4.2');
