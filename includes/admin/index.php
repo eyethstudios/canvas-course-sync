@@ -18,6 +18,7 @@ add_action('wp_ajax_ccs_sync_status', 'ccs_ajax_sync_status');
 add_action('wp_ajax_ccs_clear_logs', 'ccs_ajax_clear_logs');
 add_action('wp_ajax_ccs_refresh_logs', 'ccs_ajax_refresh_logs');
 add_action('wp_ajax_ccs_run_auto_sync', 'ccs_ajax_run_auto_sync');
+add_action('wp_ajax_ccs_omit_courses', 'ccs_ajax_omit_courses');
 
 /**
  * AJAX handler for testing connection
@@ -128,14 +129,26 @@ function ccs_ajax_get_courses() {
         $original_count = count($courses);
         $courses = array_filter($courses, function($course) {
             $course_name = isset($course['name']) ? $course['name'] : '';
+            $course_id = isset($course['id']) ? intval($course['id']) : 0;
+            
+            // Check if excluded by title
             $is_excluded = ccs_is_course_excluded($course_name);
             if ($is_excluded) {
-                error_log('CCS Debug: Excluding course: ' . $course_name);
+                error_log('CCS Debug: Excluding course by title: ' . $course_name);
+                return false;
             }
-            return !$is_excluded;
+            
+            // Check if omitted by user
+            $is_omitted = ccs_is_course_omitted($course_id);
+            if ($is_omitted) {
+                error_log('CCS Debug: Excluding omitted course: ' . $course_name . ' (ID: ' . $course_id . ')');
+                return false;
+            }
+            
+            return true;
         });
         
-        error_log('CCS Debug: After filtering exclusions: ' . count($courses) . ' courses (was ' . $original_count . ')');
+        error_log('CCS Debug: After filtering exclusions and omissions: ' . count($courses) . ' courses (was ' . $original_count . ')');
         
         // Get existing WordPress courses for comparison
         error_log('CCS Debug: Getting existing WP courses...');
@@ -469,5 +482,70 @@ function ccs_ajax_run_auto_sync() {
         ));
     } else {
         wp_send_json_error(__('Auto-sync failed. Check the logs for details.', 'canvas-course-sync'));
+    }
+}
+
+/**
+ * AJAX handler for omitting courses
+ */
+function ccs_ajax_omit_courses() {
+    error_log('CCS Debug: Omit courses AJAX handler called');
+    
+    // Verify nonce - use existing nonce for now
+    if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ccs_get_courses')) {
+        error_log('CCS Debug: Omit courses nonce verification failed');
+        wp_send_json_error(__('Security check failed.', 'canvas-course-sync'));
+    }
+    
+    if (!current_user_can('manage_options')) {
+        error_log('CCS Debug: User does not have manage_options capability');
+        wp_send_json_error(__('You do not have sufficient permissions to access this page.', 'canvas-course-sync'));
+    }
+    
+    // Get courses to omit
+    $courses_to_omit = array();
+    if (isset($_POST['courses']) && is_array($_POST['courses'])) {
+        $courses_to_omit = array_map(function($course) {
+            return array(
+                'id' => intval($course['id']),
+                'name' => sanitize_text_field($course['name'])
+            );
+        }, wp_unslash($_POST['courses']));
+    }
+    
+    error_log('CCS Debug: Courses to omit: ' . print_r($courses_to_omit, true));
+    
+    if (empty($courses_to_omit)) {
+        error_log('CCS Debug: No courses provided to omit');
+        wp_send_json_error(array('message' => __('No courses selected to omit.', 'canvas-course-sync')));
+    }
+    
+    // Get existing omitted courses
+    $omitted_courses = get_option('ccs_omitted_courses', array());
+    if (!is_array($omitted_courses)) {
+        $omitted_courses = array();
+    }
+    
+    // Add new courses to omitted list
+    foreach ($courses_to_omit as $course) {
+        $course_key = 'id_' . $course['id'];
+        $omitted_courses[$course_key] = array(
+            'id' => $course['id'],
+            'name' => $course['name'],
+            'omitted_at' => current_time('mysql')
+        );
+    }
+    
+    // Save updated omitted courses list
+    $updated = update_option('ccs_omitted_courses', $omitted_courses);
+    
+    if ($updated) {
+        error_log('CCS Debug: Successfully omitted ' . count($courses_to_omit) . ' course(s)');
+        wp_send_json_success(array(
+            'message' => sprintf(__('Successfully omitted %d course(s) from future syncing.', 'canvas-course-sync'), count($courses_to_omit))
+        ));
+    } else {
+        error_log('CCS Debug: Failed to update omitted courses option');
+        wp_send_json_error(array('message' => __('Failed to save omitted courses.', 'canvas-course-sync')));
     }
 }

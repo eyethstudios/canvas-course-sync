@@ -1,4 +1,3 @@
-
 /**
  * Course management functionality
  */
@@ -330,6 +329,83 @@ function initCourseManager($) {
         
         courseItems.forEach(function(item) {
             courseList.append(item);
+        });
+    });
+    
+    // Handle omit courses button
+    $(document).on('click', '#ccs-omit-courses', function(e) {
+        e.preventDefault();
+        console.log('CCS Debug: Omit courses button clicked');
+        
+        const selectedCourses = $('.ccs-course-checkbox:checked').map(function() {
+            return {
+                id: $(this).val(),
+                name: $(this).closest('.ccs-course-item').find('span').text().split(' (')[0] // Get course name without code
+            };
+        }).get();
+        
+        console.log('CCS Debug: Selected courses to omit:', selectedCourses);
+        
+        if (selectedCourses.length === 0) {
+            alert('Please select at least one course to omit from future syncing.');
+            return;
+        }
+        
+        const confirmMsg = 'Are you sure you want to omit ' + selectedCourses.length + ' selected course(s) from future syncing? This will add them to the exclusion list.';
+        if (!confirm(confirmMsg)) {
+            return;
+        }
+        
+        const button = $(this);
+        const originalText = button.text();
+        button.prop('disabled', true).text('Omitting...');
+        
+        $.ajax({
+            url: ccsAjax.ajaxUrl,
+            type: 'POST',
+            data: {
+                action: 'ccs_omit_courses',
+                nonce: ccsAjax.omitCoursesNonce || ccsAjax.getCoursesNonce, // Fallback to existing nonce
+                courses: selectedCourses
+            },
+            success: function(response) {
+                button.prop('disabled', false).text(originalText);
+                
+                if (response.success) {
+                    alert('Successfully omitted ' + selectedCourses.length + ' course(s) from future syncing.');
+                    
+                    // Update the UI to show omitted courses
+                    selectedCourses.forEach(function(course) {
+                        const courseItem = $('.ccs-course-checkbox[value="' + course.id + '"]').closest('.ccs-course-item');
+                        const statusBadge = courseItem.find('.ccs-status-badge');
+                        
+                        // Update status to omitted
+                        statusBadge.removeClass('ccs-new-course ccs-exists-title ccs-exists-canvas-id')
+                                  .addClass('ccs-omitted-course')
+                                  .css({
+                                      'background': '#6c757d',
+                                      'color': 'white'
+                                  })
+                                  .text('Omitted');
+                        
+                        // Update data attributes
+                        courseItem.attr('data-status', 'omitted');
+                        
+                        // Uncheck the checkbox
+                        $('.ccs-course-checkbox[value="' + course.id + '"]').prop('checked', false);
+                    });
+                    
+                    // Update select all checkbox
+                    updateSelectAllCheckbox();
+                } else {
+                    const errorMsg = response.data && response.data.message ? response.data.message : 'Failed to omit courses.';
+                    alert('Error: ' + errorMsg);
+                }
+            },
+            error: function(xhr, status, error) {
+                button.prop('disabled', false).text(originalText);
+                alert('Failed to omit courses. Please try again. Error: ' + error);
+            }
         });
     });
     

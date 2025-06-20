@@ -25,7 +25,7 @@ class CCS_Sync_Controls {
         ?>
         <div class="ccs-panel">
             <h2><?php _e('Synchronize Courses', 'canvas-course-sync'); ?></h2>
-            <p><?php _e('Load the available courses from Canvas, then select which ones you want to sync.', 'canvas-course-sync'); ?></p>
+            <p><?php _e('Load the available courses from Canvas, then select which ones you want to sync or omit.', 'canvas-course-sync'); ?></p>
             
             <button id="ccs-get-courses" class="button button-secondary">
                 <?php _e('Load Available Courses', 'canvas-course-sync'); ?>
@@ -41,6 +41,9 @@ class CCS_Sync_Controls {
                 <div class="ccs-action-buttons" style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #ddd;">
                     <button id="ccs-sync-courses" class="button button-primary" disabled>
                         <?php _e('Sync Selected Courses', 'canvas-course-sync'); ?>
+                    </button>
+                    <button id="ccs-omit-courses" class="button button-secondary" style="margin-left: 10px;" disabled>
+                        <?php _e('Omit Selected Courses', 'canvas-course-sync'); ?>
                     </button>
                 </div>
                 

@@ -1,4 +1,3 @@
-
 <?php
 /**
  * Helper functions for Canvas Course Sync
@@ -92,6 +91,61 @@ function ccs_is_course_excluded($course_title) {
     // Also exclude courses with "SHELL" or "Template" in the name
     if (stripos($course_title, 'SHELL') !== false || stripos($course_title, 'Template') !== false) {
         return true;
+    }
+    
+    return false;
+}
+
+/**
+ * Check if a course ID is omitted by user selection
+ *
+ * @param int $course_id The Canvas course ID to check
+ * @return bool True if course is omitted, false otherwise
+ */
+function ccs_is_course_omitted($course_id) {
+    if (empty($course_id)) {
+        return false;
+    }
+    
+    $omitted_courses = get_option('ccs_omitted_courses', array());
+    if (!is_array($omitted_courses)) {
+        return false;
+    }
+    
+    $course_key = 'id_' . intval($course_id);
+    return isset($omitted_courses[$course_key]);
+}
+
+/**
+ * Get list of omitted courses
+ *
+ * @return array Array of omitted course data
+ */
+function ccs_get_omitted_courses() {
+    $omitted_courses = get_option('ccs_omitted_courses', array());
+    return is_array($omitted_courses) ? $omitted_courses : array();
+}
+
+/**
+ * Remove a course from the omitted list
+ *
+ * @param int $course_id The Canvas course ID to remove from omitted list
+ * @return bool True if removed successfully, false otherwise
+ */
+function ccs_remove_omitted_course($course_id) {
+    if (empty($course_id)) {
+        return false;
+    }
+    
+    $omitted_courses = get_option('ccs_omitted_courses', array());
+    if (!is_array($omitted_courses)) {
+        return false;
+    }
+    
+    $course_key = 'id_' . intval($course_id);
+    if (isset($omitted_courses[$course_key])) {
+        unset($omitted_courses[$course_key]);
+        return update_option('ccs_omitted_courses', $omitted_courses);
     }
     
     return false;
