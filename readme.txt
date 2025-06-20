@@ -5,7 +5,7 @@ Tags: canvas, lms, course, sync, education
 Requires at least: 5.0
 Tested up to: 6.4
 Requires PHP: 7.4
-Stable tag: 2.3.1
+Stable tag: 2.3.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -46,6 +46,11 @@ The token needs read access to courses and basic user information.
 3. Logging and status monitoring
 
 == Changelog ==
+
+= 2.3.2 =
+* Fixed plugin update version detection and caching issues
+* Enhanced version comparison for proper GitHub update checking
+* Improved cache clearing for manual update checks
 
 = 2.3.1 =
 * Fixed admin button functionality for test connection and get courses
@@ -96,6 +101,9 @@ The token needs read access to courses and basic user information.
 * Logging system
 
 == Upgrade Notice ==
+
+= 2.3.2 =
+Fixed plugin update version detection and improved GitHub update checking reliability.
 
 = 2.3.1 =
 Fixed admin button functionality and improved JavaScript handling in admin interface.

@@ -50,6 +50,9 @@ class CCS_GitHub_Updater {
         $this->plugin_slug = plugin_basename($plugin_file);
         $this->plugin_basename = dirname($this->plugin_slug);
         
+        // Clear cached version data on construct to ensure fresh checks
+        add_action('init', array($this, 'maybe_clear_cache'), 1);
+        
         // Hook into WordPress update system
         add_filter('pre_set_site_transient_update_plugins', array($this, 'check_for_update'));
         add_filter('plugins_api', array($this, 'plugin_info'), 20, 3);
@@ -436,5 +439,19 @@ class CCS_GitHub_Updater {
         }
         
         return $result;
+    }
+    
+    /**
+     * Maybe clear cache if version has changed
+     */
+    public function maybe_clear_cache() {
+        $stored_version = get_option('ccs_stored_version');
+        $current_version = $this->get_current_version();
+        
+        if ($stored_version !== $current_version) {
+            error_log('CCS Debug: Version changed from ' . $stored_version . ' to ' . $current_version . ' - clearing cache');
+            $this->clear_version_cache();
+            update_option('ccs_stored_version', $current_version);
+        }
     }
 }
