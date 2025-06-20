@@ -1,4 +1,3 @@
-
 <?php
 /**
  * Canvas Course Sync Controls Component
