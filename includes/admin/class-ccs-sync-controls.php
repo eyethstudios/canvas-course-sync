@@ -39,10 +39,10 @@ class CCS_Sync_Controls {
                 <div id="ccs-course-list" class="ccs-course-list"></div>
                 
                 <div class="ccs-action-buttons" style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #ddd;">
-                    <button id="ccs-sync-selected" class="button button-primary" disabled>
+                    <button id="ccs-sync-selected" class="button button-primary">
                         <?php _e('Sync Selected Courses', 'canvas-course-sync'); ?>
                     </button>
-                    <button id="ccs-omit-courses" class="button button-secondary" style="margin-left: 10px;" disabled>
+                    <button id="ccs-omit-courses" class="button button-secondary" style="margin-left: 10px;">
                         <?php _e('Omit Selected Courses', 'canvas-course-sync'); ?>
                     </button>
                 </div>

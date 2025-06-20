@@ -196,9 +196,10 @@ function initCourseManager($) {
                     coursesWrapper.show();
                 }
                 
-                // Enable both sync and omit buttons
-                $('#ccs-sync-selected').prop('disabled', false);
-                $('#ccs-omit-courses').prop('disabled', false);
+                // Make sure both buttons are visible and enabled
+                console.log('CCS Debug: Enabling sync and omit buttons');
+                $('#ccs-sync-selected').show().prop('disabled', false);
+                $('#ccs-omit-courses').show().prop('disabled', false);
                 
                 console.log('CCS Debug: ===== COURSES LOADED SUCCESSFULLY =====');
                 console.log('CCS Debug: Displayed ' + coursesData.length + ' courses');
