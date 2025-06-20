@@ -1,4 +1,3 @@
-
 <?php
 /**
  * GitHub Updater for Canvas Course Sync
@@ -341,63 +340,6 @@ class CCS_GitHub_Updater {
     
     /**
      * Plugin information for the update screen
-     */
-    public function plugin_info($result, $action, $args) {
-        if ($action !== 'plugin_information' || $args->slug !== $this->plugin_basename) {
-            return $result;
-        }
-        
-        $request = wp_remote_get('https://api.github.com/repos/' . $this->github_repo, array(
-            'timeout' => 10,
-            'headers' => array(
-                'Accept' => 'application/vnd.github.v3+json'
-            )
-        ));
-        
-        if (!is_wp_error($request) && wp_remote_retrieve_response_code($request) === 200) {
-            $body = wp_remote_retrieve_body($request);
-            $data = json_decode($body, true);
-            
-            $result = new stdClass();
-            $result->name = 'Canvas Course Sync';
-            $result->slug = $this->plugin_basename;
-            $result->version = $this->get_remote_version();
-            $result->author = '<a href="http://eyethstudios.com">Eyeth Studios</a>';
-            $result->homepage = $data['html_url'];
-            $result->short_description = $data['description'] ?? 'Synchronize courses from Canvas LMS to WordPress';
-            $result->sections = array(
-                'description' => $data['description'] ?? 'Synchronize courses from Canvas LMS to WordPress with full API integration and course management.',
-                'changelog' => 'View changelog on <a href="' . $data['html_url'] . '/releases" target="_blank">GitHub</a>'
-            );
-            $result->download_link = $this->get_download_url();
-            $result->requires = '5.0';
-            $result->tested = '6.4';
-            $result->requires_php = '7.4';
-            $result->last_updated = $data['updated_at'] ?? date('Y-m-d');
-        }
-        
-        return $result;
-    }
-    
-    /**
-     * Post install actions
-     */
-    public function after_install($response, $hook_extra, $result) {
-        global $wp_filesystem;
-        
-        $install_directory = plugin_dir_path($this->plugin_file);
-        $wp_filesystem->move($result['destination'], $install_directory);
-        $result['destination'] = $install_directory;
-        
-        if ($this->plugin_basename === $hook_extra['plugin']) {
-            $result['destination_name'] = $this->plugin_basename;
-        }
-        
-        return $result;
-    }
-    
-    /**
-     * AJAX handler for manual update check with enhanced feedback
      */
     public function ajax_check_updates() {
         // Verify nonce for security
