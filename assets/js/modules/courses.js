@@ -1,4 +1,5 @@
 
+
 /**
  * Course management functionality
  */
@@ -27,18 +28,26 @@ export function initCourseManager($) {
             },
             success: function(response) {
                 console.log('Full AJAX response:', response);
+                console.log('Response type:', typeof response);
+                console.log('Response success:', response.success);
+                console.log('Response data type:', typeof response.data);
+                console.log('Response data length:', Array.isArray(response.data) ? response.data.length : 'not array');
                 
                 // Check if response has success property and data, or if it's direct course data
                 let coursesData = null;
-                if (response && response.success && Array.isArray(response.data)) {
+                if (response && response.success === true && Array.isArray(response.data)) {
                     coursesData = response.data;
+                    console.log('Using response.data (wp_send_json_success format)');
                 } else if (Array.isArray(response)) {
                     coursesData = response;
+                    console.log('Using direct response array');
                 } else if (response && Array.isArray(response.data)) {
                     coursesData = response.data;
+                    console.log('Using response.data (direct format)');
                 } else {
                     console.error('Unexpected response format:', response);
-                    courseList.html('<p class="error">Unexpected response format from server.</p>');
+                    console.error('Response keys:', Object.keys(response));
+                    courseList.html('<p class="error">Unexpected response format from server. Check console for details.</p>');
                     if (coursesWrapper.length) {
                         coursesWrapper.show();
                     }
@@ -46,6 +55,7 @@ export function initCourseManager($) {
                 }
                 
                 console.log('Courses received:', coursesData);
+                console.log('Number of courses:', coursesData.length);
                 
                 if (!coursesData || coursesData.length === 0) {
                     courseList.html('<p>No courses found.</p>');
@@ -149,6 +159,7 @@ export function initCourseManager($) {
             },
             error: function(xhr, status, error) {
                 console.error('AJAX error:', xhr, status, error);
+                console.error('Response text:', xhr.responseText);
                 courseList.html('<p class="error">Connection error occurred. Please try again.</p>');
                 if (coursesWrapper.length) {
                     coursesWrapper.show();
@@ -262,3 +273,4 @@ export function initCourseManager($) {
         updateSelectAllCheckbox();
     });
 }
+

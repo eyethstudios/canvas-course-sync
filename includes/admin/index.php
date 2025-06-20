@@ -1,3 +1,4 @@
+
 <?php
 /**
  * Admin includes for Canvas Course Sync
@@ -85,12 +86,15 @@ function ccs_ajax_get_courses() {
         wp_send_json_error($courses->get_error_message());
     } else {
         error_log('CCS Debug: API get_courses successful, found ' . count($courses) . ' courses');
+        error_log('CCS Debug: Sample course data: ' . print_r(array_slice($courses, 0, 2), true));
         
         // Filter out excluded courses
         $courses = array_filter($courses, function($course) {
             $course_name = isset($course['name']) ? $course['name'] : '';
             return !ccs_is_course_excluded($course_name);
         });
+        
+        error_log('CCS Debug: After filtering, ' . count($courses) . ' courses remain');
         
         // Get existing WordPress courses for comparison
         $existing_wp_courses = get_posts(array(
@@ -155,6 +159,9 @@ function ccs_ajax_get_courses() {
                 $courses[$key]['status_label'] = 'New';
             }
         }
+        
+        error_log('CCS Debug: Sending response with ' . count($courses) . ' processed courses');
+        error_log('CCS Debug: Final response structure: ' . print_r(array('success' => true, 'data' => array_slice($courses, 0, 2)), true));
         
         wp_send_json_success($courses);
     }
