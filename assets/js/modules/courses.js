@@ -190,21 +190,15 @@ function initCourseManager($) {
                         '</div>';
                 });
                 
-                // Add sync button section at the bottom
-                html += '<div class="ccs-action-buttons" style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #ddd;">' +
-                    '<button id="ccs-sync-selected" class="button button-primary" disabled>' +
-                    'Sync Selected Courses' +
-                    '</button>' +
-                    '</div>';
-                
                 console.log('CCS Debug: Generated HTML length:', html.length);
                 courseList.html(html);
                 if (coursesWrapper.length) {
                     coursesWrapper.show();
                 }
                 
-                // Enable sync button
+                // Enable both sync and omit buttons
                 $('#ccs-sync-selected').prop('disabled', false);
+                $('#ccs-omit-courses').prop('disabled', false);
                 
                 console.log('CCS Debug: ===== COURSES LOADED SUCCESSFULLY =====');
                 console.log('CCS Debug: Displayed ' + coursesData.length + ' courses');
@@ -248,6 +242,82 @@ function initCourseManager($) {
                     button.text('Get Courses');
                 }
                 console.log('CCS Debug: AJAX request completed');
+            }
+        });
+    });
+
+    // Add sync selected courses functionality
+    $(document).on('click', '#ccs-sync-selected', function(e) {
+        e.preventDefault();
+        console.log('CCS Debug: Sync selected courses button clicked');
+        
+        const selectedCourses = $('.ccs-course-checkbox:checked').map(function() {
+            return $(this).val();
+        }).get();
+        
+        console.log('CCS Debug: Selected courses for sync:', selectedCourses);
+        
+        if (selectedCourses.length === 0) {
+            alert('Please select at least one course to sync.');
+            return;
+        }
+        
+        const confirmMsg = 'Are you sure you want to sync ' + selectedCourses.length + ' selected course(s)?';
+        if (!confirm(confirmMsg)) {
+            return;
+        }
+        
+        const button = $(this);
+        const originalText = button.text();
+        const progress = $('#ccs-sync-progress');
+        const results = $('#ccs-sync-results');
+        
+        button.prop('disabled', true).text('Syncing...');
+        progress.show();
+        results.hide();
+        
+        $.ajax({
+            url: ccsAjax.ajaxUrl,
+            type: 'POST',
+            data: {
+                action: 'ccs_sync_courses',
+                nonce: ccsAjax.syncCoursesNonce,
+                course_ids: selectedCourses
+            },
+            success: function(response) {
+                console.log('CCS Debug: Sync response:', response);
+                button.prop('disabled', false).text(originalText);
+                progress.hide();
+                
+                if (response.success && response.data) {
+                    const data = response.data;
+                    $('#ccs-sync-message').html('<div class="notice notice-success inline"><p>' + (data.message || 'Sync completed successfully!') + '</p></div>');
+                    $('#ccs-imported').text(data.imported || 0);
+                    $('#ccs-skipped').text(data.skipped || 0);
+                    $('#ccs-errors').text(data.errors || 0);
+                } else {
+                    const errorMessage = response.data && response.data.message ? response.data.message : 'Sync failed with unknown error.';
+                    $('#ccs-sync-message').html('<div class="notice notice-error inline"><p>' + errorMessage + '</p></div>');
+                    console.error('CCS Debug: Sync failed:', response);
+                }
+                
+                results.show();
+            },
+            error: function(xhr, status, error) {
+                console.error('CCS Debug: Sync AJAX error:', error, xhr.responseText);
+                button.prop('disabled', false).text(originalText);
+                progress.hide();
+                
+                let errorDetails = '';
+                try {
+                    const errorResponse = JSON.parse(xhr.responseText);
+                    errorDetails = errorResponse.data && errorResponse.data.message ? errorResponse.data.message : xhr.responseText;
+                } catch (e) {
+                    errorDetails = xhr.responseText || error;
+                }
+                
+                $('#ccs-sync-message').html('<div class="notice notice-error inline"><p><strong>Connection Error:</strong> ' + error + '<br><small>Details: ' + errorDetails + '</small></p></div>');
+                results.show();
             }
         });
     });
