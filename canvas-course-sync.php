@@ -1,3 +1,4 @@
+
 <?php
 /**
  * Plugin Name: Canvas Course Sync
@@ -137,7 +138,9 @@ class Canvas_Course_Sync {
             'includes/canvas-api.php',
             'includes/importer.php',
             'includes/class-ccs-scheduler.php',
-            'includes/class-ccs-github-updater.php'
+            'includes/class-ccs-github-updater.php',
+            'includes/handlers/class-ccs-media-handler.php',
+            'includes/handlers/class-ccs-content-handler.php'
         );
         
         foreach ($required_files as $file) {
@@ -154,7 +157,9 @@ class Canvas_Course_Sync {
                 'includes/admin/class-ccs-admin-menu.php',
                 'includes/admin/class-ccs-admin-page.php',
                 'includes/admin/class-ccs-logs-display.php',
-                'includes/admin/class-ccs-email-settings.php'
+                'includes/admin/class-ccs-email-settings.php',
+                'includes/admin/class-ccs-sync-controls.php',
+                'includes/admin/class-ccs-version-manager.php'
             );
             
             foreach ($admin_files as $file) {

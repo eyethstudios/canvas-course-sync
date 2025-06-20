@@ -1,4 +1,3 @@
-
 <?php
 /**
  * GitHub Updater for Canvas Course Sync
@@ -125,7 +124,7 @@ class CCS_GitHub_Updater {
         delete_site_transient('update_plugins');
         wp_clean_update_cache();
         
-        error_log('CCS Debug: Forced update check completed');
+        error_log('CCS Debug: Forced update check completed - cleared all caches');
     }
     
     /**
@@ -175,10 +174,12 @@ class CCS_GitHub_Updater {
         if (!$force_fresh) {
             $cached_version = get_transient($cache_key);
             if ($cached_version !== false) {
+                error_log('CCS Debug: Using cached version: ' . $cached_version);
                 return $cached_version;
             }
         }
         
+        error_log('CCS Debug: Fetching fresh version from GitHub API');
         $request_url = 'https://api.github.com/repos/' . $this->github_repo . '/releases/latest';
         
         $request = wp_remote_get($request_url, array(
@@ -197,14 +198,18 @@ class CCS_GitHub_Updater {
         $response_code = wp_remote_retrieve_response_code($request);
         $response_body = wp_remote_retrieve_body($request);
         
+        error_log('CCS Debug: GitHub API response code: ' . $response_code);
+        
         if ($response_code === 200 && !empty($response_body)) {
             $data = json_decode($response_body, true);
+            error_log('CCS Debug: GitHub API response data: ' . print_r($data, true));
             
             if (isset($data['tag_name']) && !empty($data['tag_name'])) {
                 $clean_version = $this->normalize_version($data['tag_name']);
                 
                 if (!empty($clean_version)) {
-                    set_transient($cache_key, $clean_version, HOUR_IN_SECONDS);
+                    error_log('CCS Debug: Setting cached version: ' . $clean_version);
+                    set_transient($cache_key, $clean_version, 30 * MINUTE_IN_SECONDS); // Shorter cache
                     return $clean_version;
                 }
             }
@@ -286,6 +291,8 @@ class CCS_GitHub_Updater {
         
         $current_version = $this->get_current_version();
         $remote_version = $this->get_remote_version(true);
+        
+        error_log('CCS Debug: Manual update check - Current: ' . $current_version . ', Remote: ' . $remote_version);
         
         if ($this->is_update_available($current_version, $remote_version)) {
             wp_send_json_success(array(

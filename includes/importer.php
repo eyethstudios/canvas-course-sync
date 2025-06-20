@@ -25,6 +25,16 @@ class CCS_Course_Importer {
      * API instance
      */
     private $api;
+
+    /**
+     * Media handler instance
+     */
+    private $media_handler;
+
+    /**
+     * Content handler instance
+     */
+    private $content_handler;
     
     /**
      * Constructor
@@ -58,6 +68,30 @@ class CCS_Course_Importer {
         }
         return $this->api;
     }
+
+    /**
+     * Get media handler instance safely
+     */
+    private function get_media_handler() {
+        if ($this->media_handler === null) {
+            if (class_exists('CCS_Media_Handler')) {
+                $this->media_handler = new CCS_Media_Handler();
+            }
+        }
+        return $this->media_handler;
+    }
+
+    /**
+     * Get content handler instance safely
+     */
+    private function get_content_handler() {
+        if ($this->content_handler === null) {
+            if (class_exists('CCS_Content_Handler')) {
+                $this->content_handler = new CCS_Content_Handler();
+            }
+        }
+        return $this->content_handler;
+    }
     
     /**
      * Import courses from Canvas
@@ -70,6 +104,8 @@ class CCS_Course_Importer {
         
         $api = $this->get_api();
         $logger = $this->get_logger();
+        $media_handler = $this->get_media_handler();
+        $content_handler = $this->get_content_handler();
         
         if (!$api) {
             error_log('CCS Debug: API not available');
@@ -138,13 +174,22 @@ class CCS_Course_Importer {
                     continue;
                 }
                 
-                // Create WordPress post
+                // Prepare course content
                 $course_name = $course_name ?: 'Untitled Course';
-                $course_description = isset($course_details['description']) ? $course_details['description'] : '';
+                $course_content = '';
                 
+                if ($content_handler) {
+                    $course_content = $content_handler->prepare_course_content((object)$course_details);
+                } else {
+                    // Fallback content preparation
+                    $course_description = isset($course_details['description']) ? $course_details['description'] : '';
+                    $course_content = wp_kses_post($course_description);
+                }
+                
+                // Create WordPress post
                 $post_data = array(
                     'post_title' => sanitize_text_field($course_name),
-                    'post_content' => wp_kses_post($course_description),
+                    'post_content' => $course_content,
                     'post_status' => 'publish',
                     'post_type' => 'courses',
                     'post_author' => get_current_user_id()
@@ -161,6 +206,23 @@ class CCS_Course_Importer {
                     update_post_meta($post_id, 'canvas_start_at', sanitize_text_field($course_details['start_at'] ?? ''));
                     update_post_meta($post_id, 'canvas_end_at', sanitize_text_field($course_details['end_at'] ?? ''));
                     update_post_meta($post_id, 'canvas_enrollment_term_id', intval($course_details['enrollment_term_id'] ?? 0));
+                    
+                    // Add enrollment link
+                    if (!empty($course_details['html_url'])) {
+                        update_post_meta($post_id, 'link', esc_url_raw($course_details['html_url']));
+                        if ($logger) $logger->log('Added enrollment link: ' . $course_details['html_url']);
+                    }
+                    
+                    // Handle course image
+                    if (!empty($course_details['image_download_url']) && $media_handler) {
+                        if ($logger) $logger->log('Attempting to set featured image from: ' . $course_details['image_download_url']);
+                        $image_result = $media_handler->set_featured_image($post_id, $course_details['image_download_url'], $course_name);
+                        if ($image_result) {
+                            if ($logger) $logger->log('Successfully set featured image for course: ' . $course_name);
+                        } else {
+                            if ($logger) $logger->log('Failed to set featured image for course: ' . $course_name, 'warning');
+                        }
+                    }
                     
                     $results['imported']++;
                     if ($logger) $logger->log('Successfully imported course: ' . $course_name . ' (ID: ' . $course_id . ')');

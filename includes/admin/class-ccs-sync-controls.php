@@ -16,6 +16,51 @@ class CCS_Sync_Controls {
     public function __construct() {
         // Hook the render method to the action
         add_action('ccs_render_sync_controls', array($this, 'render'));
+        
+        // Add AJAX handlers for omit functionality
+        add_action('wp_ajax_ccs_omit_courses', array($this, 'ajax_omit_courses'));
+    }
+
+    /**
+     * AJAX handler for omitting courses
+     */
+    public function ajax_omit_courses() {
+        // Verify nonce and permissions
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array('message' => 'Insufficient permissions'));
+            return;
+        }
+        
+        $nonce = isset($_POST['nonce']) ? sanitize_text_field($_POST['nonce']) : '';
+        if (!wp_verify_nonce($nonce, 'ccs_omit_courses')) {
+            wp_send_json_error(array('message' => 'Security check failed'));
+            return;
+        }
+        
+        $course_ids = isset($_POST['course_ids']) ? array_map('intval', $_POST['course_ids']) : array();
+        
+        if (empty($course_ids)) {
+            wp_send_json_error(array('message' => 'No courses selected'));
+            return;
+        }
+        
+        // Get existing omitted courses
+        $omitted_courses = get_option('ccs_omitted_courses', array());
+        
+        // Add new courses to omitted list
+        foreach ($course_ids as $course_id) {
+            if (!in_array($course_id, $omitted_courses)) {
+                $omitted_courses[] = $course_id;
+            }
+        }
+        
+        // Save updated list
+        update_option('ccs_omitted_courses', $omitted_courses);
+        
+        wp_send_json_success(array(
+            'message' => sprintf(__('%d courses have been omitted from future syncs.', 'canvas-course-sync'), count($course_ids)),
+            'omitted_count' => count($course_ids)
+        ));
     }
 
     /**
@@ -42,7 +87,7 @@ class CCS_Sync_Controls {
                     <button id="ccs-sync-selected" class="button button-primary">
                         <?php _e('Sync Selected Courses', 'canvas-course-sync'); ?>
                     </button>
-                    <button id="ccs-omit-courses" class="button button-secondary" style="margin-left: 10px;">
+                    <button id="ccs-omit-selected" class="button button-secondary" style="margin-left: 10px;">
                         <?php _e('Omit Selected Courses', 'canvas-course-sync'); ?>
                     </button>
                 </div>
@@ -75,6 +120,56 @@ class CCS_Sync_Controls {
                 </div>
             </div>
         </div>
+        
+        <script type="text/javascript">
+        jQuery(document).ready(function($) {
+            // Add omit courses functionality
+            $('#ccs-omit-selected').on('click', function(e) {
+                e.preventDefault();
+                
+                const selectedCourses = $('.ccs-course-checkbox:checked').map(function() {
+                    return $(this).val();
+                }).get();
+                
+                if (selectedCourses.length === 0) {
+                    alert('Please select at least one course to omit.');
+                    return;
+                }
+                
+                if (!confirm('Are you sure you want to omit ' + selectedCourses.length + ' course(s) from future syncs?')) {
+                    return;
+                }
+                
+                const button = $(this);
+                button.prop('disabled', true).text('Omitting...');
+                
+                $.ajax({
+                    url: ajaxurl,
+                    type: 'POST',
+                    data: {
+                        action: 'ccs_omit_courses',
+                        nonce: '<?php echo wp_create_nonce('ccs_omit_courses'); ?>',
+                        course_ids: selectedCourses
+                    },
+                    success: function(response) {
+                        button.prop('disabled', false).text('<?php _e('Omit Selected Courses', 'canvas-course-sync'); ?>');
+                        
+                        if (response.success) {
+                            alert(response.data.message);
+                            // Refresh course list to show omitted status
+                            $('#ccs-get-courses').click();
+                        } else {
+                            alert('Error: ' + (response.data.message || 'Unknown error occurred'));
+                        }
+                    },
+                    error: function() {
+                        button.prop('disabled', false).text('<?php _e('Omit Selected Courses', 'canvas-course-sync'); ?>');
+                        alert('Network error occurred. Please try again.');
+                    }
+                });
+            });
+        });
+        </script>
         <?php
     }
 }

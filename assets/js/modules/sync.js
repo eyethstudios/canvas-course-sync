@@ -5,7 +5,8 @@
 export function initSyncManager($) {
     console.log('CCS Debug: Initializing sync manager');
     
-    $('#ccs-sync-courses').on('click', function(e) {
+    // Sync selected courses
+    $('#ccs-sync-selected, #ccs-sync-courses').on('click', function(e) {
         e.preventDefault();
         console.log('CCS Debug: Sync button clicked');
         
