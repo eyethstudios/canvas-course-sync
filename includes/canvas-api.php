@@ -46,9 +46,9 @@ class CCS_Canvas_API {
     }
     
     /**
-     * Make API request to Canvas
+     * Make API request to Canvas (now public for use by other classes)
      */
-    private function make_request($endpoint, $method = 'GET', $data = null) {
+    public function make_request($endpoint, $method = 'GET', $data = null) {
         if (empty($this->canvas_domain) || empty($this->canvas_token)) {
             return new WP_Error('missing_credentials', __('Canvas API credentials not configured.', 'canvas-course-sync'));
         }

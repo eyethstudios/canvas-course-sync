@@ -203,14 +203,14 @@ class CCS_Course_Importer {
                     update_post_meta($post_id, 'canvas_end_at', sanitize_text_field($course_details['end_at'] ?? ''));
                     update_post_meta($post_id, 'canvas_enrollment_term_id', intval($course_details['enrollment_term_id'] ?? 0));
                     
-                    // Add enrollment link to custom field "link"
+                    // Add enrollment link to custom field "link" - fix the URL issue
                     if (!empty($course_details['html_url'])) {
                         $enrollment_url = esc_url_raw($course_details['html_url']);
-                        update_post_meta($post_id, 'link', $enrollment_url);
-                        error_log('CCS Debug: Successfully added enrollment link: ' . $enrollment_url);
+                        $link_updated = update_post_meta($post_id, 'link', $enrollment_url);
+                        error_log('CCS Debug: Enrollment link update result: ' . ($link_updated ? 'success' : 'failed') . ' - URL: ' . $enrollment_url);
                         if ($this->logger) $this->logger->log('Added enrollment link: ' . $enrollment_url);
                     } else {
-                        error_log('CCS Debug: No html_url found in course details');
+                        error_log('CCS Debug: No html_url found in course details - available keys: ' . implode(', ', array_keys($course_details)));
                         if ($this->logger) $this->logger->log('Warning: No enrollment URL found for course: ' . $course_name, 'warning');
                     }
                     
