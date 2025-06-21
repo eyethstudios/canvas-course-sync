@@ -1,4 +1,3 @@
-
 <?php
 /**
  * Canvas Course Sync Admin Page
@@ -30,6 +29,13 @@ class CCS_Admin_Page {
     private $email_settings;
 
     /**
+     * Script verifier instance
+     *
+     * @var CCS_Script_Verifier
+     */
+    private $script_verifier;
+
+    /**
      * Constructor
      */
     public function __construct() {
@@ -40,6 +46,14 @@ class CCS_Admin_Page {
         if (class_exists('CCS_Email_Settings')) {
             $this->email_settings = new CCS_Email_Settings();
         }
+        
+        // Initialize script verifier for admin pages
+        if (!class_exists('CCS_Script_Verifier')) {
+            require_once plugin_dir_path(__FILE__) . '../class-ccs-script-verifier.php';
+        }
+        $this->script_verifier = new CCS_Script_Verifier();
+        
+        error_log('CCS_Admin_Page: Constructor completed with script verifier');
     }
 
     /**

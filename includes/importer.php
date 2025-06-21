@@ -1,3 +1,4 @@
+
 <?php
 /**
  * Course Importer class for Canvas Course Sync
@@ -34,6 +35,16 @@ class CCS_Course_Importer {
      * Content handler instance
      */
     private $content_handler;
+
+    /**
+     * Database manager instance
+     */
+    private $db_manager;
+
+    /**
+     * Slug generator instance
+     */
+    private $slug_generator;
     
     /**
      * Constructor
@@ -75,27 +86,18 @@ class CCS_Course_Importer {
             require_once plugin_dir_path(__FILE__) . 'handlers/class-ccs-content-handler.php';
         }
         $this->content_handler = new CCS_Content_Handler();
-    }
-    
-    /**
-     * Generate URL slug from course title
-     *
-     * @param string $title Course title
-     * @return string URL slug
-     */
-    private function generate_course_slug($title) {
-        // Convert to lowercase and replace spaces/special chars with hyphens
-        $slug = strtolower($title);
-        $slug = preg_replace('/[^a-z0-9\s\-]/', '', $slug);
-        $slug = preg_replace('/[\s\-]+/', '-', $slug);
-        $slug = trim($slug, '-');
-        
-        // Ensure it's not empty
-        if (empty($slug)) {
-            $slug = 'course';
+
+        // Initialize database manager
+        if (!class_exists('CCS_Database_Manager')) {
+            require_once plugin_dir_path(__FILE__) . 'class-ccs-database-manager.php';
         }
-        
-        return $slug;
+        $this->db_manager = new CCS_Database_Manager();
+
+        // Initialize slug generator
+        if (!class_exists('CCS_Slug_Generator')) {
+            require_once plugin_dir_path(__FILE__) . 'class-ccs-slug-generator.php';
+        }
+        $this->slug_generator = new CCS_Slug_Generator();
     }
     
     /**
@@ -118,7 +120,8 @@ class CCS_Course_Importer {
             'skipped' => 0,
             'errors' => 0,
             'total' => count($course_ids),
-            'message' => ''
+            'message' => '',
+            'details' => array()
         );
         
         error_log('CCS_Importer: Starting import of ' . count($course_ids) . ' courses');
@@ -134,40 +137,37 @@ class CCS_Course_Importer {
             ), 300);
             
             try {
-                // ENHANCED duplicate prevention with detailed logging
+                // ENHANCED duplicate prevention using database manager
                 error_log('CCS_Importer: Checking for existing course with Canvas ID: ' . $course_id);
                 
-                $existing_by_canvas_id = get_posts(array(
-                    'post_type' => 'courses',
-                    'meta_query' => array(
-                        array(
-                            'key' => 'canvas_course_id',
-                            'value' => intval($course_id),
-                            'compare' => '='
-                        )
-                    ),
-                    'posts_per_page' => 1,
-                    'post_status' => 'any'
-                ));
+                $exists_check = $this->db_manager->course_exists($course_id);
                 
-                error_log('CCS_Importer: Canvas ID check query result: ' . print_r($existing_by_canvas_id, true));
-                
-                if (!empty($existing_by_canvas_id)) {
-                    $existing_post = $existing_by_canvas_id[0];
-                    error_log('CCS_Importer: DUPLICATE FOUND - Course already exists (Canvas ID check)');
-                    error_log('CCS_Importer: Existing post ID: ' . $existing_post->ID . ', Title: ' . $existing_post->post_title);
+                if ($exists_check['exists']) {
+                    error_log('CCS_Importer: DUPLICATE FOUND - Course already exists: ' . $exists_check['type']);
+                    error_log('CCS_Importer: Existing data: ' . print_r($exists_check['data'], true));
                     $results['skipped']++;
-                    if ($this->logger) $this->logger->log('Course already exists (Canvas ID check): ' . $course_id . ' - Post ID: ' . $existing_post->ID);
+                    $results['details'][] = array(
+                        'course_id' => $course_id,
+                        'status' => 'skipped',
+                        'reason' => 'Already exists (' . $exists_check['type'] . ')',
+                        'existing_post_id' => $exists_check['post_id']
+                    );
+                    if ($this->logger) $this->logger->log('Course already exists (' . $exists_check['type'] . '): ' . $course_id . ' - Post ID: ' . $exists_check['post_id']);
                     continue;
                 }
                 
-                error_log('CCS_Importer: No existing course found by Canvas ID, fetching course details...');
+                error_log('CCS_Importer: No existing course found, fetching course details...');
                 $course_details = $this->api->get_course_details($course_id);
                 
                 if (is_wp_error($course_details)) {
                     error_log('CCS_Importer: ERROR - Failed to get course details: ' . $course_details->get_error_message());
                     $results['errors']++;
                     $error_msg = 'Failed to get course details for ID ' . $course_id . ': ' . $course_details->get_error_message();
+                    $results['details'][] = array(
+                        'course_id' => $course_id,
+                        'status' => 'error',
+                        'reason' => $error_msg
+                    );
                     if ($this->logger) $this->logger->log($error_msg, 'error');
                     continue;
                 }
@@ -177,41 +177,32 @@ class CCS_Course_Importer {
                 $course_name = isset($course_details['name']) ? trim($course_details['name']) : 'Untitled Course';
                 error_log('CCS_Importer: Course name: ' . $course_name);
                 
-                // Additional check by exact title match to prevent any duplicates
-                error_log('CCS_Importer: Checking for existing course by title: ' . $course_name);
+                // VERIFY SLUG GENERATION with detailed logging
+                error_log('CCS_Importer: Generating course slug for: ' . $course_name);
+                $slug_result = $this->slug_generator->generate_course_slug($course_name, $course_id);
                 
-                $existing_by_title = get_posts(array(
-                    'post_type' => 'courses',
-                    'title' => $course_name,
-                    'posts_per_page' => 1,
-                    'post_status' => 'any'
-                ));
-                
-                error_log('CCS_Importer: Title check query result: ' . print_r($existing_by_title, true));
-                
-                if (!empty($existing_by_title)) {
-                    $existing_canvas_id = get_post_meta($existing_by_title[0]->ID, 'canvas_course_id', true);
-                    error_log('CCS_Importer: Found existing course by title - Canvas ID: ' . $existing_canvas_id);
-                    
-                    if (intval($existing_canvas_id) === intval($course_id)) {
-                        error_log('CCS_Importer: DUPLICATE FOUND - Same Canvas ID, skipping');
-                        $results['skipped']++;
-                        if ($this->logger) $this->logger->log('Course already exists (title + Canvas ID match): ' . $course_name . ' - Canvas ID: ' . $course_id);
-                        continue;
-                    }
-                    // If different Canvas ID, append ID to make title unique
-                    $original_name = $course_name;
-                    $course_name = $course_name . ' (Canvas ID: ' . $course_id . ')';
-                    error_log('CCS_Importer: Title conflict resolved - changed from "' . $original_name . '" to "' . $course_name . '"');
+                if (!$slug_result['success']) {
+                    error_log('CCS_Importer: ERROR - Slug generation failed: ' . $slug_result['error']);
+                    $results['errors']++;
+                    $results['details'][] = array(
+                        'course_id' => $course_id,
+                        'status' => 'error',
+                        'reason' => 'Slug generation failed: ' . $slug_result['error']
+                    );
+                    continue;
                 }
                 
-                // Generate slug-based course URL with detailed logging
-                error_log('CCS_Importer: Generating course slug for: ' . $course_name);
-                $course_slug = $this->generate_course_slug($course_name);
-                error_log('CCS_Importer: Generated slug: ' . $course_slug);
+                $course_slug = $slug_result['slug'];
+                error_log('CCS_Importer: ✓ SLUG GENERATION VERIFIED - Generated slug: ' . $course_slug);
                 
-                $enrollment_url = 'https://learn.nationaldeafcenter.org/courses/' . $course_slug;
-                error_log('CCS_Importer: Generated enrollment URL: ' . $enrollment_url);
+                // VERIFY ENROLLMENT URL GENERATION
+                $enrollment_url = $this->slug_generator->generate_enrollment_url($course_slug);
+                if (!$enrollment_url) {
+                    error_log('CCS_Importer: ERROR - URL generation failed for slug: ' . $course_slug);
+                    $results['errors']++;
+                    continue;
+                }
+                error_log('CCS_Importer: ✓ URL GENERATION VERIFIED - Generated URL: ' . $enrollment_url);
                 
                 // Prepare course content using content handler with course ID
                 $course_content = '';
@@ -220,45 +211,33 @@ class CCS_Course_Importer {
                     // Pass course_id as part of course details for proper content generation
                     $course_details['id'] = $course_id;
                     $course_content = $this->content_handler->prepare_course_content($course_details);
-                    error_log('CCS_Importer: Generated course content length: ' . strlen($course_content));
+                    error_log('CCS_Importer: ✓ CONTENT GENERATION VERIFIED - Generated content length: ' . strlen($course_content));
                 } else {
                     error_log('CCS_Importer: WARNING - Content handler not available');
                 }
                 
-                // Create WordPress post with detailed logging
-                error_log('CCS_Importer: Creating WordPress post...');
-                $post_data = array(
-                    'post_title' => sanitize_text_field($course_name),
-                    'post_content' => $course_content,
-                    'post_status' => 'publish',
-                    'post_type' => 'courses',
-                    'post_author' => get_current_user_id()
+                // Prepare data for database transaction
+                $course_data = array(
+                    'canvas_id' => $course_id,
+                    'title' => $course_name,
+                    'content' => $course_content,
+                    'slug' => $course_slug,
+                    'enrollment_url' => $enrollment_url,
+                    'course_code' => $course_details['course_code'] ?? '',
+                    'start_at' => $course_details['start_at'] ?? '',
+                    'end_at' => $course_details['end_at'] ?? '',
+                    'enrollment_term_id' => $course_details['enrollment_term_id'] ?? 0
                 );
                 
-                error_log('CCS_Importer: Post data: ' . print_r($post_data, true));
+                error_log('CCS_Importer: Creating course with transaction handling...');
+                $creation_result = $this->db_manager->create_course_with_transaction($course_data);
                 
-                $post_id = wp_insert_post($post_data);
-                error_log('CCS_Importer: wp_insert_post result: ' . print_r($post_id, true));
-                
-                if ($post_id && !is_wp_error($post_id)) {
-                    error_log('CCS_Importer: SUCCESS - Post created with ID: ' . $post_id);
+                if ($creation_result['success']) {
+                    $post_id = $creation_result['post_id'];
+                    error_log('CCS_Importer: ✓ COURSE CREATION VERIFIED - Post ID: ' . $post_id);
                     
-                    // Add Canvas metadata with logging
-                    error_log('CCS_Importer: Adding post metadata...');
-                    
-                    $meta_updates = array(
-                        'canvas_course_id' => intval($course_id),
-                        'canvas_course_code' => sanitize_text_field($course_details['course_code'] ?? ''),
-                        'canvas_start_at' => sanitize_text_field($course_details['start_at'] ?? ''),
-                        'canvas_end_at' => sanitize_text_field($course_details['end_at'] ?? ''),
-                        'canvas_enrollment_term_id' => intval($course_details['enrollment_term_id'] ?? 0),
-                        'link' => esc_url_raw($enrollment_url)
-                    );
-                    
-                    foreach ($meta_updates as $meta_key => $meta_value) {
-                        $update_result = update_post_meta($post_id, $meta_key, $meta_value);
-                        error_log('CCS_Importer: Updated meta ' . $meta_key . ' = ' . $meta_value . ' (result: ' . ($update_result ? 'success' : 'failed') . ')');
-                    }
+                    // VERIFY META FIELDS WERE UPDATED CORRECTLY
+                    $this->verify_meta_fields($post_id, $course_data);
                     
                     // Handle course image
                     if (!empty($course_details['image_download_url']) && $this->media_handler) {
@@ -266,24 +245,36 @@ class CCS_Course_Importer {
                         $image_result = $this->media_handler->set_featured_image($post_id, $course_details['image_download_url'], $course_name);
                         
                         if ($image_result) {
-                            error_log('CCS_Importer: Successfully set featured image for: ' . $course_name);
+                            error_log('CCS_Importer: ✓ FEATURED IMAGE VERIFIED - Successfully set for: ' . $course_name);
                             if ($this->logger) $this->logger->log('Successfully set featured image for: ' . $course_name);
                         } else {
-                            error_log('CCS_Importer: Failed to set featured image for: ' . $course_name);
+                            error_log('CCS_Importer: ⚠ Featured image failed for: ' . $course_name);
                             if ($this->logger) $this->logger->log('Failed to set featured image for: ' . $course_name, 'warning');
                         }
-                    } else {
-                        error_log('CCS_Importer: No image URL or media handler not available');
                     }
                     
                     $results['imported']++;
-                    error_log('CCS_Importer: Course import completed - Post ID: ' . $post_id . ', URL: ' . $enrollment_url);
+                    $results['details'][] = array(
+                        'course_id' => $course_id,
+                        'status' => 'imported',
+                        'post_id' => $post_id,
+                        'title' => $course_name,
+                        'slug' => $course_slug,
+                        'url' => $enrollment_url
+                    );
+                    
+                    error_log('CCS_Importer: ✓ COURSE IMPORT COMPLETED SUCCESSFULLY - Post ID: ' . $post_id . ', URL: ' . $enrollment_url);
                     if ($this->logger) $this->logger->log('Successfully imported course: ' . $course_name . ' (Post ID: ' . $post_id . ', URL: ' . $enrollment_url . ')');
                 } else {
                     $results['errors']++;
-                    $error_message = is_wp_error($post_id) ? $post_id->get_error_message() : 'Unknown error';
-                    error_log('CCS_Importer: ERROR - Failed to create post: ' . $error_message);
-                    if ($this->logger) $this->logger->log('Failed to create post for course: ' . $course_name . ' - ' . $error_message, 'error');
+                    $error_message = $creation_result['error'];
+                    error_log('CCS_Importer: ERROR - Database transaction failed: ' . $error_message);
+                    $results['details'][] = array(
+                        'course_id' => $course_id,
+                        'status' => 'error',
+                        'reason' => 'Database transaction failed: ' . $error_message
+                    );
+                    if ($this->logger) $this->logger->log('Database transaction failed for course: ' . $course_name . ' - ' . $error_message, 'error');
                 }
                 
             } catch (Exception $e) {
@@ -291,6 +282,11 @@ class CCS_Course_Importer {
                 $error_msg = 'Exception processing course ID ' . $course_id . ': ' . $e->getMessage();
                 error_log('CCS_Importer: EXCEPTION - ' . $error_msg);
                 error_log('CCS_Importer: Exception trace: ' . $e->getTraceAsString());
+                $results['details'][] = array(
+                    'course_id' => $course_id,
+                    'status' => 'error',
+                    'reason' => $error_msg
+                );
                 if ($this->logger) $this->logger->log($error_msg, 'error');
             }
         }
@@ -305,5 +301,44 @@ class CCS_Course_Importer {
         error_log('CCS_Importer: Import process completed - Results: ' . print_r($results, true));
         
         return $results;
+    }
+
+    /**
+     * Verify meta fields were updated correctly
+     */
+    private function verify_meta_fields($post_id, $course_data) {
+        error_log('CCS_Importer: ✓ VERIFYING META FIELDS for Post ID: ' . $post_id);
+        
+        $expected_meta = array(
+            'canvas_course_id' => intval($course_data['canvas_id']),
+            'canvas_course_code' => $course_data['course_code'],
+            'canvas_start_at' => $course_data['start_at'],
+            'canvas_end_at' => $course_data['end_at'],
+            'canvas_enrollment_term_id' => intval($course_data['enrollment_term_id']),
+            'link' => $course_data['enrollment_url']
+        );
+        
+        $verification_results = array();
+        
+        foreach ($expected_meta as $meta_key => $expected_value) {
+            $actual_value = get_post_meta($post_id, $meta_key, true);
+            $matches = ($actual_value == $expected_value);
+            
+            $verification_results[$meta_key] = array(
+                'expected' => $expected_value,
+                'actual' => $actual_value,
+                'matches' => $matches
+            );
+            
+            if ($matches) {
+                error_log('CCS_Importer: ✓ Meta field verified: ' . $meta_key . ' = ' . $actual_value);
+            } else {
+                error_log('CCS_Importer: ✗ Meta field mismatch: ' . $meta_key . ' - Expected: ' . $expected_value . ', Actual: ' . $actual_value);
+            }
+        }
+        
+        error_log('CCS_Importer: Meta field verification complete: ' . print_r($verification_results, true));
+        
+        return $verification_results;
     }
 }
