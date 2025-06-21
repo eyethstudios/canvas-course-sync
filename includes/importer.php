@@ -74,6 +74,10 @@ class CCS_Course_Importer {
      */
     private function get_media_handler() {
         if ($this->media_handler === null) {
+            // Make sure the class is loaded
+            if (!class_exists('CCS_Media_Handler')) {
+                require_once plugin_dir_path(__FILE__) . 'handlers/class-ccs-media-handler.php';
+            }
             if (class_exists('CCS_Media_Handler')) {
                 $this->media_handler = new CCS_Media_Handler();
             }
@@ -86,6 +90,10 @@ class CCS_Course_Importer {
      */
     private function get_content_handler() {
         if ($this->content_handler === null) {
+            // Make sure the class is loaded
+            if (!class_exists('CCS_Content_Handler')) {
+                require_once plugin_dir_path(__FILE__) . 'handlers/class-ccs-content-handler.php';
+            }
             if (class_exists('CCS_Content_Handler')) {
                 $this->content_handler = new CCS_Content_Handler();
             }
@@ -114,6 +122,14 @@ class CCS_Course_Importer {
         
         if (!$logger) {
             error_log('CCS Debug: Logger not available - continuing without logging');
+        }
+        
+        if (!$media_handler) {
+            error_log('CCS Debug: Media handler not available - images will not be processed');
+        }
+        
+        if (!$content_handler) {
+            error_log('CCS Debug: Content handler not available - using basic content');
         }
         
         $results = array(
@@ -179,12 +195,22 @@ class CCS_Course_Importer {
                 $course_content = '';
                 
                 if ($content_handler) {
+                    error_log('CCS Debug: Using content handler to prepare course content');
                     $course_content = $content_handler->prepare_course_content((object)$course_details);
+                    if ($logger) $logger->log('Content handler returned ' . strlen($course_content) . ' characters');
                 } else {
+                    error_log('CCS Debug: Using fallback content preparation');
                     // Fallback content preparation
-                    $course_description = isset($course_details['description']) ? $course_details['description'] : '';
-                    $course_content = wp_kses_post($course_description);
+                    if (!empty($course_details['syllabus_body'])) {
+                        $course_content = wp_kses_post($course_details['syllabus_body']);
+                    } elseif (!empty($course_details['public_description'])) {
+                        $course_content = wp_kses_post($course_details['public_description']);
+                    } elseif (!empty($course_details['description'])) {
+                        $course_content = wp_kses_post($course_details['description']);
+                    }
                 }
+                
+                error_log('CCS Debug: Final course content length: ' . strlen($course_content));
                 
                 // Create WordPress post
                 $post_data = array(
@@ -200,6 +226,8 @@ class CCS_Course_Importer {
                 $post_id = wp_insert_post($post_data);
                 
                 if ($post_id && !is_wp_error($post_id)) {
+                    error_log('CCS Debug: Successfully created post ID: ' . $post_id);
+                    
                     // Add Canvas metadata
                     update_post_meta($post_id, 'canvas_course_id', intval($course_id));
                     update_post_meta($post_id, 'canvas_course_code', sanitize_text_field($course_details['course_code'] ?? ''));
@@ -207,21 +235,32 @@ class CCS_Course_Importer {
                     update_post_meta($post_id, 'canvas_end_at', sanitize_text_field($course_details['end_at'] ?? ''));
                     update_post_meta($post_id, 'canvas_enrollment_term_id', intval($course_details['enrollment_term_id'] ?? 0));
                     
-                    // Add enrollment link
+                    // Add enrollment link - Fixed the field name
                     if (!empty($course_details['html_url'])) {
-                        update_post_meta($post_id, 'link', esc_url_raw($course_details['html_url']));
-                        if ($logger) $logger->log('Added enrollment link: ' . $course_details['html_url']);
+                        $enrollment_url = esc_url_raw($course_details['html_url']);
+                        update_post_meta($post_id, 'link', $enrollment_url);
+                        error_log('CCS Debug: Added enrollment link: ' . $enrollment_url);
+                        if ($logger) $logger->log('Added enrollment link: ' . $enrollment_url);
                     }
                     
-                    // Handle course image
+                    // Handle course image - Fixed the logic
                     if (!empty($course_details['image_download_url']) && $media_handler) {
+                        error_log('CCS Debug: Attempting to set featured image from: ' . $course_details['image_download_url']);
                         if ($logger) $logger->log('Attempting to set featured image from: ' . $course_details['image_download_url']);
+                        
                         $image_result = $media_handler->set_featured_image($post_id, $course_details['image_download_url'], $course_name);
+                        
                         if ($image_result) {
+                            error_log('CCS Debug: Successfully set featured image for course: ' . $course_name);
                             if ($logger) $logger->log('Successfully set featured image for course: ' . $course_name);
                         } else {
+                            error_log('CCS Debug: Failed to set featured image for course: ' . $course_name);
                             if ($logger) $logger->log('Failed to set featured image for course: ' . $course_name, 'warning');
                         }
+                    } elseif (empty($course_details['image_download_url'])) {
+                        error_log('CCS Debug: No image URL available for course: ' . $course_name);
+                    } elseif (!$media_handler) {
+                        error_log('CCS Debug: Media handler not available for course: ' . $course_name);
                     }
                     
                     $results['imported']++;
