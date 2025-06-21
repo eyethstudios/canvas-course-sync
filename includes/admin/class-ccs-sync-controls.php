@@ -16,51 +16,6 @@ class CCS_Sync_Controls {
     public function __construct() {
         // Hook the render method to the action
         add_action('ccs_render_sync_controls', array($this, 'render'));
-        
-        // Add AJAX handlers for omit functionality
-        add_action('wp_ajax_ccs_omit_courses', array($this, 'ajax_omit_courses'));
-    }
-
-    /**
-     * AJAX handler for omitting courses
-     */
-    public function ajax_omit_courses() {
-        // Verify nonce and permissions
-        if (!current_user_can('manage_options')) {
-            wp_send_json_error(array('message' => 'Insufficient permissions'));
-            return;
-        }
-        
-        $nonce = isset($_POST['nonce']) ? sanitize_text_field(wp_unslash($_POST['nonce'])) : '';
-        if (!wp_verify_nonce($nonce, 'ccs_omit_courses')) {
-            wp_send_json_error(array('message' => 'Security check failed'));
-            return;
-        }
-        
-        $course_ids = isset($_POST['course_ids']) ? array_map('intval', wp_unslash($_POST['course_ids'])) : array();
-        
-        if (empty($course_ids)) {
-            wp_send_json_error(array('message' => 'No courses selected'));
-            return;
-        }
-        
-        // Get existing omitted courses
-        $omitted_courses = get_option('ccs_omitted_courses', array());
-        
-        // Add new courses to omitted list
-        foreach ($course_ids as $course_id) {
-            if (!in_array($course_id, $omitted_courses)) {
-                $omitted_courses[] = $course_id;
-            }
-        }
-        
-        // Save updated list
-        update_option('ccs_omitted_courses', $omitted_courses);
-        
-        wp_send_json_success(array(
-            'message' => sprintf(esc_html__('%d courses have been omitted from future syncs.', 'canvas-course-sync'), count($course_ids)),
-            'omitted_count' => count($course_ids)
-        ));
     }
 
     /**
@@ -133,20 +88,20 @@ class CCS_Sync_Controls {
             console.log('CCS Debug: Sync controls script loaded');
             
             // Select/Deselect all functionality
-            $('#ccs-select-all').on('click', function(e) {
+            $('#ccs-select-all').off('click').on('click', function(e) {
                 e.preventDefault();
                 $('.ccs-course-checkbox').prop('checked', true);
                 console.log('CCS Debug: All courses selected');
             });
             
-            $('#ccs-deselect-all').on('click', function(e) {
+            $('#ccs-deselect-all').off('click').on('click', function(e) {
                 e.preventDefault();
                 $('.ccs-course-checkbox').prop('checked', false);
                 console.log('CCS Debug: All courses deselected');
             });
             
             // Omit courses functionality
-            $('#ccs-omit-selected').on('click', function(e) {
+            $('#ccs-omit-selected').off('click').on('click', function(e) {
                 e.preventDefault();
                 console.log('CCS Debug: Omit button clicked');
                 

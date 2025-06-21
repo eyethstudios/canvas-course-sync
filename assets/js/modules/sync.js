@@ -7,10 +7,10 @@ export function initSyncManager($) {
     
     let syncInProgress = false; // Prevent duplicate syncs
     
-    // Sync selected courses - consolidated handler for both buttons
-    $('#ccs-sync-selected, #ccs-sync-courses').off('click').on('click', function(e) {
+    // Only bind to the main sync button to avoid conflicts with sync controls
+    $('#ccs-sync-selected').off('click.syncManager').on('click.syncManager', function(e) {
         e.preventDefault();
-        console.log('CCS Debug: Sync button clicked');
+        console.log('CCS Debug: Main sync button clicked');
         
         // Prevent duplicate syncs
         if (syncInProgress) {
@@ -26,6 +26,11 @@ export function initSyncManager($) {
         
         if (selectedCourses.length === 0) {
             alert('Please select at least one course to sync.');
+            return;
+        }
+        
+        // Single confirmation popup
+        if (!confirm('Are you sure you want to sync ' + selectedCourses.length + ' selected course(s)?')) {
             return;
         }
         
