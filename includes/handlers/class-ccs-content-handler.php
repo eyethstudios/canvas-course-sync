@@ -26,6 +26,7 @@ class CCS_Content_Handler {
      */
     public function __construct() {
         $this->init_dependencies();
+        error_log('CCS_Content_Handler: Constructor called at ' . current_time('mysql'));
     }
 
     /**
@@ -36,11 +37,15 @@ class CCS_Content_Handler {
         
         if ($canvas_course_sync && isset($canvas_course_sync->logger)) {
             $this->logger = $canvas_course_sync->logger;
+            error_log('CCS_Content_Handler: Logger initialized from main plugin instance');
         } elseif (class_exists('CCS_Logger')) {
             $this->logger = new CCS_Logger();
+            error_log('CCS_Content_Handler: Logger initialized as new instance');
+        } else {
+            error_log('CCS_Content_Handler: Logger not available - CCS_Logger class not found');
         }
         
-        error_log('CCS Debug: Content handler initialized with logger: ' . ($this->logger ? 'yes' : 'no'));
+        error_log('CCS_Content_Handler: Dependencies initialized - logger: ' . ($this->logger ? 'available' : 'unavailable'));
     }
 
     /**
@@ -50,66 +55,97 @@ class CCS_Content_Handler {
      * @return string Prepared content
      */
     public function prepare_course_content($course_details) {
-        error_log('CCS Debug: prepare_course_content called');
+        error_log('CCS_Content_Handler: prepare_course_content() called at ' . current_time('mysql'));
+        error_log('CCS_Content_Handler: Input data type: ' . gettype($course_details));
+        error_log('CCS_Content_Handler: Input data structure: ' . print_r($course_details, true));
         
         if (empty($course_details)) {
-            error_log('CCS Debug: No course details provided');
+            error_log('CCS_Content_Handler: ERROR - No course details provided');
             return '';
         }
         
         // Convert array to object if needed
         if (is_array($course_details)) {
             $course_details = (object)$course_details;
+            error_log('CCS_Content_Handler: Converted array to object');
         }
         
         $course_name = isset($course_details->name) ? $course_details->name : 'Unknown Course';
         $course_id = isset($course_details->id) ? $course_details->id : null;
-        error_log('CCS Debug: Processing course: ' . $course_name . ' (ID: ' . $course_id . ')');
+        error_log('CCS_Content_Handler: Processing course: ' . $course_name . ' (Canvas ID: ' . $course_id . ')');
         
         $content = '';
         
         // Try to get modules and build detailed content
         if (!empty($course_id)) {
+            error_log('CCS_Content_Handler: Attempting to fetch modules for course ID: ' . $course_id);
+            
             $canvas_course_sync = canvas_course_sync();
             if ($canvas_course_sync && isset($canvas_course_sync->api)) {
-                error_log('CCS Debug: Getting modules for course ' . $course_id);
-                $modules = $canvas_course_sync->api->get_course_modules($course_id);
+                error_log('CCS_Content_Handler: Canvas API instance available, fetching modules...');
                 
-                if (!is_wp_error($modules) && !empty($modules)) {
-                    error_log('CCS Debug: Found ' . count($modules) . ' modules');
+                $modules = $canvas_course_sync->api->get_course_modules($course_id);
+                error_log('CCS_Content_Handler: Modules API response type: ' . gettype($modules));
+                
+                if (is_wp_error($modules)) {
+                    error_log('CCS_Content_Handler: ERROR - Modules API returned WP_Error: ' . $modules->get_error_message());
+                    error_log('CCS_Content_Handler: Error code: ' . $modules->get_error_code());
+                } elseif (empty($modules)) {
+                    error_log('CCS_Content_Handler: WARNING - Modules API returned empty result');
+                } elseif (!is_array($modules)) {
+                    error_log('CCS_Content_Handler: ERROR - Modules API returned non-array: ' . print_r($modules, true));
+                } else {
+                    error_log('CCS_Content_Handler: SUCCESS - Found ' . count($modules) . ' modules');
+                    error_log('CCS_Content_Handler: Modules data structure: ' . print_r($modules, true));
+                    
                     $content = $this->build_detailed_content($modules, $course_id);
                     
                     if (!empty($content)) {
-                        error_log('CCS Debug: Built detailed content (' . strlen($content) . ' chars)');
+                        error_log('CCS_Content_Handler: Built detailed content (' . strlen($content) . ' characters)');
                         
                         // Add badge and CE information for courses with module content
                         $content .= $this->get_badge_and_ce_content();
                         
                         return $content;
+                    } else {
+                        error_log('CCS_Content_Handler: WARNING - build_detailed_content returned empty content');
                     }
-                } else {
-                    error_log('CCS Debug: No modules found or error: ' . (is_wp_error($modules) ? $modules->get_error_message() : 'empty'));
+                }
+            } else {
+                error_log('CCS_Content_Handler: ERROR - Canvas API instance not available');
+                error_log('CCS_Content_Handler: canvas_course_sync available: ' . ($canvas_course_sync ? 'yes' : 'no'));
+                if ($canvas_course_sync) {
+                    error_log('CCS_Content_Handler: canvas_course_sync->api available: ' . (isset($canvas_course_sync->api) ? 'yes' : 'no'));
                 }
             }
+        } else {
+            error_log('CCS_Content_Handler: WARNING - No course ID available for module fetching');
         }
         
         // Fallback content with course description if available
-        error_log('CCS Debug: Using fallback content');
+        error_log('CCS_Content_Handler: Using fallback content generation');
         
         if (!empty($course_details->public_description)) {
             $content .= "<h2>Course Description</h2>\n" . wp_kses_post($course_details->public_description) . "\n\n";
+            error_log('CCS_Content_Handler: Added public_description to content');
         } elseif (!empty($course_details->description)) {
             $content .= "<h2>Course Description</h2>\n" . wp_kses_post($course_details->description) . "\n\n";
+            error_log('CCS_Content_Handler: Added description to content');
+        } else {
+            error_log('CCS_Content_Handler: No description available');
         }
         
         if (!empty($course_details->syllabus_body)) {
             $content .= "<h2>Course Syllabus</h2>\n" . wp_kses_post($course_details->syllabus_body) . "\n\n";
+            error_log('CCS_Content_Handler: Added syllabus_body to content');
+        } else {
+            error_log('CCS_Content_Handler: No syllabus_body available');
         }
         
         // Add badge and CE info for fallback content too
         $content .= $this->get_badge_and_ce_content();
         
-        error_log('CCS Debug: Final content length: ' . strlen($content));
+        error_log('CCS_Content_Handler: Final content length: ' . strlen($content) . ' characters');
         return $content;
     }
 
@@ -140,7 +176,7 @@ class CCS_Content_Handler {
                 $content .= "<div class='module-description'>\n";
                 $content .= wp_kses_post($module['description']) . "\n";
                 $content .= "</div>\n\n";
-                error_log('CCS Debug: Added module description for: ' . $module['name']);
+                error_log('CCS_Debug: Added module description for: ' . $module['name']);
             }
             
             // Get module items to extract learning objectives and content
@@ -192,7 +228,7 @@ class CCS_Content_Handler {
                     $found_objectives[] = $objective_text;
                 }
                 
-                error_log('CCS Debug: Found learning objective: ' . $objective_text);
+                error_log('CCS_Debug: Found learning objective: ' . $objective_text);
                 continue;
             }
             
@@ -209,7 +245,7 @@ class CCS_Content_Handler {
                 $objectives_content .= "<li>" . $objective . "</li>\n";
             }
             $objectives_content .= "</ul>\n\n";
-            error_log('CCS Debug: Added ' . count($found_objectives) . ' learning objectives for: ' . $module_name);
+            error_log('CCS_Debug: Added ' . count($found_objectives) . ' learning objectives for: ' . $module_name);
         }
         
         return $objectives_content;
