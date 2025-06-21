@@ -1,6 +1,8 @@
+
 <?php
 /**
- * Handles content preparation for course imports
+ * Content Handler for Canvas Course Sync
+ * Builds detailed course content from Canvas API data
  *
  * @package Canvas_Course_Sync
  */
@@ -10,14 +12,14 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-/**
- * Content Handler class
- */
 class CCS_Content_Handler {
     /**
+     * Canvas API instance
+     */
+    private $api;
+
+    /**
      * Logger instance
-     *
-     * @var CCS_Logger
      */
     private $logger;
 
@@ -26,268 +28,343 @@ class CCS_Content_Handler {
      */
     public function __construct() {
         $this->init_dependencies();
-        error_log('CCS_Content_Handler: Constructor called at ' . current_time('mysql'));
     }
 
     /**
-     * Initialize dependencies safely
+     * Initialize dependencies
      */
     private function init_dependencies() {
         $canvas_course_sync = canvas_course_sync();
         
-        if ($canvas_course_sync && isset($canvas_course_sync->logger)) {
-            $this->logger = $canvas_course_sync->logger;
-            error_log('CCS_Content_Handler: Logger initialized from main plugin instance');
-        } elseif (class_exists('CCS_Logger')) {
-            $this->logger = new CCS_Logger();
-            error_log('CCS_Content_Handler: Logger initialized as new instance');
-        } else {
-            error_log('CCS_Content_Handler: Logger not available - CCS_Logger class not found');
+        if ($canvas_course_sync && isset($canvas_course_sync->api)) {
+            $this->api = $canvas_course_sync->api;
         }
         
-        error_log('CCS_Content_Handler: Dependencies initialized - logger: ' . ($this->logger ? 'available' : 'unavailable'));
+        if ($canvas_course_sync && isset($canvas_course_sync->logger)) {
+            $this->logger = $canvas_course_sync->logger;
+        }
     }
 
     /**
-     * Prepare course content from Canvas data
+     * Prepare detailed course content
      * 
-     * @param array|object $course_details Course details from Canvas API
-     * @return string Prepared content
+     * @param array $course_details Course details from Canvas API
+     * @return string Complete course content HTML
      */
     public function prepare_course_content($course_details) {
-        error_log('CCS_Content_Handler: prepare_course_content() called at ' . current_time('mysql'));
-        error_log('CCS_Content_Handler: Input data type: ' . gettype($course_details));
-        error_log('CCS_Content_Handler: Input data structure: ' . print_r($course_details, true));
-        
-        if (empty($course_details)) {
-            error_log('CCS_Content_Handler: ERROR - No course details provided');
+        if (empty($course_details) || empty($course_details['id'])) {
             return '';
         }
-        
-        // Convert array to object if needed
-        if (is_array($course_details)) {
-            $course_details = (object)$course_details;
-            error_log('CCS_Content_Handler: Converted array to object');
-        }
-        
-        $course_name = isset($course_details->name) ? $course_details->name : 'Unknown Course';
-        $course_id = isset($course_details->id) ? $course_details->id : null;
-        error_log('CCS_Content_Handler: Processing course: ' . $course_name . ' (Canvas ID: ' . $course_id . ')');
-        
+
+        $course_id = $course_details['id'];
         $content = '';
-        
-        // Try to get modules and build detailed content
-        if (!empty($course_id)) {
-            error_log('CCS_Content_Handler: Attempting to fetch modules for course ID: ' . $course_id);
-            
-            $canvas_course_sync = canvas_course_sync();
-            if ($canvas_course_sync && isset($canvas_course_sync->api)) {
-                error_log('CCS_Content_Handler: Canvas API instance available, fetching modules...');
-                
-                $modules = $canvas_course_sync->api->get_course_modules($course_id);
-                error_log('CCS_Content_Handler: Modules API response type: ' . gettype($modules));
-                
-                if (is_wp_error($modules)) {
-                    error_log('CCS_Content_Handler: ERROR - Modules API returned WP_Error: ' . $modules->get_error_message());
-                    error_log('CCS_Content_Handler: Error code: ' . $modules->get_error_code());
-                } elseif (empty($modules)) {
-                    error_log('CCS_Content_Handler: WARNING - Modules API returned empty result');
-                } elseif (!is_array($modules)) {
-                    error_log('CCS_Content_Handler: ERROR - Modules API returned non-array: ' . print_r($modules, true));
-                } else {
-                    error_log('CCS_Content_Handler: SUCCESS - Found ' . count($modules) . ' modules');
-                    error_log('CCS_Content_Handler: Modules data structure: ' . print_r($modules, true));
-                    
-                    $content = $this->build_detailed_content($modules, $course_id);
-                    
-                    if (!empty($content)) {
-                        error_log('CCS_Content_Handler: Built detailed content (' . strlen($content) . ' characters)');
-                        
-                        // Add badge and CE information for courses with module content
-                        $content .= $this->get_badge_and_ce_content();
-                        
-                        return $content;
-                    } else {
-                        error_log('CCS_Content_Handler: WARNING - build_detailed_content returned empty content');
-                    }
-                }
-            } else {
-                error_log('CCS_Content_Handler: ERROR - Canvas API instance not available');
-                error_log('CCS_Content_Handler: canvas_course_sync available: ' . ($canvas_course_sync ? 'yes' : 'no'));
-                if ($canvas_course_sync) {
-                    error_log('CCS_Content_Handler: canvas_course_sync->api available: ' . (isset($canvas_course_sync->api) ? 'yes' : 'no'));
-                }
-            }
-        } else {
-            error_log('CCS_Content_Handler: WARNING - No course ID available for module fetching');
-        }
-        
-        // Fallback content with course description if available
-        error_log('CCS_Content_Handler: Using fallback content generation');
-        
-        if (!empty($course_details->public_description)) {
-            $content .= "<h2>Course Description</h2>\n" . wp_kses_post($course_details->public_description) . "\n\n";
-            error_log('CCS_Content_Handler: Added public_description to content');
-        } elseif (!empty($course_details->description)) {
-            $content .= "<h2>Course Description</h2>\n" . wp_kses_post($course_details->description) . "\n\n";
-            error_log('CCS_Content_Handler: Added description to content');
-        } else {
-            error_log('CCS_Content_Handler: No description available');
-        }
-        
-        if (!empty($course_details->syllabus_body)) {
-            $content .= "<h2>Course Syllabus</h2>\n" . wp_kses_post($course_details->syllabus_body) . "\n\n";
-            error_log('CCS_Content_Handler: Added syllabus_body to content');
-        } else {
-            error_log('CCS_Content_Handler: No syllabus_body available');
-        }
-        
-        // Add badge and CE info for fallback content too
-        $content .= $this->get_badge_and_ce_content();
-        
-        error_log('CCS_Content_Handler: Final content length: ' . strlen($content) . ' characters');
+
+        // Course Overview Section
+        $content .= $this->build_course_overview($course_details);
+
+        // Detailed Modules Section
+        $content .= $this->build_modules_content($course_id);
+
+        // Learning Outcomes Section
+        $content .= $this->build_learning_outcomes($course_id);
+
+        // Assessment and Completion Section
+        $content .= $this->build_assessment_section($course_id);
+
+        // Badge and CE Credits Section (course-specific)
+        $content .= $this->build_credentials_section($course_details);
+
         return $content;
     }
 
     /**
-     * Build detailed content from modules
-     * 
-     * @param array $modules Array of modules
-     * @param int $course_id Course ID
-     * @return string Built content
+     * Build course overview section
      */
-    private function build_detailed_content($modules, $course_id) {
-        if (empty($modules) || !is_array($modules)) {
+    private function build_course_overview($course_details) {
+        $content = '';
+        
+        if (!empty($course_details['public_description'])) {
+            $content .= "<div class='course-overview'>\n";
+            $content .= "<h2>Course Overview</h2>\n";
+            $content .= wp_kses_post($course_details['public_description']) . "\n";
+            $content .= "</div>\n\n";
+        }
+
+        if (!empty($course_details['syllabus_body'])) {
+            $content .= "<div class='course-syllabus'>\n";
+            $content .= "<h2>Course Information</h2>\n";
+            $content .= wp_kses_post($course_details['syllabus_body']) . "\n";
+            $content .= "</div>\n\n";
+        }
+
+        return $content;
+    }
+
+    /**
+     * Build detailed modules content
+     */
+    private function build_modules_content($course_id) {
+        if (!$this->api) {
             return '';
         }
 
-        $content = '';
-        $canvas_course_sync = canvas_course_sync();
+        $modules = $this->api->get_course_modules($course_id);
         
+        if (is_wp_error($modules) || empty($modules)) {
+            return '';
+        }
+
+        $content = "<div class='course-modules'>\n";
+        $content .= "<h2>Course Modules</h2>\n";
+
         foreach ($modules as $module) {
             if (empty($module['name'])) {
                 continue;
             }
-            
-            $content .= "<h2>" . esc_html($module['name']) . "</h2>\n";
-            
-            // Add module description if available
+
+            $content .= "<div class='module'>\n";
+            $content .= "<h3>" . esc_html($module['name']) . "</h3>\n";
+
+            // Module description
             if (!empty($module['description'])) {
                 $content .= "<div class='module-description'>\n";
                 $content .= wp_kses_post($module['description']) . "\n";
-                $content .= "</div>\n\n";
-                error_log('CCS_Debug: Added module description for: ' . $module['name']);
+                $content .= "</div>\n";
             }
-            
-            // Get module items to extract learning objectives and content
-            if (!empty($module['id']) && $canvas_course_sync && isset($canvas_course_sync->api)) {
-                $module_items_endpoint = "courses/{$course_id}/modules/{$module['id']}/items?include[]=content_details";
-                $module_items = $canvas_course_sync->api->make_request($module_items_endpoint);
-                
-                if (!is_wp_error($module_items) && !empty($module_items)) {
-                    $learning_objectives = $this->extract_learning_objectives($module_items, $module['name']);
-                    if (!empty($learning_objectives)) {
-                        $content .= $learning_objectives;
+
+            // Get module items for detailed content
+            $module_items = $this->get_module_items($course_id, $module['id']);
+            if (!empty($module_items)) {
+                $content .= $this->build_module_items_content($module_items);
+            }
+
+            $content .= "</div>\n\n";
+        }
+
+        $content .= "</div>\n\n";
+        return $content;
+    }
+
+    /**
+     * Get module items from Canvas API
+     */
+    private function get_module_items($course_id, $module_id) {
+        if (!$this->api) {
+            return array();
+        }
+
+        $endpoint = "courses/{$course_id}/modules/{$module_id}/items?include[]=content_details";
+        $items = $this->api->make_request($endpoint);
+
+        if (is_wp_error($items)) {
+            return array();
+        }
+
+        return is_array($items) ? $items : array();
+    }
+
+    /**
+     * Build module items content
+     */
+    private function build_module_items_content($items) {
+        $content = "<div class='module-items'>\n";
+        $content .= "<ul>\n";
+
+        foreach ($items as $item) {
+            if (empty($item['title'])) {
+                continue;
+            }
+
+            $content .= "<li>";
+            $content .= "<strong>" . esc_html($item['title']) . "</strong>";
+
+            // Add item type badge
+            if (!empty($item['type'])) {
+                $type_label = $this->get_item_type_label($item['type']);
+                $content .= " <span class='item-type'>[" . $type_label . "]</span>";
+            }
+
+            // Add item description if available
+            if (!empty($item['content_details']['body'])) {
+                $content .= "<div class='item-description'>";
+                $content .= wp_kses_post($item['content_details']['body']);
+                $content .= "</div>";
+            }
+
+            $content .= "</li>\n";
+        }
+
+        $content .= "</ul>\n</div>\n";
+        return $content;
+    }
+
+    /**
+     * Get readable item type label
+     */
+    private function get_item_type_label($type) {
+        $types = array(
+            'Assignment' => 'Assignment',
+            'Quiz' => 'Quiz',
+            'Page' => 'Reading',
+            'Discussion' => 'Discussion',
+            'ExternalUrl' => 'External Link',
+            'File' => 'Document',
+            'ExternalTool' => 'Interactive Tool'
+        );
+
+        return isset($types[$type]) ? $types[$type] : $type;
+    }
+
+    /**
+     * Build learning outcomes section
+     */
+    private function build_learning_outcomes($course_id) {
+        if (!$this->api) {
+            return '';
+        }
+
+        // Get course outcomes
+        $outcomes = $this->api->make_request("courses/{$course_id}/outcome_groups");
+        
+        if (is_wp_error($outcomes) || empty($outcomes)) {
+            return '';
+        }
+
+        $content = "<div class='learning-outcomes'>\n";
+        $content .= "<h2>Learning Outcomes</h2>\n";
+        $content .= "<p>Upon successful completion of this course, you will be able to:</p>\n";
+        $content .= "<ul>\n";
+
+        foreach ($outcomes as $outcome_group) {
+            if (!empty($outcome_group['outcomes'])) {
+                foreach ($outcome_group['outcomes'] as $outcome) {
+                    if (!empty($outcome['description'])) {
+                        $content .= "<li>" . wp_kses_post($outcome['description']) . "</li>\n";
                     }
                 }
             }
         }
-        
+
+        $content .= "</ul>\n</div>\n\n";
         return $content;
     }
 
     /**
-     * Extract learning objectives from module items
-     * 
-     * @param array $module_items Array of module items
-     * @param string $module_name Module name for logging
-     * @return string Learning objectives content
+     * Build assessment section
      */
-    private function extract_learning_objectives($module_items, $module_name) {
-        $objectives_content = '';
-        $found_objectives = array();
-        
-        foreach ($module_items as $item) {
-            if (empty($item['title'])) {
-                continue;
-            }
-            
-            $item_title = $item['title'];
-            
-            // Look for learning objectives in various forms
-            if (preg_match('/(?:learning\s+)?objectives?|outcomes?|goals?/i', $item_title)) {
-                
-                // Try to get the actual content of the objective item
-                if (!empty($item['page_url']) && isset($item['type']) && $item['type'] === 'Page') {
-                    // This is a page with objectives - we could fetch its content
-                    $objective_text = $this->clean_objective_text($item_title);
-                    $found_objectives[] = $objective_text;
-                } else {
-                    // Just use the title
-                    $objective_text = $this->clean_objective_text($item_title);
-                    $found_objectives[] = $objective_text;
+    private function build_assessment_section($course_id) {
+        if (!$this->api) {
+            return '';
+        }
+
+        // Get assignments and quizzes
+        $assignments = $this->api->make_request("courses/{$course_id}/assignments");
+        $quizzes = $this->api->make_request("courses/{$course_id}/quizzes");
+
+        $content = "<div class='course-assessment'>\n";
+        $content .= "<h2>Assessment & Completion Requirements</h2>\n";
+
+        if (!is_wp_error($assignments) && !empty($assignments)) {
+            $content .= "<h3>Assignments</h3>\n<ul>\n";
+            foreach ($assignments as $assignment) {
+                if (!empty($assignment['name'])) {
+                    $content .= "<li>" . esc_html($assignment['name']);
+                    if (!empty($assignment['points_possible'])) {
+                        $content .= " (" . $assignment['points_possible'] . " points)";
+                    }
+                    $content .= "</li>\n";
                 }
-                
-                error_log('CCS_Debug: Found learning objective: ' . $objective_text);
-                continue;
             }
-            
-            // Also look for items that might contain objectives in their content
-            if (preg_match('/^(by the end|upon completion|after completing|students will)/i', $item_title)) {
-                $found_objectives[] = esc_html($item_title);
-            }
+            $content .= "</ul>\n";
         }
-        
-        // Build learning objectives section
-        if (!empty($found_objectives)) {
-            $objectives_content .= "<h3>Learning Objectives</h3>\n<ul>\n";
-            foreach (array_unique($found_objectives) as $objective) {
-                $objectives_content .= "<li>" . $objective . "</li>\n";
+
+        if (!is_wp_error($quizzes) && !empty($quizzes)) {
+            $content .= "<h3>Quizzes & Assessments</h3>\n<ul>\n";
+            foreach ($quizzes as $quiz) {
+                if (!empty($quiz['title'])) {
+                    $content .= "<li>" . esc_html($quiz['title']);
+                    if (!empty($quiz['points_possible'])) {
+                        $content .= " (" . $quiz['points_possible'] . " points)";
+                    }
+                    $content .= "</li>\n";
+                }
             }
-            $objectives_content .= "</ul>\n\n";
-            error_log('CCS_Debug: Added ' . count($found_objectives) . ' learning objectives for: ' . $module_name);
+            $content .= "</ul>\n";
         }
-        
-        return $objectives_content;
+
+        $content .= "</div>\n\n";
+        return $content;
     }
 
     /**
-     * Clean and format objective text
-     * 
-     * @param string $text Raw objective text
-     * @return string Cleaned objective text
+     * Build course-specific credentials section
      */
-    private function clean_objective_text($text) {
-        // Remove common prefixes
-        $text = preg_replace('/^(learning\s+)?objectives?:?\s*/i', '', $text);
-        $text = preg_replace('/^(learning\s+)?outcomes?:?\s*/i', '', $text);
-        $text = preg_replace('/^(learning\s+)?goals?:?\s*/i', '', $text);
+    private function build_credentials_section($course_details) {
+        $course_name = $course_details['name'] ?? 'this course';
         
-        // Clean up formatting
-        $text = trim($text);
-        $text = ucfirst($text);
+        $content = "<div class='course-credentials'>\n";
         
-        // Ensure it ends with proper punctuation
-        if (!preg_match('/[.!?]$/', $text)) {
-            $text .= '.';
+        // Digital Badge Section
+        $content .= "<h2>Digital Badge</h2>\n";
+        $content .= "<p>Upon successful completion of <strong>" . esc_html($course_name) . "</strong>, you will receive a digital badge that validates your achievement. This badge can be:</p>\n";
+        $content .= "<ul>\n";
+        $content .= "<li>Shared on professional networks like LinkedIn</li>\n";
+        $content .= "<li>Added to your email signature</li>\n";
+        $content .= "<li>Included in your professional portfolio</li>\n";
+        $content .= "<li>Used to demonstrate your expertise to employers</li>\n";
+        $content .= "</ul>\n\n";
+
+        // CE Credits Section
+        $content .= "<h2>Continuing Education Credits</h2>\n";
+        
+        // Try to extract CE information from course details
+        $ce_hours = $this->extract_ce_hours($course_details);
+        
+        if ($ce_hours) {
+            $content .= "<p><strong>" . esc_html($course_name) . "</strong> is approved for <strong>" . $ce_hours . " continuing education credits</strong>.</p>\n";
+        } else {
+            $content .= "<p><strong>" . esc_html($course_name) . "</strong> may qualify for continuing education credits.</p>\n";
         }
         
-        return esc_html($text);
-    }
-    
-    /**
-     * Get badge and continuing education content
-     * 
-     * @return string Badge and CE content
-     */
-    private function get_badge_and_ce_content() {
-        $content = "<h2>Digital Badge</h2>\n";
-        $content .= "<p>Upon successful completion of all course modules and assessments, participants will receive a digital badge that can be shared on professional networks and social media platforms.</p>\n\n";
+        $content .= "<div class='ce-details'>\n";
+        $content .= "<h3>Professional Recognition</h3>\n";
+        $content .= "<p>This course content has been developed to meet professional standards and may be accepted by:</p>\n";
+        $content .= "<ul>\n";
+        $content .= "<li>State licensing boards</li>\n";
+        $content .= "<li>Professional certification organizations</li>\n";
+        $content .= "<li>Employers for professional development requirements</li>\n";
+        $content .= "</ul>\n";
+        $content .= "<p><em>Note: CE credit acceptance varies by profession and jurisdiction. Please verify requirements with your specific licensing board or organization.</em></p>\n";
+        $content .= "</div>\n";
         
-        $content .= "<h2>Continuing Education Credits</h2>\n";
-        $content .= "<p>This course may qualify for Continuing Education (CE) credits. The number of credits and acceptance varies by profession and licensing board.</p>\n";
-        $content .= "<p><strong>Important:</strong> Please verify CE credit acceptance with your specific licensing board or professional organization before enrollment, as requirements vary by state and profession.</p>\n\n";
+        $content .= "</div>\n\n";
         
         return $content;
+    }
+
+    /**
+     * Extract CE hours from course details
+     */
+    private function extract_ce_hours($course_details) {
+        // Look for CE hours in various fields
+        $search_fields = array(
+            'public_description',
+            'description', 
+            'syllabus_body',
+            'name'
+        );
+
+        foreach ($search_fields as $field) {
+            if (!empty($course_details[$field])) {
+                $text = $course_details[$field];
+                
+                // Look for patterns like "1.5 CE", "2 hours", "3.0 credits"
+                if (preg_match('/(\d+(?:\.\d+)?)\s*(?:CE|credit|hour)s?/i', $text, $matches)) {
+                    return $matches[1] . ' hours';
+                }
+            }
+        }
+
+        return null;
     }
 }
