@@ -7,15 +7,19 @@ export function initSyncManager($) {
     
     let syncInProgress = false; // Prevent duplicate syncs
     
-    // Only bind to the main sync button to avoid conflicts with sync controls
-    $('#ccs-sync-selected').off('click.syncManager').on('click.syncManager', function(e) {
+    // Clear any existing event handlers to prevent duplicates
+    $('#ccs-sync-selected').off('click.syncManager');
+    
+    // Only bind to the main sync button once
+    $('#ccs-sync-selected').on('click.syncManager', function(e) {
         e.preventDefault();
+        e.stopPropagation();
         console.log('CCS Debug: Main sync button clicked');
         
         // Prevent duplicate syncs
         if (syncInProgress) {
             console.log('CCS Debug: Sync already in progress, ignoring click');
-            return;
+            return false;
         }
         
         const selectedCourses = $('.ccs-course-checkbox:checked').map(function() {
@@ -26,12 +30,12 @@ export function initSyncManager($) {
         
         if (selectedCourses.length === 0) {
             alert('Please select at least one course to sync.');
-            return;
+            return false;
         }
         
         // Single confirmation popup
         if (!confirm('Are you sure you want to sync ' + selectedCourses.length + ' selected course(s)?')) {
-            return;
+            return false;
         }
         
         const button = $(this);
@@ -139,6 +143,8 @@ export function initSyncManager($) {
                 results.show();
             }
         });
+        
+        return false;
     });
     
     console.log('CCS Debug: Sync manager initialized');

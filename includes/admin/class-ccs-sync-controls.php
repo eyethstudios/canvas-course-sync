@@ -39,7 +39,7 @@ class CCS_Sync_Controls {
             <div id="ccs-courses-wrapper" style="display: none;">
                 <div id="ccs-course-list" class="ccs-course-list"></div>
                 
-                <div class="ccs-action-buttons" style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #ddd;">
+                <div class="ccs-action-buttons" style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #ddd; display: block;">
                     <button id="ccs-sync-selected" class="button button-primary">
                         <?php esc_html_e('Sync Selected Courses', 'canvas-course-sync'); ?>
                     </button>
@@ -87,21 +87,24 @@ class CCS_Sync_Controls {
         jQuery(document).ready(function($) {
             console.log('CCS Debug: Sync controls script loaded');
             
+            // Clear any existing event handlers to prevent duplicates
+            $('#ccs-select-all, #ccs-deselect-all, #ccs-omit-selected').off('click.ccsControls');
+            
             // Select/Deselect all functionality
-            $('#ccs-select-all').off('click').on('click', function(e) {
+            $('#ccs-select-all').on('click.ccsControls', function(e) {
                 e.preventDefault();
                 $('.ccs-course-checkbox').prop('checked', true);
                 console.log('CCS Debug: All courses selected');
             });
             
-            $('#ccs-deselect-all').off('click').on('click', function(e) {
+            $('#ccs-deselect-all').on('click.ccsControls', function(e) {
                 e.preventDefault();
                 $('.ccs-course-checkbox').prop('checked', false);
                 console.log('CCS Debug: All courses deselected');
             });
             
             // Omit courses functionality
-            $('#ccs-omit-selected').off('click').on('click', function(e) {
+            $('#ccs-omit-selected').on('click.ccsControls', function(e) {
                 e.preventDefault();
                 console.log('CCS Debug: Omit button clicked');
                 
@@ -125,7 +128,7 @@ class CCS_Sync_Controls {
                 button.prop('disabled', true).text('<?php echo esc_js(__('Omitting...', 'canvas-course-sync')); ?>');
                 
                 $.ajax({
-                    url: ajaxurl,
+                    url: ccsAjax.ajaxUrl,
                     type: 'POST',
                     data: {
                         action: 'ccs_omit_courses',

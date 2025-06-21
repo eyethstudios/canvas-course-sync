@@ -203,35 +203,40 @@ class CCS_Course_Importer {
                     update_post_meta($post_id, 'canvas_end_at', sanitize_text_field($course_details['end_at'] ?? ''));
                     update_post_meta($post_id, 'canvas_enrollment_term_id', intval($course_details['enrollment_term_id'] ?? 0));
                     
-                    // Add enrollment link to custom field "link" - ensure proper URL format
+                    // Handle enrollment link with multiple strategies
                     $enrollment_url = '';
+                    
+                    // Strategy 1: Direct html_url from course details
                     if (!empty($course_details['html_url'])) {
                         $enrollment_url = esc_url_raw($course_details['html_url']);
-                    } elseif (!empty($course_details['calendar']['ics'])) {
-                        // Sometimes the URL is in the calendar ics field
-                        $enrollment_url = esc_url_raw($course_details['calendar']['ics']);
+                        error_log('CCS Debug: Using html_url: ' . $enrollment_url);
+                    }
+                    // Strategy 2: Construct from Canvas domain and course ID
+                    else {
+                        $canvas_domain = get_option('ccs_canvas_domain');
+                        if (!empty($canvas_domain)) {
+                            // Clean up domain
+                            $canvas_domain = trim($canvas_domain);
+                            $canvas_domain = rtrim($canvas_domain, '/');
+                            
+                            // Add protocol if missing
+                            if (!preg_match('/^https?:\/\//', $canvas_domain)) {
+                                $canvas_domain = 'https://' . $canvas_domain;
+                            }
+                            
+                            $enrollment_url = $canvas_domain . '/courses/' . $course_id;
+                            error_log('CCS Debug: Constructed enrollment URL: ' . $enrollment_url);
+                        }
                     }
                     
+                    // Save the enrollment link
                     if (!empty($enrollment_url)) {
                         $link_updated = update_post_meta($post_id, 'link', $enrollment_url);
                         error_log('CCS Debug: Enrollment link update result: ' . ($link_updated ? 'success' : 'failed') . ' - URL: ' . $enrollment_url);
                         if ($this->logger) $this->logger->log('Added enrollment link: ' . $enrollment_url);
                     } else {
-                        error_log('CCS Debug: No enrollment URL found in course details');
-                        error_log('CCS Debug: Available course detail keys: ' . implode(', ', array_keys($course_details)));
+                        error_log('CCS Debug: No enrollment URL could be determined');
                         if ($this->logger) $this->logger->log('Warning: No enrollment URL found for course: ' . $course_name, 'warning');
-                        
-                        // Try to construct URL from domain and course ID
-                        $canvas_domain = get_option('ccs_canvas_domain');
-                        if (!empty($canvas_domain)) {
-                            $constructed_url = rtrim($canvas_domain, '/') . '/courses/' . $course_id;
-                            if (!preg_match('/^https?:\/\//', $constructed_url)) {
-                                $constructed_url = 'https://' . $constructed_url;
-                            }
-                            update_post_meta($post_id, 'link', esc_url_raw($constructed_url));
-                            error_log('CCS Debug: Constructed enrollment URL: ' . $constructed_url);
-                            if ($this->logger) $this->logger->log('Constructed enrollment link: ' . $constructed_url);
-                        }
                     }
                     
                     // Handle course image
