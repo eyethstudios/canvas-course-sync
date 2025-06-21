@@ -6,30 +6,37 @@ export function initSyncManager($) {
     let syncInProgress = false;
     
     // Completely remove any existing handlers to prevent duplicates
-    $('#ccs-sync-selected').off('click.sync');
+    $('#ccs-sync-selected').off('.sync');
     
     $('#ccs-sync-selected').on('click.sync', function(e) {
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
         
-        // Prevent duplicate syncs
+        console.log('Sync button clicked, syncInProgress:', syncInProgress);
+        
+        // Prevent duplicate syncs - check immediately and return
         if (syncInProgress) {
             console.log('Sync already in progress, ignoring duplicate request');
             return false;
         }
+        
+        // Set sync in progress flag IMMEDIATELY to prevent any race conditions
+        syncInProgress = true;
         
         const selectedCourses = $('.ccs-course-checkbox:checked').map(function() {
             return $(this).val();
         }).get();
         
         if (selectedCourses.length === 0) {
+            syncInProgress = false; // Reset flag
             alert('Please select at least one course to sync.');
             return false;
         }
         
-        // Single confirmation dialog - prevent multiple popups
+        // Single confirmation dialog
         if (!confirm('Are you sure you want to sync ' + selectedCourses.length + ' selected course(s)?')) {
+            syncInProgress = false; // Reset flag
             return false;
         }
         
@@ -39,16 +46,15 @@ export function initSyncManager($) {
         const statusText = $('#ccs-sync-status');
         const progressBar = $('#ccs-sync-progress-bar');
         
-        // Set sync in progress flag immediately
-        syncInProgress = true;
-        
-        // Disable all sync buttons and show progress
-        $('#ccs-sync-selected, #ccs-sync-courses').prop('disabled', true);
+        // Disable ALL sync-related buttons immediately
+        $('#ccs-sync-selected, #ccs-sync-courses, #ccs-get-courses').prop('disabled', true);
         progress.show();
         results.hide();
         
         // Clear any previous messages
         $('#ccs-sync-message').empty();
+        statusText.html('Initializing sync...');
+        progressBar.css('width', '0%').text('0%');
         
         // Status polling interval
         let syncInterval = setInterval(function() {
@@ -85,11 +91,12 @@ export function initSyncManager($) {
                 course_ids: selectedCourses
             },
             success: function(response) {
+                console.log('Sync completed successfully');
                 clearInterval(syncInterval);
                 
-                // Re-enable buttons and reset sync flag
-                $('#ccs-sync-selected, #ccs-sync-courses').prop('disabled', false);
+                // Reset sync state
                 syncInProgress = false;
+                $('#ccs-sync-selected, #ccs-sync-courses, #ccs-get-courses').prop('disabled', false);
                 progress.hide();
                 
                 if (response.success && response.data) {
@@ -113,11 +120,12 @@ export function initSyncManager($) {
                 }, 3000);
             },
             error: function(xhr, status, error) {
+                console.log('Sync failed with error:', error);
                 clearInterval(syncInterval);
                 
-                // Re-enable buttons and reset sync flag
-                $('#ccs-sync-selected, #ccs-sync-courses').prop('disabled', false);
+                // Reset sync state
                 syncInProgress = false;
+                $('#ccs-sync-selected, #ccs-sync-courses, #ccs-get-courses').prop('disabled', false);
                 progress.hide();
                 
                 let errorDetails = '';
