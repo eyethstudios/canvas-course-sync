@@ -168,13 +168,25 @@ class CCS_Course_Importer {
                     update_post_meta($post_id, 'canvas_end_at', sanitize_text_field($course_details['end_at'] ?? ''));
                     update_post_meta($post_id, 'canvas_enrollment_term_id', intval($course_details['enrollment_term_id'] ?? 0));
                     
-                    // Generate student enrollment URL
+                    // Generate and save student enrollment URL - FIXED
                     $enrollment_url = $this->generate_student_enrollment_url($course_id);
                     if (!empty($enrollment_url)) {
-                        update_post_meta($post_id, 'link', $enrollment_url);
+                        update_post_meta($post_id, 'link', esc_url_raw($enrollment_url));
                         if ($this->logger) $this->logger->log('Added student enrollment link: ' . $enrollment_url);
                     } else {
-                        if ($this->logger) $this->logger->log('Warning: No enrollment URL found for course: ' . $course_name, 'warning');
+                        // Fallback URL generation
+                        $canvas_domain = get_option('ccs_canvas_domain', '');
+                        if (!empty($canvas_domain)) {
+                            $canvas_domain = rtrim($canvas_domain, '/');
+                            if (!preg_match('/^https?:\/\//', $canvas_domain)) {
+                                $canvas_domain = 'https://' . $canvas_domain;
+                            }
+                            $fallback_url = $canvas_domain . '/courses/' . $course_id;
+                            update_post_meta($post_id, 'link', esc_url_raw($fallback_url));
+                            if ($this->logger) $this->logger->log('Added fallback enrollment link: ' . $fallback_url);
+                        } else {
+                            if ($this->logger) $this->logger->log('Warning: No Canvas domain configured, cannot generate enrollment URL', 'warning');
+                        }
                     }
                     
                     // Handle course image
@@ -223,6 +235,7 @@ class CCS_Course_Importer {
         // Get Canvas domain from settings
         $canvas_domain = get_option('ccs_canvas_domain');
         if (empty($canvas_domain)) {
+            if ($this->logger) $this->logger->log('Warning: Canvas domain not configured', 'warning');
             return '';
         }
         
@@ -236,6 +249,10 @@ class CCS_Course_Importer {
         }
         
         // Generate student enrollment URL (not edit URL)
-        return esc_url_raw($canvas_domain . '/courses/' . $course_id);
+        $enrollment_url = $canvas_domain . '/courses/' . $course_id;
+        
+        if ($this->logger) $this->logger->log('Generated enrollment URL: ' . $enrollment_url . ' for course ID: ' . $course_id);
+        
+        return $enrollment_url;
     }
 }
