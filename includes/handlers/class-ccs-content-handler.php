@@ -139,56 +139,145 @@ class CCS_Content_Handler {
             
             $content .= "<h2>" . esc_html($module['name']) . "</h2>\n";
             
-            // Add module description if available
+            // Add actual module description from Canvas if available
             if (!empty($module['description'])) {
-                $content .= "<h3>Module Description</h3>\n";
+                $content .= "<h3>Module Overview</h3>\n";
                 $content .= "<div class='module-description'>\n";
                 $content .= wp_kses_post($module['description']) . "\n";
                 $content .= "</div>\n\n";
-                error_log('CCS Debug: Added description for module: ' . $module['name']);
+                error_log('CCS Debug: Added actual description for module: ' . $module['name']);
             }
             
-            // Get module items for learning objectives
+            // Get module items to extract actual content and learning objectives
             if (!empty($module['id']) && $canvas_course_sync && isset($canvas_course_sync->api)) {
                 $module_items_endpoint = "courses/{$course_id}/modules/{$module['id']}/items?include[]=content_details";
                 $module_items = $canvas_course_sync->api->make_request($module_items_endpoint);
                 
                 if (!is_wp_error($module_items) && !empty($module_items)) {
-                    $learning_objectives = array();
-                    
-                    foreach ($module_items as $item) {
-                        if (!empty($item['title'])) {
-                            $title_lower = strtolower($item['title']);
-                            if (strpos($title_lower, 'objective') !== false || 
-                                strpos($title_lower, 'learning') !== false ||
-                                strpos($title_lower, 'outcome') !== false) {
-                                $learning_objectives[] = esc_html($item['title']);
-                            }
-                        }
-                    }
-                    
-                    if (!empty($learning_objectives)) {
-                        $content .= "<h3>Learning Objectives</h3>\n<ul>\n";
-                        foreach ($learning_objectives as $objective) {
-                            $content .= "<li>" . $objective . "</li>\n";
-                        }
-                        $content .= "</ul>\n\n";
-                        error_log('CCS Debug: Added ' . count($learning_objectives) . ' objectives for: ' . $module['name']);
-                    }
+                    $content .= $this->extract_module_content($module_items, $module['name']);
                 }
             }
         }
         
-        // Add badge and CE information
+        // Add badge and CE information only if we have actual module content
         if (!empty($content)) {
-            $content .= "<h2>Badge Information</h2>\n";
-            $content .= "<p>This course awards a digital badge upon successful completion of all modules and assessments.</p>\n\n";
+            $content .= "<h2>Digital Badge</h2>\n";
+            $content .= "<p>Upon successful completion of all course modules and assessments, participants will receive a digital badge that can be shared on professional networks and social media platforms.</p>\n\n";
             
             $content .= "<h2>Continuing Education Credits</h2>\n";
-            $content .= "<p>Continuing Education (CE) credits may be available for this course upon successful completion.</p>\n";
-            $content .= "<p><strong>Note:</strong> Participants should verify CE credit acceptance with their specific licensing board or professional organization before enrollment.</p>\n\n";
+            $content .= "<p>This course may qualify for Continuing Education (CE) credits. The number of credits and acceptance varies by profession and licensing board.</p>\n";
+            $content .= "<p><strong>Important:</strong> Please verify CE credit acceptance with your specific licensing board or professional organization before enrollment, as requirements vary by state and profession.</p>\n\n";
         }
         
         return $content;
+    }
+
+    /**
+     * Extract actual content from module items
+     * 
+     * @param array $module_items Array of module items
+     * @param string $module_name Module name for logging
+     * @return string Extracted content
+     */
+    private function extract_module_content($module_items, $module_name) {
+        $content = '';
+        $learning_objectives = array();
+        $topics_covered = array();
+        
+        foreach ($module_items as $item) {
+            if (empty($item['title'])) {
+                continue;
+            }
+            
+            $item_title = $item['title'];
+            $item_type = isset($item['type']) ? $item['type'] : '';
+            
+            // Look for learning objectives in various forms
+            if (preg_match('/(?:learning\s+)?objectives?|outcomes?|goals?/i', $item_title)) {
+                $learning_objectives[] = $this->clean_objective_text($item_title);
+                continue;
+            }
+            
+            // Extract content from different item types
+            switch ($item_type) {
+                case 'Page':
+                case 'WikiPage':
+                    if (!empty($item['page_url'])) {
+                        $topics_covered[] = esc_html($item_title);
+                    }
+                    break;
+                    
+                case 'Assignment':
+                    $topics_covered[] = esc_html($item_title) . ' (Assignment)';
+                    break;
+                    
+                case 'Discussion':
+                    $topics_covered[] = esc_html($item_title) . ' (Discussion)';
+                    break;
+                    
+                case 'Quiz':
+                    $topics_covered[] = esc_html($item_title) . ' (Assessment)';
+                    break;
+                    
+                case 'File':
+                    if (preg_match('/\.(pdf|doc|docx|ppt|pptx)$/i', $item_title)) {
+                        $topics_covered[] = esc_html($item_title) . ' (Resource)';
+                    }
+                    break;
+                    
+                default:
+                    // Include other content types as topics
+                    if (!preg_match('/^(untitled|unnamed|test)/i', $item_title)) {
+                        $topics_covered[] = esc_html($item_title);
+                    }
+                    break;
+            }
+        }
+        
+        // Add learning objectives if found
+        if (!empty($learning_objectives)) {
+            $content .= "<h3>Learning Objectives</h3>\n<ul>\n";
+            foreach (array_unique($learning_objectives) as $objective) {
+                $content .= "<li>" . $objective . "</li>\n";
+            }
+            $content .= "</ul>\n\n";
+            error_log('CCS Debug: Added ' . count($learning_objectives) . ' specific objectives for: ' . $module_name);
+        }
+        
+        // Add topics covered if found
+        if (!empty($topics_covered)) {
+            $content .= "<h3>Topics and Activities</h3>\n<ul>\n";
+            foreach (array_unique($topics_covered) as $topic) {
+                $content .= "<li>" . $topic . "</li>\n";
+            }
+            $content .= "</ul>\n\n";
+            error_log('CCS Debug: Added ' . count($topics_covered) . ' topics for: ' . $module_name);
+        }
+        
+        return $content;
+    }
+
+    /**
+     * Clean and format objective text
+     * 
+     * @param string $text Raw objective text
+     * @return string Cleaned objective text
+     */
+    private function clean_objective_text($text) {
+        // Remove common prefixes
+        $text = preg_replace('/^(learning\s+)?objectives?:?\s*/i', '', $text);
+        $text = preg_replace('/^(learning\s+)?outcomes?:?\s*/i', '', $text);
+        $text = preg_replace('/^(learning\s+)?goals?:?\s*/i', '', $text);
+        
+        // Clean up formatting
+        $text = trim($text);
+        $text = ucfirst($text);
+        
+        // Ensure it ends with proper punctuation
+        if (!preg_match('/[.!?]$/', $text)) {
+            $text .= '.';
+        }
+        
+        return esc_html($text);
     }
 }
