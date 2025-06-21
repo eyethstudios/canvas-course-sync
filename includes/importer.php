@@ -1,3 +1,4 @@
+
 <?php
 /**
  * Course Importer class for Canvas Course Sync
@@ -201,13 +202,13 @@ class CCS_Course_Importer {
                     error_log('CCS_Importer: Generated detailed content length: ' . strlen($course_content));
                 }
                 
-                // Create course post as DRAFT
+                // Create course post as DRAFT with correct post type
                 error_log('CCS_Importer: Creating course as draft...');
                 $post_data = array(
                     'post_title' => $course_name,
                     'post_content' => $course_content,
-                    'post_status' => 'draft', // SET AS DRAFT INSTEAD OF PUBLISHED
-                    'post_type' => 'course',
+                    'post_status' => 'draft',
+                    'post_type' => 'courses', // FIXED: Changed from 'course' to 'courses'
                     'post_name' => $course_slug,
                     'meta_input' => array(
                         'canvas_course_id' => intval($course_id),

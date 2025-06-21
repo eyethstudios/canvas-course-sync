@@ -50,10 +50,13 @@
                             renderCourseList(courses, courseList);
                         }
                         
-                        // Always show the courses wrapper and action buttons
+                        // Show the courses wrapper and action buttons
                         coursesWrapper.show();
                         $('.ccs-action-buttons').show();
-                        console.log('CCS Courses: Courses wrapper and action buttons shown');
+                        
+                        // Initialize omit functionality after courses are loaded
+                        initOmitFunctionality();
+                        console.log('CCS Courses: Courses wrapper, action buttons shown, and omit functionality initialized');
                         
                     } else {
                         const errorMsg = response.data && response.data.message ? response.data.message : (response.data || 'Unknown error occurred');
@@ -86,6 +89,137 @@
         });
         
         console.log('CCS Courses Module: Course manager initialized');
+    }
+    
+    // Initialize omit functionality
+    function initOmitFunctionality() {
+        console.log('CCS: Initializing omit functionality...');
+        
+        // Remove existing handlers to prevent duplicates
+        $(document).off('click.ccs-omit');
+        
+        // Select/Deselect all handlers
+        $(document).on('click.ccs-omit', '#ccs-select-all', function(e) {
+            e.preventDefault();
+            console.log('CCS: Select all clicked');
+            $('.ccs-course-checkbox').prop('checked', true);
+        });
+        
+        $(document).on('click.ccs-omit', '#ccs-deselect-all', function(e) {
+            e.preventDefault();
+            console.log('CCS: Deselect all clicked');
+            $('.ccs-course-checkbox').prop('checked', false);
+        });
+        
+        // Omit selected courses
+        $(document).on('click.ccs-omit', '#ccs-omit-selected', function(e) {
+            e.preventDefault();
+            console.log('CCS: Omit selected clicked');
+            
+            const selectedCourses = $('.ccs-course-checkbox:checked').map(function() {
+                return $(this).val();
+            }).get();
+            
+            console.log('CCS: Selected courses for omitting:', selectedCourses);
+            
+            if (selectedCourses.length === 0) {
+                alert('Please select at least one course to omit.');
+                return;
+            }
+            
+            if (!confirm('Are you sure you want to omit ' + selectedCourses.length + ' course(s) from future auto-syncs?')) {
+                return;
+            }
+            
+            omitCourses(selectedCourses);
+        });
+        
+        // Restore omitted courses
+        $(document).on('click.ccs-omit', '#ccs-restore-omitted', function(e) {
+            e.preventDefault();
+            console.log('CCS: Restore omitted clicked');
+            
+            if (!confirm('Are you sure you want to restore all omitted courses for future auto-syncs?')) {
+                return;
+            }
+            
+            restoreOmittedCourses();
+        });
+        
+        console.log('CCS: Omit functionality initialized');
+    }
+    
+    // Function to omit courses
+    function omitCourses(courseIds) {
+        console.log('CCS: Omitting courses:', courseIds);
+        const button = $('#ccs-omit-selected');
+        const originalText = button.text();
+        
+        button.prop('disabled', true).text('Omitting...');
+        
+        $.ajax({
+            url: ajaxurl,
+            type: 'POST',
+            dataType: 'json',
+            data: {
+                action: 'ccs_omit_courses',
+                nonce: window.ccsOmitNonce || '',
+                course_ids: courseIds
+            },
+            success: function(response) {
+                console.log('CCS: Omit response:', response);
+                button.prop('disabled', false).text(originalText);
+                
+                if (response.success) {
+                    alert(response.data.message || 'Courses omitted successfully.');
+                    // Reload courses to show updated status
+                    $('#ccs-get-courses').trigger('click');
+                } else {
+                    alert('Error: ' + (response.data?.message || 'Unknown error'));
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('CCS: Omit error:', error, xhr.responseText);
+                button.prop('disabled', false).text(originalText);
+                alert('Network error. Please try again.');
+            }
+        });
+    }
+    
+    // Function to restore omitted courses
+    function restoreOmittedCourses() {
+        console.log('CCS: Restoring omitted courses');
+        const button = $('#ccs-restore-omitted');
+        const originalText = button.text();
+        
+        button.prop('disabled', true).text('Restoring...');
+        
+        $.ajax({
+            url: ajaxurl,
+            type: 'POST',
+            dataType: 'json',
+            data: {
+                action: 'ccs_restore_omitted',
+                nonce: window.ccsOmitNonce || ''
+            },
+            success: function(response) {
+                console.log('CCS: Restore response:', response);
+                button.prop('disabled', false).text(originalText);
+                
+                if (response.success) {
+                    alert(response.data.message || 'Omitted courses restored successfully.');
+                    // Reload courses to show updated status
+                    $('#ccs-get-courses').trigger('click');
+                } else {
+                    alert('Error: ' + (response.data?.message || 'Unknown error'));
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('CCS: Restore error:', error, xhr.responseText);
+                button.prop('disabled', false).text(originalText);
+                alert('Network error. Please try again.');
+            }
+        });
     }
     
     // Render course list with omitted status

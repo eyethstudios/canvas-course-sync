@@ -49,8 +49,8 @@ class CCS_Sync_Controls {
                 <!-- Course list container -->
                 <div id="ccs-course-list" class="ccs-course-list" style="margin-bottom: 20px;"></div>
                 
-                <!-- Action buttons -->
-                <div class="ccs-action-buttons">
+                <!-- Action buttons - ALWAYS VISIBLE when courses are loaded -->
+                <div class="ccs-action-buttons" style="display: block !important; visibility: visible !important;">
                     <h3><?php esc_html_e('Course Actions', 'canvas-course-sync'); ?></h3>
                     
                     <div class="ccs-button-group" style="margin-bottom: 15px;">
@@ -107,146 +107,24 @@ class CCS_Sync_Controls {
         
         <script type="text/javascript">
         jQuery(document).ready(function($) {
-            console.log('CCS_Sync_Controls: Initializing omit functionality...');
+            console.log('CCS_Sync_Controls: Setting up omit nonce...');
             
-            // Store nonce globally
+            // Store nonce globally for JavaScript access
             window.ccsOmitNonce = '<?php echo esc_js($omit_nonce); ?>';
             
-            // Initialize omit functionality
-            function initOmitFunctionality() {
-                console.log('CCS: Initializing omit button handlers');
-                
-                // Remove existing handlers
-                $(document).off('click.ccs-omit');
-                
-                // Select/Deselect all handlers
-                $(document).on('click.ccs-omit', '#ccs-select-all', function(e) {
-                    e.preventDefault();
-                    $('.ccs-course-checkbox').prop('checked', true);
-                });
-                
-                $(document).on('click.ccs-omit', '#ccs-deselect-all', function(e) {
-                    e.preventDefault();
-                    $('.ccs-course-checkbox').prop('checked', false);
-                });
-                
-                // Omit selected courses
-                $(document).on('click.ccs-omit', '#ccs-omit-selected', function(e) {
-                    e.preventDefault();
-                    
-                    const selectedCourses = $('.ccs-course-checkbox:checked').map(function() {
-                        return $(this).val();
-                    }).get();
-                    
-                    if (selectedCourses.length === 0) {
-                        alert('<?php echo esc_js(__('Please select at least one course to omit.', 'canvas-course-sync')); ?>');
-                        return;
-                    }
-                    
-                    if (!confirm('<?php echo esc_js(__('Are you sure you want to omit', 'canvas-course-sync')); ?> ' + selectedCourses.length + ' <?php echo esc_js(__('course(s) from future auto-syncs?', 'canvas-course-sync')); ?>')) {
-                        return;
-                    }
-                    
-                    omitCourses(selectedCourses);
-                });
-                
-                // Restore omitted courses
-                $(document).on('click.ccs-omit', '#ccs-restore-omitted', function(e) {
-                    e.preventDefault();
-                    
-                    if (!confirm('<?php echo esc_js(__('Are you sure you want to restore all omitted courses for future auto-syncs?', 'canvas-course-sync')); ?>')) {
-                        return;
-                    }
-                    
-                    restoreOmittedCourses();
-                });
-                
-                console.log('CCS: Omit button handlers initialized');
-            }
-            
-            // Function to omit courses
-            function omitCourses(courseIds) {
-                const button = $('#ccs-omit-selected');
-                const originalText = button.text();
-                
-                button.prop('disabled', true).text('<?php echo esc_js(__('Omitting...', 'canvas-course-sync')); ?>');
-                
-                $.ajax({
-                    url: ajaxurl,
-                    type: 'POST',
-                    dataType: 'json',
-                    data: {
-                        action: 'ccs_omit_courses',
-                        nonce: window.ccsOmitNonce,
-                        course_ids: courseIds
-                    },
-                    success: function(response) {
-                        button.prop('disabled', false).text(originalText);
-                        
-                        if (response.success) {
-                            alert(response.data.message || '<?php echo esc_js(__('Courses omitted successfully.', 'canvas-course-sync')); ?>');
-                            // Reload courses to show updated status
-                            $('#ccs-get-courses').trigger('click');
-                        } else {
-                            alert('<?php echo esc_js(__('Error:', 'canvas-course-sync')); ?> ' + (response.data?.message || '<?php echo esc_js(__('Unknown error', 'canvas-course-sync')); ?>'));
-                        }
-                    },
-                    error: function(xhr, status, error) {
-                        console.error('CCS: Omit error:', error, xhr.responseText);
-                        button.prop('disabled', false).text(originalText);
-                        alert('<?php echo esc_js(__('Network error. Please try again.', 'canvas-course-sync')); ?>');
-                    }
-                });
-            }
-            
-            // Function to restore omitted courses
-            function restoreOmittedCourses() {
-                const button = $('#ccs-restore-omitted');
-                const originalText = button.text();
-                
-                button.prop('disabled', true).text('<?php echo esc_js(__('Restoring...', 'canvas-course-sync')); ?>');
-                
-                $.ajax({
-                    url: ajaxurl,
-                    type: 'POST',
-                    dataType: 'json',
-                    data: {
-                        action: 'ccs_restore_omitted',
-                        nonce: window.ccsOmitNonce
-                    },
-                    success: function(response) {
-                        button.prop('disabled', false).text(originalText);
-                        
-                        if (response.success) {
-                            alert(response.data.message || '<?php echo esc_js(__('Omitted courses restored successfully.', 'canvas-course-sync')); ?>');
-                            // Reload courses to show updated status
-                            $('#ccs-get-courses').trigger('click');
-                        } else {
-                            alert('<?php echo esc_js(__('Error:', 'canvas-course-sync')); ?> ' + (response.data?.message || '<?php echo esc_js(__('Unknown error', 'canvas-course-sync')); ?>'));
-                        }
-                    },
-                    error: function(xhr, status, error) {
-                        console.error('CCS: Restore error:', error, xhr.responseText);
-                        button.prop('disabled', false).text(originalText);
-                        alert('<?php echo esc_js(__('Network error. Please try again.', 'canvas-course-sync')); ?>');
-                    }
-                });
-            }
-            
-            // Initialize on document ready
-            initOmitFunctionality();
-            
-            console.log('CCS_Sync_Controls: Omit functionality ready');
+            console.log('CCS_Sync_Controls: Omit nonce set:', window.ccsOmitNonce);
         });
         </script>
         
         <style>
         .ccs-action-buttons {
-            background: #f9f9f9;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            padding: 20px;
-            margin-top: 20px;
+            background: #f9f9f9 !important;
+            border: 1px solid #ddd !important;
+            border-radius: 4px !important;
+            padding: 20px !important;
+            margin-top: 20px !important;
+            display: block !important;
+            visibility: visible !important;
         }
         
         .ccs-action-buttons h3 {
@@ -286,13 +164,11 @@ class CCS_Sync_Controls {
             border-color: #1e7e34 !important;
         }
         
-        #ccs-courses-wrapper {
-            display: block !important;
-        }
-        
-        .ccs-action-buttons {
+        /* Force visibility of action buttons */
+        #ccs-courses-wrapper .ccs-action-buttons {
             display: block !important;
             visibility: visible !important;
+            opacity: 1 !important;
         }
         </style>
         <?php
