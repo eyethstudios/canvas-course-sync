@@ -83,7 +83,7 @@ class CCS_Content_Handler {
 
         $requirements = array();
         
-        // Try to get completion requirements
+        // Get completion requirements from modules
         $completion_endpoint = "courses/{$course_id}/modules?include[]=completion_requirements";
         $completion_data = $canvas_course_sync->api->make_request($completion_endpoint);
         
@@ -96,13 +96,28 @@ class CCS_Content_Handler {
             }
         }
 
-        // Try to get course settings for badge/CE credit info
-        $settings_endpoint = "courses/{$course_id}/settings";
-        $settings_data = $canvas_course_sync->api->make_request($settings_endpoint);
+        // Try to get course-specific badge/CE information
+        $course_endpoint = "courses/{$course_id}?include[]=public_description&include[]=syllabus_body";
+        $course_data = $canvas_course_sync->api->make_request($course_endpoint);
         
-        if (!is_wp_error($settings_data)) {
-            if (isset($settings_data['allow_student_forum_attachments'])) {
-                $requirements['settings'] = $settings_data;
+        if (!is_wp_error($course_data)) {
+            // Look for badge/CE information in course descriptions
+            $search_text = '';
+            if (!empty($course_data['syllabus_body'])) {
+                $search_text .= strtolower($course_data['syllabus_body']);
+            }
+            if (!empty($course_data['public_description'])) {
+                $search_text .= strtolower($course_data['public_description']);
+            }
+            
+            // Check for CE credit information
+            if (preg_match('/(\d+(?:\.\d+)?)\s*(?:ce|continuing education|contact)\s*(?:hour|credit|unit)/i', $search_text, $matches)) {
+                $requirements['ce_credits'] = $matches[1];
+            }
+            
+            // Check for badge information
+            if (strpos($search_text, 'badge') !== false || strpos($search_text, 'certificate') !== false) {
+                $requirements['has_badge'] = true;
             }
         }
 
@@ -110,7 +125,7 @@ class CCS_Content_Handler {
     }
 
     /**
-     * Prepare detailed course content with module descriptions, learning objectives, badge info, and CE credits
+     * Prepare detailed course content with module descriptions, learning objectives, and specific badge/CE info
      * 
      * @param array $modules Array of modules from Canvas API
      * @param int $course_id Canvas course ID
@@ -136,10 +151,10 @@ class CCS_Content_Handler {
             
             $content .= "<h2>" . esc_html($module['name']) . "</h2>\n";
             
-            // Add module description if available
+            // Add Module Description (prioritized)
             if (!empty($module['description'])) {
-                $content .= "<div class='module-description'>\n";
                 $content .= "<h3>Module Description</h3>\n";
+                $content .= "<div class='module-description'>\n";
                 $content .= wp_kses_post($module['description']) . "\n";
                 $content .= "</div>\n\n";
             }
@@ -150,42 +165,38 @@ class CCS_Content_Handler {
                 
                 if (!is_wp_error($module_details) && !empty($module_details['items'])) {
                     $learning_objectives = array();
-                    $assignments = array();
+                    $module_content = array();
                     
                     foreach ($module_details['items'] as $item) {
                         if (!empty($item['title'])) {
                             $title_lower = strtolower($item['title']);
-                            // Look for learning objectives
+                            
+                            // Look specifically for learning objectives
                             if (strpos($title_lower, 'objective') !== false || 
                                 strpos($title_lower, 'learning') !== false ||
                                 strpos($title_lower, 'outcome') !== false ||
                                 strpos($title_lower, 'goal') !== false) {
                                 $learning_objectives[] = $item['title'];
                             }
-                            // Collect assignments/activities
-                            if (!empty($item['type']) && in_array($item['type'], ['Assignment', 'Quiz', 'Discussion'])) {
-                                $assignments[] = array(
-                                    'title' => $item['title'],
-                                    'type' => $item['type']
-                                );
+                            
+                            // Extract content for learning objectives from descriptions
+                            if (!empty($item['content_details']['body'])) {
+                                $body_text = strip_tags($item['content_details']['body']);
+                                // Look for objective-like content
+                                if (preg_match_all('/(?:objective|goal|outcome|learn).*?[:\-]\s*(.+?)(?:\n|$)/i', $body_text, $matches)) {
+                                    foreach ($matches[1] as $match) {
+                                        $learning_objectives[] = trim($match);
+                                    }
+                                }
                             }
                         }
                     }
                     
-                    // Display learning objectives
+                    // Display Learning Objectives (prioritized)
                     if (!empty($learning_objectives)) {
                         $content .= "<h3>Learning Objectives</h3>\n<ul>\n";
-                        foreach ($learning_objectives as $objective) {
+                        foreach (array_unique($learning_objectives) as $objective) {
                             $content .= "<li>" . esc_html($objective) . "</li>\n";
-                        }
-                        $content .= "</ul>\n\n";
-                    }
-                    
-                    // Display assignments/activities
-                    if (!empty($assignments)) {
-                        $content .= "<h3>Module Activities</h3>\n<ul>\n";
-                        foreach ($assignments as $assignment) {
-                            $content .= "<li><strong>" . esc_html($assignment['type']) . ":</strong> " . esc_html($assignment['title']) . "</li>\n";
                         }
                         $content .= "</ul>\n\n";
                     }
@@ -206,18 +217,27 @@ class CCS_Content_Handler {
             }
         }
         
-        // Add badge information
+        // Add specific Badge Information
         $content .= "<h2>Badge Information</h2>\n";
-        if (!empty($course_requirements['completion_requirements'])) {
-            $content .= "<p>This course offers digital badges upon successful completion of all required modules and assignments. Badges are awarded when students meet all completion requirements and demonstrate mastery of the learning objectives.</p>\n\n";
+        if (!empty($course_requirements['has_badge'])) {
+            $content .= "<p>This course awards a digital badge upon successful completion of all modules and assessments. The badge serves as a verified credential demonstrating your mastery of the course content and skills.</p>\n";
+            if (!empty($course_requirements['completion_requirements'])) {
+                $content .= "<p><strong>Badge Requirements:</strong> Complete all required modules, pass all assessments, and meet participation requirements as outlined in each module.</p>\n";
+            }
         } else {
-            $content .= "<p>This course offers digital badges upon successful completion. Please check with your instructor for specific badge requirements and criteria.</p>\n\n";
+            $content .= "<p>Digital badges are available for this course upon successful completion. Badges provide portable, verifiable credentials that can be shared on social media and professional platforms.</p>\n";
         }
+        $content .= "\n";
         
-        // Add continuing education credit information
-        $content .= "<h2>Continuing Education Credit</h2>\n";
-        $content .= "<p>This course may offer Continuing Education (CE) credits upon successful completion. CE credits can help maintain professional certifications and fulfill ongoing education requirements.</p>\n";
-        $content .= "<p><strong>Important:</strong> Please check with your institution, professional organization, or certification body to confirm acceptance of these CE credits for your specific requirements.</p>\n\n";
+        // Add specific Continuing Education Credit information
+        $content .= "<h2>Continuing Education Credits</h2>\n";
+        if (!empty($course_requirements['ce_credits'])) {
+            $content .= "<p>This course provides <strong>" . esc_html($course_requirements['ce_credits']) . " CE credits</strong> upon successful completion.</p>\n";
+            $content .= "<p>CE credits are awarded to participants who complete all required modules, pass assessments, and meet attendance requirements. These credits can be used to maintain professional licenses and certifications.</p>\n";
+        } else {
+            $content .= "<p>This course offers Continuing Education (CE) credits upon successful completion. CE credits help maintain professional certifications and fulfill ongoing education requirements for various professional licenses.</p>\n";
+        }
+        $content .= "<p><strong>Note:</strong> Participants should verify CE credit acceptance with their specific licensing board or professional organization before enrollment.</p>\n\n";
         
         error_log('CCS Debug: Generated detailed content length: ' . strlen($content));
         return $content;

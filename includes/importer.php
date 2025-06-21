@@ -168,11 +168,11 @@ class CCS_Course_Importer {
                     update_post_meta($post_id, 'canvas_end_at', sanitize_text_field($course_details['end_at'] ?? ''));
                     update_post_meta($post_id, 'canvas_enrollment_term_id', intval($course_details['enrollment_term_id'] ?? 0));
                     
-                    // Handle enrollment link properly
-                    $enrollment_url = $this->generate_enrollment_url($course_details, $course_id);
+                    // Generate student enrollment URL
+                    $enrollment_url = $this->generate_student_enrollment_url($course_id);
                     if (!empty($enrollment_url)) {
                         update_post_meta($post_id, 'link', $enrollment_url);
-                        if ($this->logger) $this->logger->log('Added enrollment link: ' . $enrollment_url);
+                        if ($this->logger) $this->logger->log('Added student enrollment link: ' . $enrollment_url);
                     } else {
                         if ($this->logger) $this->logger->log('Warning: No enrollment URL found for course: ' . $course_name, 'warning');
                     }
@@ -214,33 +214,28 @@ class CCS_Course_Importer {
     }
 
     /**
-     * Generate enrollment URL for a course
+     * Generate student enrollment URL for a course
      *
-     * @param array $course_details Course details from Canvas API
      * @param int $course_id Course ID
-     * @return string Enrollment URL
+     * @return string Student enrollment URL
      */
-    private function generate_enrollment_url($course_details, $course_id) {
-        // Strategy 1: Direct html_url from course details
-        if (!empty($course_details['html_url'])) {
-            return esc_url_raw($course_details['html_url']);
-        }
-        
-        // Strategy 2: Construct from Canvas domain and course ID
+    private function generate_student_enrollment_url($course_id) {
+        // Get Canvas domain from settings
         $canvas_domain = get_option('ccs_canvas_domain');
-        if (!empty($canvas_domain)) {
-            // Clean up domain
-            $canvas_domain = trim($canvas_domain);
-            $canvas_domain = rtrim($canvas_domain, '/');
-            
-            // Add protocol if missing
-            if (!preg_match('/^https?:\/\//', $canvas_domain)) {
-                $canvas_domain = 'https://' . $canvas_domain;
-            }
-            
-            return esc_url_raw($canvas_domain . '/courses/' . $course_id);
+        if (empty($canvas_domain)) {
+            return '';
         }
         
-        return '';
+        // Clean up domain
+        $canvas_domain = trim($canvas_domain);
+        $canvas_domain = rtrim($canvas_domain, '/');
+        
+        // Add protocol if missing
+        if (!preg_match('/^https?:\/\//', $canvas_domain)) {
+            $canvas_domain = 'https://' . $canvas_domain;
+        }
+        
+        // Generate student enrollment URL (not edit URL)
+        return esc_url_raw($canvas_domain . '/courses/' . $course_id);
     }
 }

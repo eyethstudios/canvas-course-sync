@@ -85,22 +85,22 @@ class CCS_Sync_Controls {
         
         <script type="text/javascript">
         jQuery(document).ready(function($) {
-            // Clear any existing event handlers to prevent duplicates
-            $('#ccs-select-all, #ccs-deselect-all, #ccs-omit-selected').off('click.ccsControls');
+            // Ensure clean state - remove all existing handlers first
+            $('#ccs-select-all, #ccs-deselect-all, #ccs-omit-selected').off();
             
             // Select/Deselect all functionality
-            $('#ccs-select-all').on('click.ccsControls', function(e) {
+            $('#ccs-select-all').on('click', function(e) {
                 e.preventDefault();
                 $('.ccs-course-checkbox').prop('checked', true);
             });
             
-            $('#ccs-deselect-all').on('click.ccsControls', function(e) {
+            $('#ccs-deselect-all').on('click', function(e) {
                 e.preventDefault();
                 $('.ccs-course-checkbox').prop('checked', false);
             });
             
             // Omit courses functionality
-            $('#ccs-omit-selected').on('click.ccsControls', function(e) {
+            $('#ccs-omit-selected').on('click', function(e) {
                 e.preventDefault();
                 
                 const selectedCourses = $('.ccs-course-checkbox:checked').map(function() {
@@ -134,7 +134,7 @@ class CCS_Sync_Controls {
                         if (response.success) {
                             alert(response.data.message);
                             // Refresh course list to show omitted status
-                            $('#ccs-get-courses').click();
+                            $('#ccs-get-courses').trigger('click');
                         } else {
                             alert('<?php echo esc_js(__('Error:', 'canvas-course-sync')); ?> ' + (response.data.message || '<?php echo esc_js(__('Unknown error occurred', 'canvas-course-sync')); ?>'));
                         }
@@ -146,7 +146,7 @@ class CCS_Sync_Controls {
                 });
             });
             
-            // Make sure buttons are visible when courses are loaded
+            // Show buttons when courses are loaded
             $(document).on('ccs_courses_loaded', function() {
                 $('.ccs-action-buttons').show();
             });
