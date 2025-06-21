@@ -45,208 +45,13 @@ class CCS_Content_Handler {
     }
 
     /**
-     * Get detailed module information from Canvas
-     * 
-     * @param int $course_id Canvas course ID
-     * @param int $module_id Canvas module ID
-     * @return array|WP_Error Module details or error
-     */
-    private function get_module_details($course_id, $module_id) {
-        $canvas_course_sync = canvas_course_sync();
-        if (!$canvas_course_sync || !isset($canvas_course_sync->api)) {
-            return new WP_Error('no_api', 'Canvas API not available');
-        }
-
-        // Get detailed module information including items
-        $endpoint = "courses/{$course_id}/modules/{$module_id}?include[]=items&include[]=content_details";
-        $module_details = $canvas_course_sync->api->make_request($endpoint);
-        
-        if (is_wp_error($module_details)) {
-            error_log('CCS Debug: Failed to get module details for module ' . $module_id . ': ' . $module_details->get_error_message());
-            return $module_details;
-        }
-
-        return $module_details;
-    }
-
-    /**
-     * Get course completion requirements and badge information
-     * 
-     * @param int $course_id Canvas course ID
-     * @return array Course requirements and badge info
-     */
-    private function get_course_requirements($course_id) {
-        $canvas_course_sync = canvas_course_sync();
-        if (!$canvas_course_sync || !isset($canvas_course_sync->api)) {
-            return array();
-        }
-
-        $requirements = array();
-        
-        // Get completion requirements from modules
-        $completion_endpoint = "courses/{$course_id}/modules?include[]=completion_requirements";
-        $completion_data = $canvas_course_sync->api->make_request($completion_endpoint);
-        
-        if (!is_wp_error($completion_data) && is_array($completion_data)) {
-            foreach ($completion_data as $module) {
-                if (!empty($module['completion_requirements'])) {
-                    $requirements['completion_requirements'] = $module['completion_requirements'];
-                    break;
-                }
-            }
-        }
-
-        // Try to get course-specific badge/CE information from syllabus and descriptions
-        $course_endpoint = "courses/{$course_id}?include[]=public_description&include[]=syllabus_body";
-        $course_data = $canvas_course_sync->api->make_request($course_endpoint);
-        
-        if (!is_wp_error($course_data)) {
-            // Look for badge/CE information in course descriptions
-            $search_text = '';
-            if (!empty($course_data['syllabus_body'])) {
-                $search_text .= strtolower($course_data['syllabus_body']);
-            }
-            if (!empty($course_data['public_description'])) {
-                $search_text .= strtolower($course_data['public_description']);
-            }
-            if (!empty($course_data['description'])) {
-                $search_text .= strtolower($course_data['description']);
-            }
-            
-            // Extract specific CE credit information
-            if (preg_match('/(\d+(?:\.\d+)?)\s*(?:ce|continuing education|contact)\s*(?:hour|credit|unit)/i', $search_text, $matches)) {
-                $requirements['ce_credits'] = $matches[1];
-            }
-            
-            // Look for badge-specific text
-            if (preg_match('/badge[^.]*?([^.]+\.)/i', $search_text, $badge_matches)) {
-                $requirements['badge_info'] = trim($badge_matches[1]);
-            }
-            
-            // Check for badge information
-            if (strpos($search_text, 'badge') !== false || strpos($search_text, 'certificate') !== false) {
-                $requirements['has_badge'] = true;
-            }
-        }
-
-        return $requirements;
-    }
-
-    /**
-     * Prepare detailed course content with module descriptions, learning objectives, and specific badge/CE info
-     * 
-     * @param array $modules Array of modules from Canvas API
-     * @param int $course_id Canvas course ID
-     * @return string Prepared detailed content
-     */
-    private function prepare_detailed_content($modules, $course_id) {
-        if (empty($modules) || !is_array($modules)) {
-            error_log('CCS Debug: No modules provided to prepare_detailed_content');
-            return '';
-        }
-
-        $content = "";
-        error_log('CCS Debug: Processing ' . count($modules) . ' modules for detailed content');
-        
-        // Get course requirements and badge info FIRST
-        $course_requirements = $this->get_course_requirements($course_id);
-        
-        // Process each module for detailed information
-        foreach ($modules as $module) {
-            if (empty($module['name'])) {
-                continue;
-            }
-            
-            $content .= "<h2>" . esc_html($module['name']) . "</h2>\n";
-            
-            // Add Module Description (HIGHEST PRIORITY - from actual module data)
-            if (!empty($module['description'])) {
-                $content .= "<h3>Module Description</h3>\n";
-                $content .= "<div class='module-description'>\n";
-                $content .= wp_kses_post($module['description']) . "\n";
-                $content .= "</div>\n\n";
-                error_log('CCS Debug: Added module description for: ' . $module['name']);
-            } else {
-                error_log('CCS Debug: No description found for module: ' . $module['name']);
-            }
-            
-            // Get detailed module information for learning objectives
-            if (!empty($module['id'])) {
-                $module_details = $this->get_module_details($course_id, $module['id']);
-                
-                if (!is_wp_error($module_details) && !empty($module_details['items'])) {
-                    $learning_objectives = array();
-                    
-                    foreach ($module_details['items'] as $item) {
-                        if (!empty($item['title'])) {
-                            $title_lower = strtolower($item['title']);
-                            
-                            // Look specifically for learning objectives
-                            if (strpos($title_lower, 'objective') !== false || 
-                                strpos($title_lower, 'learning') !== false ||
-                                strpos($title_lower, 'outcome') !== false ||
-                                strpos($title_lower, 'goal') !== false) {
-                                $learning_objectives[] = $item['title'];
-                            }
-                            
-                            // Extract content for learning objectives from descriptions
-                            if (!empty($item['content_details']['body'])) {
-                                $body_text = strip_tags($item['content_details']['body']);
-                                // Look for objective-like content
-                                if (preg_match_all('/(?:objective|goal|outcome|learn).*?[:\-]\s*(.+?)(?:\n|$)/i', $body_text, $matches)) {
-                                    foreach ($matches[1] as $match) {
-                                        $learning_objectives[] = trim($match);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    
-                    // Display Learning Objectives (HIGH PRIORITY)
-                    if (!empty($learning_objectives)) {
-                        $content .= "<h3>Learning Objectives</h3>\n<ul>\n";
-                        foreach (array_unique($learning_objectives) as $objective) {
-                            $content .= "<li>" . esc_html($objective) . "</li>\n";
-                        }
-                        $content .= "</ul>\n\n";
-                        error_log('CCS Debug: Added ' . count($learning_objectives) . ' learning objectives for: ' . $module['name']);
-                    }
-                }
-            }
-        }
-        
-        // Add ACTUAL Badge Information (from course data, not generic)
-        $content .= "<h2>Badge Information</h2>\n";
-        if (!empty($course_requirements['badge_info'])) {
-            $content .= "<p>" . esc_html($course_requirements['badge_info']) . "</p>\n";
-        } elseif (!empty($course_requirements['has_badge'])) {
-            $content .= "<p>This course awards a digital badge upon successful completion of all modules and assessments.</p>\n";
-        } else {
-            $content .= "<p>Digital badges may be available for this course upon successful completion.</p>\n";
-        }
-        $content .= "\n";
-        
-        // Add ACTUAL Continuing Education Credit information (from course data, not generic)
-        $content .= "<h2>Continuing Education Credits</h2>\n";
-        if (!empty($course_requirements['ce_credits'])) {
-            $content .= "<p>This course provides <strong>" . esc_html($course_requirements['ce_credits']) . " CE credits</strong> upon successful completion.</p>\n";
-        } else {
-            $content .= "<p>Continuing Education (CE) credits may be available for this course upon successful completion.</p>\n";
-        }
-        $content .= "<p><strong>Note:</strong> Participants should verify CE credit acceptance with their specific licensing board or professional organization before enrollment.</p>\n\n";
-        
-        error_log('CCS Debug: Generated detailed content length: ' . strlen($content));
-        return $content;
-    }
-
-    /**
      * Prepare course content from Canvas data
      * 
-     * @param object $course_details Course details object from Canvas API
+     * @param array|object $course_details Course details from Canvas API
      * @return string Prepared content
      */
     public function prepare_course_content($course_details) {
-        error_log('CCS Debug: Content handler prepare_course_content called');
+        error_log('CCS Debug: prepare_course_content called');
         
         if (empty($course_details)) {
             error_log('CCS Debug: No course details provided');
@@ -260,57 +65,129 @@ class CCS_Content_Handler {
         
         $course_name = isset($course_details->name) ? $course_details->name : 'Unknown Course';
         $course_id = isset($course_details->id) ? $course_details->id : null;
-        error_log('CCS Debug: Preparing content for course: ' . $course_name . ' (ID: ' . $course_id . ')');
+        error_log('CCS Debug: Processing course: ' . $course_name . ' (ID: ' . $course_id . ')');
         
         $content = '';
         
-        // PRIORITY: Get modules for detailed content
+        // Try to get modules and build detailed content
         if (!empty($course_id)) {
             $canvas_course_sync = canvas_course_sync();
             if ($canvas_course_sync && isset($canvas_course_sync->api)) {
-                error_log('CCS Debug: Attempting to get course modules for detailed content');
+                error_log('CCS Debug: Getting modules for course ' . $course_id);
                 $modules = $canvas_course_sync->api->get_course_modules($course_id);
+                
                 if (!is_wp_error($modules) && !empty($modules)) {
-                    error_log('CCS Debug: Retrieved ' . count($modules) . ' modules, preparing detailed content');
-                    $detailed_content = $this->prepare_detailed_content($modules, $course_id);
-                    if (!empty($detailed_content)) {
-                        $content = $detailed_content; // Use ONLY detailed content, not additional content
-                        error_log('CCS Debug: Successfully generated detailed content (' . strlen($detailed_content) . ' chars)');
-                        return $content; // Return immediately with detailed content
+                    error_log('CCS Debug: Found ' . count($modules) . ' modules');
+                    $content = $this->build_detailed_content($modules, $course_id);
+                    
+                    if (!empty($content)) {
+                        error_log('CCS Debug: Built detailed content (' . strlen($content) . ' chars)');
+                        return $content;
                     }
                 } else {
-                    error_log('CCS Debug: Failed to get modules: ' . (is_wp_error($modules) ? $modules->get_error_message() : 'No modules found'));
+                    error_log('CCS Debug: No modules found or error: ' . (is_wp_error($modules) ? $modules->get_error_message() : 'empty'));
                 }
-            } else {
-                error_log('CCS Debug: Canvas API not available');
             }
         }
         
-        // FALLBACK: Only use if detailed content failed
-        error_log('CCS Debug: Using fallback content sources');
+        // Fallback content
+        error_log('CCS Debug: Using fallback content');
         
-        // Add syllabus content if available
         if (!empty($course_details->syllabus_body)) {
-            if ($this->logger) $this->logger->log('Adding syllabus content (' . strlen($course_details->syllabus_body) . ' chars)');
-            error_log('CCS Debug: Adding syllabus content (' . strlen($course_details->syllabus_body) . ' chars)');
-            $content .= "<h2>Course Syllabus</h2>\n" . wp_kses_post($course_details->syllabus_body);
+            $content .= "<h2>Course Syllabus</h2>\n" . wp_kses_post($course_details->syllabus_body) . "\n\n";
         }
         
-        // If no content yet, use public description
-        if (empty($content) && !empty($course_details->public_description)) {
-            if ($this->logger) $this->logger->log('Using public description (' . strlen($course_details->public_description) . ' chars)');
-            error_log('CCS Debug: Using public description (' . strlen($course_details->public_description) . ' chars)');
-            $content = wp_kses_post($course_details->public_description);
+        if (!empty($course_details->public_description)) {
+            $content .= "<h2>Course Description</h2>\n" . wp_kses_post($course_details->public_description) . "\n\n";
+        } elseif (!empty($course_details->description)) {
+            $content .= "<h2>Course Description</h2>\n" . wp_kses_post($course_details->description) . "\n\n";
         }
         
-        // Add course description if available and we don't have detailed content
-        if (empty($content) && !empty($course_details->description)) {
-            if ($this->logger) $this->logger->log('Using course description as main content (' . strlen($course_details->description) . ' chars)');
-            error_log('CCS Debug: Using course description as main content (' . strlen($course_details->description) . ' chars)');
-            $content = wp_kses_post($course_details->description);
+        // Add basic badge and CE info if no detailed content
+        if (!empty($content)) {
+            $content .= "<h2>Badge Information</h2>\n";
+            $content .= "<p>This course awards a digital badge upon successful completion of all modules and assessments.</p>\n\n";
+            
+            $content .= "<h2>Continuing Education Credits</h2>\n";
+            $content .= "<p>Continuing Education (CE) credits may be available for this course upon successful completion.</p>\n";
+            $content .= "<p><strong>Note:</strong> Participants should verify CE credit acceptance with their specific licensing board or professional organization before enrollment.</p>\n\n";
         }
         
-        error_log('CCS Debug: Final prepared content length: ' . strlen($content));
+        error_log('CCS Debug: Final content length: ' . strlen($content));
+        return $content;
+    }
+
+    /**
+     * Build detailed content from modules
+     * 
+     * @param array $modules Array of modules
+     * @param int $course_id Course ID
+     * @return string Built content
+     */
+    private function build_detailed_content($modules, $course_id) {
+        if (empty($modules) || !is_array($modules)) {
+            return '';
+        }
+
+        $content = '';
+        $canvas_course_sync = canvas_course_sync();
+        
+        foreach ($modules as $module) {
+            if (empty($module['name'])) {
+                continue;
+            }
+            
+            $content .= "<h2>" . esc_html($module['name']) . "</h2>\n";
+            
+            // Add module description if available
+            if (!empty($module['description'])) {
+                $content .= "<h3>Module Description</h3>\n";
+                $content .= "<div class='module-description'>\n";
+                $content .= wp_kses_post($module['description']) . "\n";
+                $content .= "</div>\n\n";
+                error_log('CCS Debug: Added description for module: ' . $module['name']);
+            }
+            
+            // Get module items for learning objectives
+            if (!empty($module['id']) && $canvas_course_sync && isset($canvas_course_sync->api)) {
+                $module_items_endpoint = "courses/{$course_id}/modules/{$module['id']}/items?include[]=content_details";
+                $module_items = $canvas_course_sync->api->make_request($module_items_endpoint);
+                
+                if (!is_wp_error($module_items) && !empty($module_items)) {
+                    $learning_objectives = array();
+                    
+                    foreach ($module_items as $item) {
+                        if (!empty($item['title'])) {
+                            $title_lower = strtolower($item['title']);
+                            if (strpos($title_lower, 'objective') !== false || 
+                                strpos($title_lower, 'learning') !== false ||
+                                strpos($title_lower, 'outcome') !== false) {
+                                $learning_objectives[] = esc_html($item['title']);
+                            }
+                        }
+                    }
+                    
+                    if (!empty($learning_objectives)) {
+                        $content .= "<h3>Learning Objectives</h3>\n<ul>\n";
+                        foreach ($learning_objectives as $objective) {
+                            $content .= "<li>" . $objective . "</li>\n";
+                        }
+                        $content .= "</ul>\n\n";
+                        error_log('CCS Debug: Added ' . count($learning_objectives) . ' objectives for: ' . $module['name']);
+                    }
+                }
+            }
+        }
+        
+        // Add badge and CE information
+        if (!empty($content)) {
+            $content .= "<h2>Badge Information</h2>\n";
+            $content .= "<p>This course awards a digital badge upon successful completion of all modules and assessments.</p>\n\n";
+            
+            $content .= "<h2>Continuing Education Credits</h2>\n";
+            $content .= "<p>Continuing Education (CE) credits may be available for this course upon successful completion.</p>\n";
+            $content .= "<p><strong>Note:</strong> Participants should verify CE credit acceptance with their specific licensing board or professional organization before enrollment.</p>\n\n";
+        }
         
         return $content;
     }

@@ -132,21 +132,13 @@ class CCS_Course_Importer {
                     continue;
                 }
                 
-                // Prepare course content using content handler
+                // Prepare course content using content handler with course ID
                 $course_content = '';
                 if ($this->content_handler) {
-                    $course_content = $this->content_handler->prepare_course_content((object)$course_details);
-                }
-                
-                // If content handler didn't provide content, use fallback
-                if (empty($course_content)) {
-                    if (!empty($course_details['syllabus_body'])) {
-                        $course_content = wp_kses_post($course_details['syllabus_body']);
-                    } elseif (!empty($course_details['public_description'])) {
-                        $course_content = wp_kses_post($course_details['public_description']);
-                    } elseif (!empty($course_details['description'])) {
-                        $course_content = wp_kses_post($course_details['description']);
-                    }
+                    // Pass course_id as part of course details for proper content generation
+                    $course_details['id'] = $course_id;
+                    $course_content = $this->content_handler->prepare_course_content($course_details);
+                    if ($this->logger) $this->logger->log('Generated course content length: ' . strlen($course_content));
                 }
                 
                 // Create WordPress post
@@ -168,25 +160,19 @@ class CCS_Course_Importer {
                     update_post_meta($post_id, 'canvas_end_at', sanitize_text_field($course_details['end_at'] ?? ''));
                     update_post_meta($post_id, 'canvas_enrollment_term_id', intval($course_details['enrollment_term_id'] ?? 0));
                     
-                    // Generate and save student enrollment URL - FIXED
-                    $enrollment_url = $this->generate_student_enrollment_url($course_id);
-                    if (!empty($enrollment_url)) {
+                    // Generate proper student enrollment URL
+                    $canvas_domain = get_option('ccs_canvas_domain', '');
+                    if (!empty($canvas_domain)) {
+                        $canvas_domain = rtrim($canvas_domain, '/');
+                        if (!preg_match('/^https?:\/\//', $canvas_domain)) {
+                            $canvas_domain = 'https://' . $canvas_domain;
+                        }
+                        // Use proper student enrollment URL format
+                        $enrollment_url = $canvas_domain . '/courses/' . $course_id;
                         update_post_meta($post_id, 'link', esc_url_raw($enrollment_url));
                         if ($this->logger) $this->logger->log('Added student enrollment link: ' . $enrollment_url);
                     } else {
-                        // Fallback URL generation
-                        $canvas_domain = get_option('ccs_canvas_domain', '');
-                        if (!empty($canvas_domain)) {
-                            $canvas_domain = rtrim($canvas_domain, '/');
-                            if (!preg_match('/^https?:\/\//', $canvas_domain)) {
-                                $canvas_domain = 'https://' . $canvas_domain;
-                            }
-                            $fallback_url = $canvas_domain . '/courses/' . $course_id;
-                            update_post_meta($post_id, 'link', esc_url_raw($fallback_url));
-                            if ($this->logger) $this->logger->log('Added fallback enrollment link: ' . $fallback_url);
-                        } else {
-                            if ($this->logger) $this->logger->log('Warning: No Canvas domain configured, cannot generate enrollment URL', 'warning');
-                        }
+                        if ($this->logger) $this->logger->log('Warning: No Canvas domain configured, cannot generate enrollment URL', 'warning');
                     }
                     
                     // Handle course image
@@ -223,36 +209,5 @@ class CCS_Course_Importer {
         );
         
         return $results;
-    }
-
-    /**
-     * Generate student enrollment URL for a course
-     *
-     * @param int $course_id Course ID
-     * @return string Student enrollment URL
-     */
-    private function generate_student_enrollment_url($course_id) {
-        // Get Canvas domain from settings
-        $canvas_domain = get_option('ccs_canvas_domain');
-        if (empty($canvas_domain)) {
-            if ($this->logger) $this->logger->log('Warning: Canvas domain not configured', 'warning');
-            return '';
-        }
-        
-        // Clean up domain
-        $canvas_domain = trim($canvas_domain);
-        $canvas_domain = rtrim($canvas_domain, '/');
-        
-        // Add protocol if missing
-        if (!preg_match('/^https?:\/\//', $canvas_domain)) {
-            $canvas_domain = 'https://' . $canvas_domain;
-        }
-        
-        // Generate student enrollment URL (not edit URL)
-        $enrollment_url = $canvas_domain . '/courses/' . $course_id;
-        
-        if ($this->logger) $this->logger->log('Generated enrollment URL: ' . $enrollment_url . ' for course ID: ' . $course_id);
-        
-        return $enrollment_url;
     }
 }
