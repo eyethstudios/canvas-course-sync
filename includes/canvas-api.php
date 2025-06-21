@@ -238,4 +238,76 @@ class CCS_Canvas_API {
         
         return $result;
     }
+
+    /**
+     * Get course modules from Canvas
+     */
+    public function get_course_modules($course_id) {
+        if (empty($course_id) || !is_numeric($course_id)) {
+            return new WP_Error('invalid_course_id', __('Invalid course ID provided', 'canvas-course-sync'));
+        }
+        
+        $endpoint = 'courses/' . intval($course_id) . '/modules?include[]=items&per_page=100';
+        $result = $this->make_request($endpoint);
+        
+        if (is_wp_error($result)) {
+            return $result;
+        }
+        
+        if (!is_array($result)) {
+            return new WP_Error('invalid_modules_response', __('Invalid modules response from Canvas API', 'canvas-course-sync'));
+        }
+        
+        $logger = $this->get_logger();
+        if ($logger) {
+            $logger->log('Retrieved ' . count($result) . ' modules for course ID: ' . $course_id);
+        }
+        
+        return $result;
+    }
+
+    /**
+     * Download file from Canvas
+     */
+    public function download_file($url) {
+        if (empty($url)) {
+            return new WP_Error('empty_url', __('File URL is empty', 'canvas-course-sync'));
+        }
+
+        // Use WordPress HTTP API to download the file
+        $response = wp_remote_get($url, array(
+            'timeout' => 60,
+            'headers' => array(
+                'User-Agent' => 'WordPress-Canvas-Course-Sync/' . (defined('CCS_VERSION') ? CCS_VERSION : '1.0')
+            )
+        ));
+
+        if (is_wp_error($response)) {
+            return $response;
+        }
+
+        $response_code = wp_remote_retrieve_response_code($response);
+        if ($response_code !== 200) {
+            return new WP_Error('download_failed', sprintf(__('Failed to download file. HTTP status: %d', 'canvas-course-sync'), $response_code));
+        }
+
+        $body = wp_remote_retrieve_body($response);
+        if (empty($body)) {
+            return new WP_Error('empty_file', __('Downloaded file is empty', 'canvas-course-sync'));
+        }
+
+        // Create temporary file
+        $tmp_file = wp_tempnam();
+        if (!$tmp_file) {
+            return new WP_Error('temp_file_failed', __('Could not create temporary file', 'canvas-course-sync'));
+        }
+
+        $written = file_put_contents($tmp_file, $body);
+        if ($written === false) {
+            @unlink($tmp_file);
+            return new WP_Error('write_failed', __('Could not write to temporary file', 'canvas-course-sync'));
+        }
+
+        return $tmp_file;
+    }
 }

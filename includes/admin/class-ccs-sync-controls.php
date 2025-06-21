@@ -123,7 +123,7 @@ class CCS_Sync_Controls {
         
         <script type="text/javascript">
         jQuery(document).ready(function($) {
-            // Add omit courses functionality - using consistent ID
+            // Add omit courses functionality
             $('#ccs-omit-selected').on('click', function(e) {
                 e.preventDefault();
                 
@@ -132,16 +132,17 @@ class CCS_Sync_Controls {
                 }).get();
                 
                 if (selectedCourses.length === 0) {
-                    alert('Please select at least one course to omit.');
+                    alert('<?php _e('Please select at least one course to omit.', 'canvas-course-sync'); ?>');
                     return;
                 }
                 
-                if (!confirm('Are you sure you want to omit ' + selectedCourses.length + ' course(s) from future syncs?')) {
+                if (!confirm('<?php _e('Are you sure you want to omit', 'canvas-course-sync'); ?> ' + selectedCourses.length + ' <?php _e('course(s) from future syncs?', 'canvas-course-sync'); ?>')) {
                     return;
                 }
                 
                 const button = $(this);
-                button.prop('disabled', true).text('Omitting...');
+                const originalText = button.text();
+                button.prop('disabled', true).text('<?php _e('Omitting...', 'canvas-course-sync'); ?>');
                 
                 $.ajax({
                     url: ajaxurl,
@@ -152,19 +153,19 @@ class CCS_Sync_Controls {
                         course_ids: selectedCourses
                     },
                     success: function(response) {
-                        button.prop('disabled', false).text('<?php _e('Omit Selected Courses', 'canvas-course-sync'); ?>');
+                        button.prop('disabled', false).text(originalText);
                         
                         if (response.success) {
                             alert(response.data.message);
                             // Refresh course list to show omitted status
                             $('#ccs-get-courses').click();
                         } else {
-                            alert('Error: ' + (response.data.message || 'Unknown error occurred'));
+                            alert('<?php _e('Error:', 'canvas-course-sync'); ?> ' + (response.data.message || '<?php _e('Unknown error occurred', 'canvas-course-sync'); ?>'));
                         }
                     },
                     error: function() {
-                        button.prop('disabled', false).text('<?php _e('Omit Selected Courses', 'canvas-course-sync'); ?>');
-                        alert('Network error occurred. Please try again.');
+                        button.prop('disabled', false).text(originalText);
+                        alert('<?php _e('Network error occurred. Please try again.', 'canvas-course-sync'); ?>');
                     }
                 });
             });

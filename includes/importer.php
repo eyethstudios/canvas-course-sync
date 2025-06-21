@@ -40,65 +40,51 @@ class CCS_Course_Importer {
      * Constructor
      */
     public function __construct() {
-        // Don't initialize in constructor to avoid circular dependency
-    }
-    
-    /**
-     * Get logger instance safely
-     */
-    private function get_logger() {
-        if ($this->logger === null) {
-            $canvas_course_sync = canvas_course_sync();
-            if ($canvas_course_sync && isset($canvas_course_sync->logger)) {
-                $this->logger = $canvas_course_sync->logger;
-            }
-        }
-        return $this->logger;
-    }
-    
-    /**
-     * Get API instance safely
-     */
-    private function get_api() {
-        if ($this->api === null) {
-            $canvas_course_sync = canvas_course_sync();
-            if ($canvas_course_sync && isset($canvas_course_sync->api)) {
-                $this->api = $canvas_course_sync->api;
-            }
-        }
-        return $this->api;
+        // Initialize handlers immediately
+        $this->init_handlers();
     }
 
     /**
-     * Get media handler instance safely
+     * Initialize all handlers
      */
-    private function get_media_handler() {
-        if ($this->media_handler === null) {
-            // Make sure the class is loaded
-            if (!class_exists('CCS_Media_Handler')) {
-                require_once plugin_dir_path(__FILE__) . 'handlers/class-ccs-media-handler.php';
-            }
-            if (class_exists('CCS_Media_Handler')) {
-                $this->media_handler = new CCS_Media_Handler();
-            }
+    private function init_handlers() {
+        // Get main plugin instance
+        $canvas_course_sync = canvas_course_sync();
+        
+        // Initialize logger
+        if ($canvas_course_sync && isset($canvas_course_sync->logger)) {
+            $this->logger = $canvas_course_sync->logger;
+        } elseif (class_exists('CCS_Logger')) {
+            $this->logger = new CCS_Logger();
         }
-        return $this->media_handler;
-    }
-
-    /**
-     * Get content handler instance safely
-     */
-    private function get_content_handler() {
-        if ($this->content_handler === null) {
-            // Make sure the class is loaded
-            if (!class_exists('CCS_Content_Handler')) {
-                require_once plugin_dir_path(__FILE__) . 'handlers/class-ccs-content-handler.php';
-            }
-            if (class_exists('CCS_Content_Handler')) {
-                $this->content_handler = new CCS_Content_Handler();
-            }
+        
+        // Initialize API
+        if ($canvas_course_sync && isset($canvas_course_sync->api)) {
+            $this->api = $canvas_course_sync->api;
+        } elseif (class_exists('CCS_Canvas_API')) {
+            $this->api = new CCS_Canvas_API();
         }
-        return $this->content_handler;
+        
+        // Initialize media handler
+        if (!class_exists('CCS_Media_Handler')) {
+            require_once plugin_dir_path(__FILE__) . 'handlers/class-ccs-media-handler.php';
+        }
+        if (class_exists('CCS_Media_Handler')) {
+            $this->media_handler = new CCS_Media_Handler();
+        }
+        
+        // Initialize content handler  
+        if (!class_exists('CCS_Content_Handler')) {
+            require_once plugin_dir_path(__FILE__) . 'handlers/class-ccs-content-handler.php';
+        }
+        if (class_exists('CCS_Content_Handler')) {
+            $this->content_handler = new CCS_Content_Handler();
+        }
+        
+        error_log('CCS Debug: Importer initialized - Logger: ' . ($this->logger ? 'yes' : 'no') . 
+                  ', API: ' . ($this->api ? 'yes' : 'no') . 
+                  ', Media: ' . ($this->media_handler ? 'yes' : 'no') . 
+                  ', Content: ' . ($this->content_handler ? 'yes' : 'no'));
     }
     
     /**
@@ -110,26 +96,9 @@ class CCS_Course_Importer {
     public function import_courses($course_ids) {
         error_log('CCS Debug: Import courses called with IDs: ' . print_r($course_ids, true));
         
-        $api = $this->get_api();
-        $logger = $this->get_logger();
-        $media_handler = $this->get_media_handler();
-        $content_handler = $this->get_content_handler();
-        
-        if (!$api) {
+        if (!$this->api) {
             error_log('CCS Debug: API not available');
             throw new Exception(__('Canvas API not properly initialized.', 'canvas-course-sync'));
-        }
-        
-        if (!$logger) {
-            error_log('CCS Debug: Logger not available - continuing without logging');
-        }
-        
-        if (!$media_handler) {
-            error_log('CCS Debug: Media handler not available - images will not be processed');
-        }
-        
-        if (!$content_handler) {
-            error_log('CCS Debug: Content handler not available - using basic content');
         }
         
         $results = array(
@@ -153,24 +122,23 @@ class CCS_Course_Importer {
             ), 300);
             
             try {
-                $course_details = $api->get_course_details($course_id);
+                $course_details = $this->api->get_course_details($course_id);
                 
                 if (is_wp_error($course_details)) {
                     $results['errors']++;
                     $error_msg = 'Failed to get course details for ID ' . $course_id . ': ' . $course_details->get_error_message();
-                    if ($logger) $logger->log($error_msg, 'error');
+                    if ($this->logger) $this->logger->log($error_msg, 'error');
                     error_log('CCS Debug: ' . $error_msg);
                     continue;
                 }
                 
-                $course_name = isset($course_details['name']) ? $course_details['name'] : '';
+                $course_name = isset($course_details['name']) ? $course_details['name'] : 'Untitled Course';
                 error_log('CCS Debug: Retrieved course details for "' . $course_name . '"');
-                error_log('CCS Debug: Course details structure: ' . print_r(array_keys($course_details), true));
                 
                 // Check if course should be excluded
                 if (function_exists('ccs_is_course_excluded') && ccs_is_course_excluded($course_name)) {
                     $results['skipped']++;
-                    if ($logger) $logger->log('Skipped excluded course: ' . $course_name . ' (ID: ' . $course_id . ')');
+                    if ($this->logger) $this->logger->log('Skipped excluded course: ' . $course_name . ' (ID: ' . $course_id . ')');
                     error_log('CCS Debug: Skipped excluded course: ' . $course_name);
                     continue;
                 }
@@ -186,34 +154,26 @@ class CCS_Course_Importer {
                 
                 if (!empty($existing)) {
                     $results['skipped']++;
-                    if ($logger) $logger->log('Course already exists: ' . $course_name . ' (ID: ' . $course_id . ')');
+                    if ($this->logger) $this->logger->log('Course already exists: ' . $course_name . ' (ID: ' . $course_id . ')');
                     error_log('CCS Debug: Course already exists: ' . $course_name);
                     continue;
                 }
                 
-                // Prepare course content
-                $course_name = $course_name ?: 'Untitled Course';
+                // Prepare course content using content handler
                 $course_content = '';
-                
-                // First try content handler
-                if ($content_handler) {
+                if ($this->content_handler) {
                     error_log('CCS Debug: Using content handler to prepare course content');
-                    $course_content = $content_handler->prepare_course_content((object)$course_details);
+                    $course_content = $this->content_handler->prepare_course_content((object)$course_details);
                     error_log('CCS Debug: Content handler returned ' . strlen($course_content) . ' characters');
-                }
-                
-                // If no content from handler, use fallback
-                if (empty($course_content)) {
-                    error_log('CCS Debug: Using fallback content preparation');
+                } else {
+                    error_log('CCS Debug: Content handler not available, using fallback');
+                    // Simple fallback content preparation
                     if (!empty($course_details['syllabus_body'])) {
                         $course_content = wp_kses_post($course_details['syllabus_body']);
-                        error_log('CCS Debug: Using syllabus_body (' . strlen($course_content) . ' chars)');
                     } elseif (!empty($course_details['public_description'])) {
                         $course_content = wp_kses_post($course_details['public_description']);
-                        error_log('CCS Debug: Using public_description (' . strlen($course_content) . ' chars)');
                     } elseif (!empty($course_details['description'])) {
                         $course_content = wp_kses_post($course_details['description']);
-                        error_log('CCS Debug: Using description (' . strlen($course_content) . ' chars)');
                     }
                 }
                 
@@ -228,7 +188,7 @@ class CCS_Course_Importer {
                     'post_author' => get_current_user_id()
                 );
                 
-                error_log('CCS Debug: Creating WordPress post with data: ' . print_r($post_data, true));
+                error_log('CCS Debug: Creating WordPress post');
                 
                 $post_id = wp_insert_post($post_data);
                 
@@ -247,48 +207,48 @@ class CCS_Course_Importer {
                         $enrollment_url = esc_url_raw($course_details['html_url']);
                         update_post_meta($post_id, 'link', $enrollment_url);
                         error_log('CCS Debug: Added enrollment link to "link" field: ' . $enrollment_url);
-                        if ($logger) $logger->log('Added enrollment link to "link" field: ' . $enrollment_url);
+                        if ($this->logger) $this->logger->log('Added enrollment link to "link" field: ' . $enrollment_url);
                     } else {
                         error_log('CCS Debug: No html_url found in course details');
                     }
                     
                     // Handle course image
-                    if (!empty($course_details['image_download_url']) && $media_handler) {
+                    if (!empty($course_details['image_download_url']) && $this->media_handler) {
                         error_log('CCS Debug: Attempting to set featured image from: ' . $course_details['image_download_url']);
-                        if ($logger) $logger->log('Attempting to set featured image from: ' . $course_details['image_download_url']);
+                        if ($this->logger) $this->logger->log('Attempting to set featured image from: ' . $course_details['image_download_url']);
                         
-                        $image_result = $media_handler->set_featured_image($post_id, $course_details['image_download_url'], $course_name);
+                        $image_result = $this->media_handler->set_featured_image($post_id, $course_details['image_download_url'], $course_name);
                         
                         if ($image_result) {
                             error_log('CCS Debug: Successfully set featured image for course: ' . $course_name);
-                            if ($logger) $logger->log('Successfully set featured image for course: ' . $course_name);
+                            if ($this->logger) $this->logger->log('Successfully set featured image for course: ' . $course_name);
                         } else {
                             error_log('CCS Debug: Failed to set featured image for course: ' . $course_name);
-                            if ($logger) $logger->log('Failed to set featured image for course: ' . $course_name, 'warning');
+                            if ($this->logger) $this->logger->log('Failed to set featured image for course: ' . $course_name, 'warning');
                         }
                     } else {
                         if (empty($course_details['image_download_url'])) {
                             error_log('CCS Debug: No image_download_url available for course: ' . $course_name);
                         }
-                        if (!$media_handler) {
+                        if (!$this->media_handler) {
                             error_log('CCS Debug: Media handler not available for course: ' . $course_name);
                         }
                     }
                     
                     $results['imported']++;
-                    if ($logger) $logger->log('Successfully imported course: ' . $course_name . ' (ID: ' . $course_id . ')');
+                    if ($this->logger) $this->logger->log('Successfully imported course: ' . $course_name . ' (ID: ' . $course_id . ')');
                     error_log('CCS Debug: Successfully imported course: ' . $course_name . ' (Post ID: ' . $post_id . ')');
                 } else {
                     $results['errors']++;
                     $error_message = is_wp_error($post_id) ? $post_id->get_error_message() : 'Unknown error';
-                    if ($logger) $logger->log('Failed to create WordPress post for course ID: ' . $course_id . ' - ' . $error_message, 'error');
+                    if ($this->logger) $this->logger->log('Failed to create WordPress post for course ID: ' . $course_id . ' - ' . $error_message, 'error');
                     error_log('CCS Debug: Failed to create WordPress post: ' . $error_message);
                 }
                 
             } catch (Exception $e) {
                 $results['errors']++;
                 $error_msg = 'Exception processing course ID ' . $course_id . ': ' . $e->getMessage();
-                if ($logger) $logger->log($error_msg, 'error');
+                if ($this->logger) $this->logger->log($error_msg, 'error');
                 error_log('CCS Debug: ' . $error_msg);
             }
         }
