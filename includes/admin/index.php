@@ -18,6 +18,7 @@ add_action('wp_ajax_ccs_sync_status', 'ccs_ajax_sync_status');
 add_action('wp_ajax_ccs_clear_logs', 'ccs_ajax_clear_logs');
 add_action('wp_ajax_ccs_refresh_logs', 'ccs_ajax_refresh_logs');
 add_action('wp_ajax_ccs_run_auto_sync', 'ccs_ajax_run_auto_sync');
+add_action('wp_ajax_ccs_omit_courses', 'ccs_ajax_omit_courses');
 
 /**
  * AJAX handler for testing connection
@@ -242,33 +243,30 @@ function ccs_ajax_sync_courses() {
 function ccs_ajax_omit_courses() {
     error_log('CCS Debug: Omit courses AJAX handler called');
     
-    // Verify nonce - use existing nonce for now
-    if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ccs_get_courses')) {
-        error_log('CCS Debug: Omit courses nonce verification failed');
-        wp_send_json_error(__('Security check failed.', 'canvas-course-sync'));
-    }
-    
+    // Verify permissions first
     if (!current_user_can('manage_options')) {
         error_log('CCS Debug: User does not have manage_options capability');
-        wp_send_json_error(__('You do not have sufficient permissions to access this page.', 'canvas-course-sync'));
+        wp_send_json_error(array('message' => __('You do not have sufficient permissions to access this page.', 'canvas-course-sync')));
+        return;
     }
     
-    // Get courses to omit
-    $courses_to_omit = array();
-    if (isset($_POST['courses']) && is_array($_POST['courses'])) {
-        $courses_to_omit = array_map(function($course) {
-            return array(
-                'id' => intval($course['id']),
-                'name' => sanitize_text_field($course['name'])
-            );
-        }, wp_unslash($_POST['courses']));
+    // Verify nonce
+    $nonce = isset($_POST['nonce']) ? sanitize_text_field(wp_unslash($_POST['nonce'])) : '';
+    if (!wp_verify_nonce($nonce, 'ccs_omit_courses')) {
+        error_log('CCS Debug: Omit courses nonce verification failed');
+        wp_send_json_error(array('message' => __('Security check failed.', 'canvas-course-sync')));
+        return;
     }
     
-    error_log('CCS Debug: Courses to omit: ' . print_r($courses_to_omit, true));
+    // Get course IDs to omit
+    $course_ids = isset($_POST['course_ids']) ? array_map('intval', wp_unslash($_POST['course_ids'])) : array();
     
-    if (empty($courses_to_omit)) {
-        error_log('CCS Debug: No courses provided to omit');
+    error_log('CCS Debug: Course IDs to omit: ' . print_r($course_ids, true));
+    
+    if (empty($course_ids)) {
+        error_log('CCS Debug: No course IDs provided to omit');
         wp_send_json_error(array('message' => __('No courses selected to omit.', 'canvas-course-sync')));
+        return;
     }
     
     // Get existing omitted courses
@@ -278,22 +276,20 @@ function ccs_ajax_omit_courses() {
     }
     
     // Add new courses to omitted list
-    foreach ($courses_to_omit as $course) {
-        $course_key = 'id_' . $course['id'];
-        $omitted_courses[$course_key] = array(
-            'id' => $course['id'],
-            'name' => $course['name'],
-            'omitted_at' => current_time('mysql')
-        );
+    foreach ($course_ids as $course_id) {
+        if (!in_array($course_id, $omitted_courses)) {
+            $omitted_courses[] = $course_id;
+        }
     }
     
     // Save updated omitted courses list
     $updated = update_option('ccs_omitted_courses', $omitted_courses);
     
-    if ($updated) {
-        error_log('CCS Debug: Successfully omitted ' . count($courses_to_omit) . ' course(s)');
+    if ($updated !== false) {
+        error_log('CCS Debug: Successfully omitted ' . count($course_ids) . ' course(s)');
         wp_send_json_success(array(
-            'message' => sprintf(__('Successfully omitted %d course(s) from future syncing.', 'canvas-course-sync'), count($courses_to_omit))
+            'message' => sprintf(__('Successfully omitted %d course(s) from future syncing.', 'canvas-course-sync'), count($course_ids)),
+            'omitted_count' => count($course_ids)
         ));
     } else {
         error_log('CCS Debug: Failed to update omitted courses option');
