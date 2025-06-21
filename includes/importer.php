@@ -165,6 +165,7 @@ class CCS_Course_Importer {
                 
                 $course_name = isset($course_details['name']) ? $course_details['name'] : '';
                 error_log('CCS Debug: Retrieved course details for "' . $course_name . '"');
+                error_log('CCS Debug: Course details structure: ' . print_r(array_keys($course_details), true));
                 
                 // Check if course should be excluded
                 if (function_exists('ccs_is_course_excluded') && ccs_is_course_excluded($course_name)) {
@@ -194,19 +195,25 @@ class CCS_Course_Importer {
                 $course_name = $course_name ?: 'Untitled Course';
                 $course_content = '';
                 
+                // First try content handler
                 if ($content_handler) {
                     error_log('CCS Debug: Using content handler to prepare course content');
                     $course_content = $content_handler->prepare_course_content((object)$course_details);
-                    if ($logger) $logger->log('Content handler returned ' . strlen($course_content) . ' characters');
-                } else {
+                    error_log('CCS Debug: Content handler returned ' . strlen($course_content) . ' characters');
+                }
+                
+                // If no content from handler, use fallback
+                if (empty($course_content)) {
                     error_log('CCS Debug: Using fallback content preparation');
-                    // Fallback content preparation
                     if (!empty($course_details['syllabus_body'])) {
                         $course_content = wp_kses_post($course_details['syllabus_body']);
+                        error_log('CCS Debug: Using syllabus_body (' . strlen($course_content) . ' chars)');
                     } elseif (!empty($course_details['public_description'])) {
                         $course_content = wp_kses_post($course_details['public_description']);
+                        error_log('CCS Debug: Using public_description (' . strlen($course_content) . ' chars)');
                     } elseif (!empty($course_details['description'])) {
                         $course_content = wp_kses_post($course_details['description']);
+                        error_log('CCS Debug: Using description (' . strlen($course_content) . ' chars)');
                     }
                 }
                 
@@ -235,15 +242,17 @@ class CCS_Course_Importer {
                     update_post_meta($post_id, 'canvas_end_at', sanitize_text_field($course_details['end_at'] ?? ''));
                     update_post_meta($post_id, 'canvas_enrollment_term_id', intval($course_details['enrollment_term_id'] ?? 0));
                     
-                    // Add enrollment link - Fixed the field name
+                    // Add enrollment link to custom field "link"
                     if (!empty($course_details['html_url'])) {
                         $enrollment_url = esc_url_raw($course_details['html_url']);
                         update_post_meta($post_id, 'link', $enrollment_url);
-                        error_log('CCS Debug: Added enrollment link: ' . $enrollment_url);
-                        if ($logger) $logger->log('Added enrollment link: ' . $enrollment_url);
+                        error_log('CCS Debug: Added enrollment link to "link" field: ' . $enrollment_url);
+                        if ($logger) $logger->log('Added enrollment link to "link" field: ' . $enrollment_url);
+                    } else {
+                        error_log('CCS Debug: No html_url found in course details');
                     }
                     
-                    // Handle course image - Fixed the logic
+                    // Handle course image
                     if (!empty($course_details['image_download_url']) && $media_handler) {
                         error_log('CCS Debug: Attempting to set featured image from: ' . $course_details['image_download_url']);
                         if ($logger) $logger->log('Attempting to set featured image from: ' . $course_details['image_download_url']);
@@ -257,10 +266,13 @@ class CCS_Course_Importer {
                             error_log('CCS Debug: Failed to set featured image for course: ' . $course_name);
                             if ($logger) $logger->log('Failed to set featured image for course: ' . $course_name, 'warning');
                         }
-                    } elseif (empty($course_details['image_download_url'])) {
-                        error_log('CCS Debug: No image URL available for course: ' . $course_name);
-                    } elseif (!$media_handler) {
-                        error_log('CCS Debug: Media handler not available for course: ' . $course_name);
+                    } else {
+                        if (empty($course_details['image_download_url'])) {
+                            error_log('CCS Debug: No image_download_url available for course: ' . $course_name);
+                        }
+                        if (!$media_handler) {
+                            error_log('CCS Debug: Media handler not available for course: ' . $course_name);
+                        }
                     }
                     
                     $results['imported']++;
