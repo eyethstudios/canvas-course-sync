@@ -31,13 +31,13 @@ class CCS_Sync_Controls {
             return;
         }
         
-        $nonce = isset($_POST['nonce']) ? sanitize_text_field($_POST['nonce']) : '';
+        $nonce = isset($_POST['nonce']) ? sanitize_text_field(wp_unslash($_POST['nonce'])) : '';
         if (!wp_verify_nonce($nonce, 'ccs_omit_courses')) {
             wp_send_json_error(array('message' => 'Security check failed'));
             return;
         }
         
-        $course_ids = isset($_POST['course_ids']) ? array_map('intval', $_POST['course_ids']) : array();
+        $course_ids = isset($_POST['course_ids']) ? array_map('intval', wp_unslash($_POST['course_ids'])) : array();
         
         if (empty($course_ids)) {
             wp_send_json_error(array('message' => 'No courses selected'));
@@ -58,7 +58,7 @@ class CCS_Sync_Controls {
         update_option('ccs_omitted_courses', $omitted_courses);
         
         wp_send_json_success(array(
-            'message' => sprintf(__('%d courses have been omitted from future syncs.', 'canvas-course-sync'), count($course_ids)),
+            'message' => sprintf(esc_html__('%d courses have been omitted from future syncs.', 'canvas-course-sync'), count($course_ids)),
             'omitted_count' => count($course_ids)
         ));
     }
@@ -69,15 +69,15 @@ class CCS_Sync_Controls {
     public function render() {
         ?>
         <div class="ccs-panel">
-            <h2><?php _e('Synchronize Courses', 'canvas-course-sync'); ?></h2>
-            <p><?php _e('Load the available courses from Canvas, then select which ones you want to sync or omit.', 'canvas-course-sync'); ?></p>
+            <h2><?php esc_html_e('Synchronize Courses', 'canvas-course-sync'); ?></h2>
+            <p><?php esc_html_e('Load the available courses from Canvas, then select which ones you want to sync or omit.', 'canvas-course-sync'); ?></p>
             
             <button id="ccs-get-courses" class="button button-secondary">
-                <?php _e('Load Available Courses', 'canvas-course-sync'); ?>
+                <?php esc_html_e('Load Available Courses', 'canvas-course-sync'); ?>
             </button>
             <span id="ccs-loading-courses" style="display: none;">
                 <div class="ccs-spinner"></div>
-                <?php _e('Loading courses...', 'canvas-course-sync'); ?>
+                <?php esc_html_e('Loading courses...', 'canvas-course-sync'); ?>
             </span>
             
             <div id="ccs-courses-wrapper" style="display: none;">
@@ -85,15 +85,15 @@ class CCS_Sync_Controls {
                 
                 <div class="ccs-action-buttons" style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #ddd;">
                     <button id="ccs-sync-selected" class="button button-primary">
-                        <?php _e('Sync Selected Courses', 'canvas-course-sync'); ?>
+                        <?php esc_html_e('Sync Selected Courses', 'canvas-course-sync'); ?>
                     </button>
                     <button id="ccs-omit-selected" class="button button-secondary" style="margin-left: 10px;">
-                        <?php _e('Omit Selected Courses', 'canvas-course-sync'); ?>
+                        <?php esc_html_e('Omit Selected Courses', 'canvas-course-sync'); ?>
                     </button>
                 </div>
                 
                 <div id="ccs-sync-progress" style="display: none;">
-                    <p><?php _e('Syncing selected courses...', 'canvas-course-sync'); ?></p>
+                    <p><?php esc_html_e('Syncing selected courses...', 'canvas-course-sync'); ?></p>
                     <div class="ccs-progress-bar-container">
                         <div id="ccs-sync-progress-bar" class="ccs-progress-bar"></div>
                     </div>
@@ -101,19 +101,19 @@ class CCS_Sync_Controls {
                 </div>
                 
                 <div id="ccs-sync-results" style="display: none;">
-                    <h3><?php _e('Sync Results', 'canvas-course-sync'); ?></h3>
+                    <h3><?php esc_html_e('Sync Results', 'canvas-course-sync'); ?></h3>
                     <div id="ccs-sync-message"></div>
                     <table class="ccs-results-table">
                         <tr>
-                            <th><?php _e('Imported', 'canvas-course-sync'); ?></th>
+                            <th><?php esc_html_e('Imported', 'canvas-course-sync'); ?></th>
                             <td id="ccs-imported">0</td>
                         </tr>
                         <tr>
-                            <th><?php _e('Skipped', 'canvas-course-sync'); ?></th>
+                            <th><?php esc_html_e('Skipped', 'canvas-course-sync'); ?></th>
                             <td id="ccs-skipped">0</td>
                         </tr>
                         <tr>
-                            <th><?php _e('Errors', 'canvas-course-sync'); ?></th>
+                            <th><?php esc_html_e('Errors', 'canvas-course-sync'); ?></th>
                             <td id="ccs-errors">0</td>
                         </tr>
                     </table>
@@ -137,24 +137,24 @@ class CCS_Sync_Controls {
                 console.log('CCS Debug: Selected courses for omit:', selectedCourses);
                 
                 if (selectedCourses.length === 0) {
-                    alert('<?php _e('Please select at least one course to omit.', 'canvas-course-sync'); ?>');
+                    alert('<?php echo esc_js(__('Please select at least one course to omit.', 'canvas-course-sync')); ?>');
                     return;
                 }
                 
-                if (!confirm('<?php _e('Are you sure you want to omit', 'canvas-course-sync'); ?> ' + selectedCourses.length + ' <?php _e('course(s) from future syncs?', 'canvas-course-sync'); ?>')) {
+                if (!confirm('<?php echo esc_js(__('Are you sure you want to omit', 'canvas-course-sync')); ?> ' + selectedCourses.length + ' <?php echo esc_js(__('course(s) from future syncs?', 'canvas-course-sync')); ?>')) {
                     return;
                 }
                 
                 const button = $(this);
                 const originalText = button.text();
-                button.prop('disabled', true).text('<?php _e('Omitting...', 'canvas-course-sync'); ?>');
+                button.prop('disabled', true).text('<?php echo esc_js(__('Omitting...', 'canvas-course-sync')); ?>');
                 
                 $.ajax({
                     url: ajaxurl,
                     type: 'POST',
                     data: {
                         action: 'ccs_omit_courses',
-                        nonce: '<?php echo wp_create_nonce('ccs_omit_courses'); ?>',
+                        nonce: '<?php echo esc_js(wp_create_nonce('ccs_omit_courses')); ?>',
                         course_ids: selectedCourses
                     },
                     success: function(response) {
@@ -166,13 +166,13 @@ class CCS_Sync_Controls {
                             // Refresh course list to show omitted status
                             $('#ccs-get-courses').click();
                         } else {
-                            alert('<?php _e('Error:', 'canvas-course-sync'); ?> ' + (response.data.message || '<?php _e('Unknown error occurred', 'canvas-course-sync'); ?>'));
+                            alert('<?php echo esc_js(__('Error:', 'canvas-course-sync')); ?> ' + (response.data.message || '<?php echo esc_js(__('Unknown error occurred', 'canvas-course-sync')); ?>'));
                         }
                     },
                     error: function(xhr, status, error) {
                         console.error('CCS Debug: Omit AJAX error:', error, xhr.responseText);
                         button.prop('disabled', false).text(originalText);
-                        alert('<?php _e('Network error occurred. Please try again.', 'canvas-course-sync'); ?>');
+                        alert('<?php echo esc_js(__('Network error occurred. Please try again.', 'canvas-course-sync')); ?>');
                     }
                 });
             });
