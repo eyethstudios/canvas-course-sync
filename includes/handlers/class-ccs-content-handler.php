@@ -51,45 +51,50 @@ class CCS_Content_Handler {
      * @return string Prepared modules content
      */
     private function prepare_modules_content($modules) {
-        if (empty($modules)) {
+        if (empty($modules) || !is_array($modules)) {
+            error_log('CCS Debug: No modules provided to prepare_modules_content');
             return '';
         }
 
         $content = "<h2>Course Modules</h2>\n\n";
+        error_log('CCS Debug: Processing ' . count($modules) . ' modules');
         
         foreach ($modules as $module) {
-            if (empty($module->name)) {
+            if (empty($module['name'])) {
                 continue;
             }
             
-            $content .= "<h3>" . esc_html($module->name) . "</h3>\n";
+            $content .= "<h3>" . esc_html($module['name']) . "</h3>\n";
             
             // Add module description if available
-            if (!empty($module->description)) {
-                $content .= wp_kses_post($module->description) . "\n\n";
+            if (!empty($module['description'])) {
+                $content .= wp_kses_post($module['description']) . "\n\n";
             }
             
             // Add learning objectives (prerequisites) if available
-            if (!empty($module->prerequisites)) {
+            if (!empty($module['prerequisites']) && is_array($module['prerequisites'])) {
                 $content .= "<h4>Learning Objectives:</h4>\n<ul>\n";
-                foreach ($module->prerequisites as $prereq) {
-                    $content .= "<li>" . esc_html($prereq) . "</li>\n";
+                foreach ($module['prerequisites'] as $prereq) {
+                    if (is_string($prereq)) {
+                        $content .= "<li>" . esc_html($prereq) . "</li>\n";
+                    }
                 }
                 $content .= "</ul>\n\n";
             }
             
             // Add items if available
-            if (!empty($module->items)) {
+            if (!empty($module['items']) && is_array($module['items'])) {
                 $content .= "<h4>Module Items:</h4>\n<ul>\n";
-                foreach ($module->items as $item) {
-                    if (!empty($item->title)) {
-                        $content .= "<li>" . esc_html($item->title) . "</li>\n";
+                foreach ($module['items'] as $item) {
+                    if (!empty($item['title'])) {
+                        $content .= "<li>" . esc_html($item['title']) . "</li>\n";
                     }
                 }
                 $content .= "</ul>\n\n";
             }
         }
         
+        error_log('CCS Debug: Generated modules content length: ' . strlen($content));
         return $content;
     }
 
@@ -100,55 +105,73 @@ class CCS_Content_Handler {
      * @return string Prepared content
      */
     public function prepare_course_content($course_details) {
-        error_log('CCS Debug: Content handler prepare_course_content called for course: ' . ($course_details->name ?? 'unknown'));
+        error_log('CCS Debug: Content handler prepare_course_content called');
+        
+        if (empty($course_details)) {
+            error_log('CCS Debug: No course details provided');
+            return '';
+        }
+        
+        // Convert array to object if needed
+        if (is_array($course_details)) {
+            $course_details = (object)$course_details;
+        }
+        
+        $course_name = isset($course_details->name) ? $course_details->name : 'Unknown Course';
+        error_log('CCS Debug: Preparing content for course: ' . $course_name);
         
         $content = '';
         
-        // Get modules for the course
-        $canvas_course_sync = canvas_course_sync();
-        if ($canvas_course_sync && isset($canvas_course_sync->api)) {
-            error_log('CCS Debug: Attempting to get course modules for course ID: ' . $course_details->id);
-            $modules = $canvas_course_sync->api->get_course_modules($course_details->id);
-            if (!is_wp_error($modules)) {
-                $modules_content = $this->prepare_modules_content($modules);
-                if (!empty($modules_content)) {
-                    $content .= $modules_content;
-                    error_log('CCS Debug: Added modules content (' . strlen($modules_content) . ' chars)');
+        // Get modules for the course if we have an API and course ID
+        if (!empty($course_details->id)) {
+            $canvas_course_sync = canvas_course_sync();
+            if ($canvas_course_sync && isset($canvas_course_sync->api)) {
+                error_log('CCS Debug: Attempting to get course modules for course ID: ' . $course_details->id);
+                $modules = $canvas_course_sync->api->get_course_modules($course_details->id);
+                if (!is_wp_error($modules) && !empty($modules)) {
+                    $modules_content = $this->prepare_modules_content($modules);
+                    if (!empty($modules_content)) {
+                        $content .= $modules_content;
+                        error_log('CCS Debug: Added modules content (' . strlen($modules_content) . ' chars)');
+                    }
+                } else {
+                    if (is_wp_error($modules)) {
+                        error_log('CCS Debug: Failed to get modules: ' . $modules->get_error_message());
+                    } else {
+                        error_log('CCS Debug: No modules returned for course');
+                    }
                 }
             } else {
-                error_log('C CS Debug: Failed to get modules: ' . $modules->get_error_message());
+                error_log('CCS Debug: API not available for getting modules');
             }
         }
         
         // Check for syllabus content
         if (!empty($course_details->syllabus_body)) {
-            if ($this->logger) $this->logger->log('Using syllabus content for course (' . strlen($course_details->syllabus_body) . ' chars)');
+            if ($this->logger) $this->logger->log('Adding syllabus content (' . strlen($course_details->syllabus_body) . ' chars)');
             error_log('CCS Debug: Adding syllabus content (' . strlen($course_details->syllabus_body) . ' chars)');
-            $content .= "<h2>Course Syllabus</h2>\n" . $course_details->syllabus_body;
-        } 
+            $content .= (!empty($content) ? "\n\n" : "") . "<h2>Course Syllabus</h2>\n" . wp_kses_post($course_details->syllabus_body);
+        }
         
         // If no syllabus, check for public description
         if (empty($content) && !empty($course_details->public_description)) {
-            if ($this->logger) $this->logger->log('Using public description as fallback (' . strlen($course_details->public_description) . ' chars)');
+            if ($this->logger) $this->logger->log('Using public description (' . strlen($course_details->public_description) . ' chars)');
             error_log('CCS Debug: Using public description (' . strlen($course_details->public_description) . ' chars)');
-            $content = $course_details->public_description;
-        } 
+            $content = wp_kses_post($course_details->public_description);
+        }
         
-        // If we have a course description, use it as a fallback or addition
+        // Add course description if available
         if (!empty($course_details->description)) {
             if (empty($content)) {
-                if ($this->logger) $this->logger->log('Using course description as content (' . strlen($course_details->description) . ' chars)');
-                error_log('CCS Debug: Using course description (' . strlen($course_details->description) . ' chars)');
-                $content = $course_details->description;
+                if ($this->logger) $this->logger->log('Using course description as main content (' . strlen($course_details->description) . ' chars)');
+                error_log('CCS Debug: Using course description as main content (' . strlen($course_details->description) . ' chars)');
+                $content = wp_kses_post($course_details->description);
             } else {
                 if ($this->logger) $this->logger->log('Appending course description to existing content');
                 error_log('CCS Debug: Appending course description to existing content');
-                $content .= "\n\n<h2>Course Description</h2>\n" . $course_details->description;
+                $content .= "\n\n<h2>Course Description</h2>\n" . wp_kses_post($course_details->description);
             }
         }
-        
-        // Sanitize the content but keep the HTML
-        $content = wp_kses_post($content);
         
         error_log('CCS Debug: Final prepared content length: ' . strlen($content));
         

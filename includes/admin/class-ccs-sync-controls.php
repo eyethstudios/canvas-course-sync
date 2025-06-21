@@ -123,13 +123,18 @@ class CCS_Sync_Controls {
         
         <script type="text/javascript">
         jQuery(document).ready(function($) {
+            console.log('CCS Debug: Sync controls script loaded');
+            
             // Add omit courses functionality
-            $('#ccs-omit-selected').on('click', function(e) {
+            $(document).on('click', '#ccs-omit-selected', function(e) {
                 e.preventDefault();
+                console.log('CCS Debug: Omit button clicked');
                 
                 const selectedCourses = $('.ccs-course-checkbox:checked').map(function() {
                     return $(this).val();
                 }).get();
+                
+                console.log('CCS Debug: Selected courses for omit:', selectedCourses);
                 
                 if (selectedCourses.length === 0) {
                     alert('<?php _e('Please select at least one course to omit.', 'canvas-course-sync'); ?>');
@@ -153,6 +158,7 @@ class CCS_Sync_Controls {
                         course_ids: selectedCourses
                     },
                     success: function(response) {
+                        console.log('CCS Debug: Omit response:', response);
                         button.prop('disabled', false).text(originalText);
                         
                         if (response.success) {
@@ -163,7 +169,8 @@ class CCS_Sync_Controls {
                             alert('<?php _e('Error:', 'canvas-course-sync'); ?> ' + (response.data.message || '<?php _e('Unknown error occurred', 'canvas-course-sync'); ?>'));
                         }
                     },
-                    error: function() {
+                    error: function(xhr, status, error) {
+                        console.error('CCS Debug: Omit AJAX error:', error, xhr.responseText);
                         button.prop('disabled', false).text(originalText);
                         alert('<?php _e('Network error occurred. Please try again.', 'canvas-course-sync'); ?>');
                     }
