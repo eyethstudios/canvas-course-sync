@@ -1,3 +1,4 @@
+
 <?php
 /**
  * Helper functions for Canvas Course Sync
@@ -112,14 +113,14 @@ function ccs_is_course_omitted($course_id) {
         return false;
     }
     
-    $course_key = 'id_' . intval($course_id);
-    return isset($omitted_courses[$course_key]);
+    // Check if course ID exists in the omitted list (using simple array format)
+    return in_array(intval($course_id), $omitted_courses);
 }
 
 /**
  * Get list of omitted courses
  *
- * @return array Array of omitted course data
+ * @return array Array of omitted course IDs
  */
 function ccs_get_omitted_courses() {
     $omitted_courses = get_option('ccs_omitted_courses', array());
@@ -142,9 +143,13 @@ function ccs_remove_omitted_course($course_id) {
         return false;
     }
     
-    $course_key = 'id_' . intval($course_id);
-    if (isset($omitted_courses[$course_key])) {
-        unset($omitted_courses[$course_key]);
+    $course_id = intval($course_id);
+    $key = array_search($course_id, $omitted_courses);
+    
+    if ($key !== false) {
+        unset($omitted_courses[$key]);
+        // Re-index array to prevent gaps
+        $omitted_courses = array_values($omitted_courses);
         return update_option('ccs_omitted_courses', $omitted_courses);
     }
     

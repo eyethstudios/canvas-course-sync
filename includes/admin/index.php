@@ -258,15 +258,16 @@ function ccs_ajax_omit_courses() {
         wp_send_json_error(array('message' => __('No courses selected to omit.', 'canvas-course-sync')));
     }
     
-    // Get existing omitted courses
+    // Get existing omitted courses (using simple array format)
     $omitted_courses = get_option('ccs_omitted_courses', array());
     if (!is_array($omitted_courses)) {
         $omitted_courses = array();
     }
     
-    // Add new courses to omitted list
+    // Add new courses to omitted list (avoid duplicates)
     foreach ($course_ids as $course_id) {
-        if (!in_array($course_id, $omitted_courses)) {
+        $course_id = intval($course_id);
+        if ($course_id > 0 && !in_array($course_id, $omitted_courses)) {
             $omitted_courses[] = $course_id;
         }
     }
