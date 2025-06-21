@@ -1,4 +1,3 @@
-
 <?php
 /**
  * Course Importer class for Canvas Course Sync
@@ -160,20 +159,10 @@ class CCS_Course_Importer {
                     update_post_meta($post_id, 'canvas_end_at', sanitize_text_field($course_details['end_at'] ?? ''));
                     update_post_meta($post_id, 'canvas_enrollment_term_id', intval($course_details['enrollment_term_id'] ?? 0));
                     
-                    // Generate proper student enrollment URL
-                    $canvas_domain = get_option('ccs_canvas_domain', '');
-                    if (!empty($canvas_domain)) {
-                        $canvas_domain = rtrim($canvas_domain, '/');
-                        if (!preg_match('/^https?:\/\//', $canvas_domain)) {
-                            $canvas_domain = 'https://' . $canvas_domain;
-                        }
-                        // Use proper student enrollment URL format
-                        $enrollment_url = $canvas_domain . '/courses/' . $course_id;
-                        update_post_meta($post_id, 'link', esc_url_raw($enrollment_url));
-                        if ($this->logger) $this->logger->log('Added student enrollment link: ' . $enrollment_url);
-                    } else {
-                        if ($this->logger) $this->logger->log('Warning: No Canvas domain configured, cannot generate enrollment URL', 'warning');
-                    }
+                    // Generate proper course URL for learn.nationaldeafcenter.org
+                    $enrollment_url = 'https://learn.nationaldeafcenter.org/courses/' . $course_id;
+                    update_post_meta($post_id, 'link', esc_url_raw($enrollment_url));
+                    if ($this->logger) $this->logger->log('Added course link: ' . $enrollment_url);
                     
                     // Handle course image
                     if (!empty($course_details['image_download_url']) && $this->media_handler) {
