@@ -5,10 +5,18 @@
 export function initSyncManager($) {
     console.log('CCS Debug: Initializing sync manager');
     
-    // Sync selected courses
-    $('#ccs-sync-selected, #ccs-sync-courses').on('click', function(e) {
+    let syncInProgress = false; // Prevent duplicate syncs
+    
+    // Sync selected courses - consolidated handler for both buttons
+    $('#ccs-sync-selected, #ccs-sync-courses').off('click').on('click', function(e) {
         e.preventDefault();
         console.log('CCS Debug: Sync button clicked');
+        
+        // Prevent duplicate syncs
+        if (syncInProgress) {
+            console.log('CCS Debug: Sync already in progress, ignoring click');
+            return;
+        }
         
         const selectedCourses = $('.ccs-course-checkbox:checked').map(function() {
             return $(this).val();
@@ -29,8 +37,11 @@ export function initSyncManager($) {
         
         console.log('CCS Debug: Starting sync process...');
         
-        // Disable button and show progress
-        button.prop('disabled', true);
+        // Set sync in progress flag
+        syncInProgress = true;
+        
+        // Disable all sync buttons and show progress
+        $('#ccs-sync-selected, #ccs-sync-courses').prop('disabled', true);
         progress.show();
         results.hide();
         
@@ -75,7 +86,10 @@ export function initSyncManager($) {
             success: function(response) {
                 console.log('CCS Debug: Sync response:', response);
                 clearInterval(syncInterval);
-                button.prop('disabled', false);
+                
+                // Re-enable buttons and reset sync flag
+                $('#ccs-sync-selected, #ccs-sync-courses').prop('disabled', false);
+                syncInProgress = false;
                 progress.hide();
                 
                 if (response.success && response.data) {
@@ -102,7 +116,10 @@ export function initSyncManager($) {
             error: function(xhr, status, error) {
                 console.error('CCS Debug: Sync AJAX error:', error, xhr.responseText);
                 clearInterval(syncInterval);
-                button.prop('disabled', false);
+                
+                // Re-enable buttons and reset sync flag
+                $('#ccs-sync-selected, #ccs-sync-courses').prop('disabled', false);
+                syncInProgress = false;
                 progress.hide();
                 
                 let errorDetails = '';
