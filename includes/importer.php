@@ -76,11 +76,6 @@ class CCS_Course_Importer {
             require_once plugin_dir_path(__FILE__) . 'handlers/class-ccs-content-handler.php';
         }
         $this->content_handler = new CCS_Content_Handler();
-        
-        error_log('CCS Debug: Importer initialized - Logger: ' . ($this->logger ? 'yes' : 'no') . 
-                  ', API: ' . ($this->api ? 'yes' : 'no') . 
-                  ', Media: ' . ($this->media_handler ? 'yes' : 'no') . 
-                  ', Content: ' . ($this->content_handler ? 'yes' : 'no'));
     }
     
     /**
@@ -90,10 +85,7 @@ class CCS_Course_Importer {
      * @return array Import results
      */
     public function import_courses($course_ids) {
-        error_log('CCS Debug: Import courses called with IDs: ' . print_r($course_ids, true));
-        
         if (!$this->api) {
-            error_log('CCS Debug: API not available');
             throw new Exception(__('Canvas API not properly initialized.', 'canvas-course-sync'));
         }
         
@@ -105,11 +97,7 @@ class CCS_Course_Importer {
             'message' => ''
         );
         
-        error_log('CCS Debug: Starting import process for ' . count($course_ids) . ' courses');
-        
         foreach ($course_ids as $index => $course_id) {
-            error_log('CCS Debug: Processing course ID: ' . $course_id . ' (' . ($index + 1) . '/' . count($course_ids) . ')');
-            
             // Update sync status
             set_transient('ccs_sync_status', array(
                 'status' => sprintf(__('Processing course %d of %d...', 'canvas-course-sync'), $index + 1, count($course_ids)),
@@ -124,20 +112,10 @@ class CCS_Course_Importer {
                     $results['errors']++;
                     $error_msg = 'Failed to get course details for ID ' . $course_id . ': ' . $course_details->get_error_message();
                     if ($this->logger) $this->logger->log($error_msg, 'error');
-                    error_log('CCS Debug: ' . $error_msg);
                     continue;
                 }
                 
                 $course_name = isset($course_details['name']) ? $course_details['name'] : 'Untitled Course';
-                error_log('CCS Debug: Retrieved course details for "' . $course_name . '"');
-                
-                // Check if course should be excluded
-                if (function_exists('ccs_is_course_excluded') && ccs_is_course_excluded($course_name)) {
-                    $results['skipped']++;
-                    if ($this->logger) $this->logger->log('Skipped excluded course: ' . $course_name . ' (ID: ' . $course_id . ')');
-                    error_log('CCS Debug: Skipped excluded course: ' . $course_name);
-                    continue;
-                }
                 
                 // Check if course already exists
                 $existing = get_posts(array(
@@ -151,34 +129,25 @@ class CCS_Course_Importer {
                 if (!empty($existing)) {
                     $results['skipped']++;
                     if ($this->logger) $this->logger->log('Course already exists: ' . $course_name . ' (ID: ' . $course_id . ')');
-                    error_log('CCS Debug: Course already exists: ' . $course_name);
                     continue;
                 }
                 
                 // Prepare course content using content handler
                 $course_content = '';
                 if ($this->content_handler) {
-                    error_log('CCS Debug: Using content handler to prepare course content');
                     $course_content = $this->content_handler->prepare_course_content((object)$course_details);
-                    error_log('CCS Debug: Content handler returned ' . strlen($course_content) . ' characters');
                 }
                 
                 // If content handler didn't provide content, use fallback
                 if (empty($course_content)) {
-                    error_log('CCS Debug: Content handler returned empty content, using fallback');
                     if (!empty($course_details['syllabus_body'])) {
                         $course_content = wp_kses_post($course_details['syllabus_body']);
-                        error_log('CCS Debug: Using syllabus_body as content (' . strlen($course_content) . ' chars)');
                     } elseif (!empty($course_details['public_description'])) {
                         $course_content = wp_kses_post($course_details['public_description']);
-                        error_log('CCS Debug: Using public_description as content (' . strlen($course_content) . ' chars)');
                     } elseif (!empty($course_details['description'])) {
                         $course_content = wp_kses_post($course_details['description']);
-                        error_log('CCS Debug: Using description as content (' . strlen($course_content) . ' chars)');
                     }
                 }
-                
-                error_log('CCS Debug: Final course content length: ' . strlen($course_content));
                 
                 // Create WordPress post
                 $post_data = array(
@@ -189,13 +158,9 @@ class CCS_Course_Importer {
                     'post_author' => get_current_user_id()
                 );
                 
-                error_log('CCS Debug: Creating WordPress post with title: ' . $course_name);
-                
                 $post_id = wp_insert_post($post_data);
                 
                 if ($post_id && !is_wp_error($post_id)) {
-                    error_log('CCS Debug: Successfully created post ID: ' . $post_id);
-                    
                     // Add Canvas metadata
                     update_post_meta($post_id, 'canvas_course_id', intval($course_id));
                     update_post_meta($post_id, 'canvas_course_code', sanitize_text_field($course_details['course_code'] ?? ''));
@@ -203,80 +168,38 @@ class CCS_Course_Importer {
                     update_post_meta($post_id, 'canvas_end_at', sanitize_text_field($course_details['end_at'] ?? ''));
                     update_post_meta($post_id, 'canvas_enrollment_term_id', intval($course_details['enrollment_term_id'] ?? 0));
                     
-                    // Handle enrollment link with multiple strategies
-                    $enrollment_url = '';
-                    
-                    // Strategy 1: Direct html_url from course details
-                    if (!empty($course_details['html_url'])) {
-                        $enrollment_url = esc_url_raw($course_details['html_url']);
-                        error_log('CCS Debug: Using html_url: ' . $enrollment_url);
-                    }
-                    // Strategy 2: Construct from Canvas domain and course ID
-                    else {
-                        $canvas_domain = get_option('ccs_canvas_domain');
-                        if (!empty($canvas_domain)) {
-                            // Clean up domain
-                            $canvas_domain = trim($canvas_domain);
-                            $canvas_domain = rtrim($canvas_domain, '/');
-                            
-                            // Add protocol if missing
-                            if (!preg_match('/^https?:\/\//', $canvas_domain)) {
-                                $canvas_domain = 'https://' . $canvas_domain;
-                            }
-                            
-                            $enrollment_url = $canvas_domain . '/courses/' . $course_id;
-                            error_log('CCS Debug: Constructed enrollment URL: ' . $enrollment_url);
-                        }
-                    }
-                    
-                    // Save the enrollment link
+                    // Handle enrollment link properly
+                    $enrollment_url = $this->generate_enrollment_url($course_details, $course_id);
                     if (!empty($enrollment_url)) {
-                        $link_updated = update_post_meta($post_id, 'link', $enrollment_url);
-                        error_log('CCS Debug: Enrollment link update result: ' . ($link_updated ? 'success' : 'failed') . ' - URL: ' . $enrollment_url);
+                        update_post_meta($post_id, 'link', $enrollment_url);
                         if ($this->logger) $this->logger->log('Added enrollment link: ' . $enrollment_url);
                     } else {
-                        error_log('CCS Debug: No enrollment URL could be determined');
                         if ($this->logger) $this->logger->log('Warning: No enrollment URL found for course: ' . $course_name, 'warning');
                     }
                     
                     // Handle course image
                     if (!empty($course_details['image_download_url']) && $this->media_handler) {
-                        error_log('CCS Debug: Setting featured image from: ' . $course_details['image_download_url']);
-                        if ($this->logger) $this->logger->log('Setting featured image from: ' . $course_details['image_download_url']);
-                        
                         $image_result = $this->media_handler->set_featured_image($post_id, $course_details['image_download_url'], $course_name);
                         
                         if ($image_result) {
-                            error_log('CCS Debug: Successfully set featured image for: ' . $course_name);
                             if ($this->logger) $this->logger->log('Successfully set featured image for: ' . $course_name);
                         } else {
-                            error_log('CCS Debug: Failed to set featured image for: ' . $course_name);
                             if ($this->logger) $this->logger->log('Failed to set featured image for: ' . $course_name, 'warning');
-                        }
-                    } else {
-                        if (empty($course_details['image_download_url'])) {
-                            error_log('CCS Debug: No image URL available for: ' . $course_name);
-                        }
-                        if (!$this->media_handler) {
-                            error_log('CCS Debug: Media handler not available');
                         }
                     }
                     
                     $results['imported']++;
                     if ($this->logger) $this->logger->log('Successfully imported course: ' . $course_name . ' (Post ID: ' . $post_id . ')');
-                    error_log('CCS Debug: Successfully imported course: ' . $course_name . ' (Post ID: ' . $post_id . ')');
                 } else {
                     $results['errors']++;
                     $error_message = is_wp_error($post_id) ? $post_id->get_error_message() : 'Unknown error';
                     if ($this->logger) $this->logger->log('Failed to create post for course: ' . $course_name . ' - ' . $error_message, 'error');
-                    error_log('CCS Debug: Failed to create post: ' . $error_message);
                 }
                 
             } catch (Exception $e) {
                 $results['errors']++;
                 $error_msg = 'Exception processing course ID ' . $course_id . ': ' . $e->getMessage();
                 if ($this->logger) $this->logger->log($error_msg, 'error');
-                error_log('CCS Debug: ' . $error_msg);
             }
         }
         
@@ -287,8 +210,37 @@ class CCS_Course_Importer {
             $results['errors']
         );
         
-        error_log('CCS Debug: Import completed with results: ' . print_r($results, true));
-        
         return $results;
+    }
+
+    /**
+     * Generate enrollment URL for a course
+     *
+     * @param array $course_details Course details from Canvas API
+     * @param int $course_id Course ID
+     * @return string Enrollment URL
+     */
+    private function generate_enrollment_url($course_details, $course_id) {
+        // Strategy 1: Direct html_url from course details
+        if (!empty($course_details['html_url'])) {
+            return esc_url_raw($course_details['html_url']);
+        }
+        
+        // Strategy 2: Construct from Canvas domain and course ID
+        $canvas_domain = get_option('ccs_canvas_domain');
+        if (!empty($canvas_domain)) {
+            // Clean up domain
+            $canvas_domain = trim($canvas_domain);
+            $canvas_domain = rtrim($canvas_domain, '/');
+            
+            // Add protocol if missing
+            if (!preg_match('/^https?:\/\//', $canvas_domain)) {
+                $canvas_domain = 'https://' . $canvas_domain;
+            }
+            
+            return esc_url_raw($canvas_domain . '/courses/' . $course_id);
+        }
+        
+        return '';
     }
 }

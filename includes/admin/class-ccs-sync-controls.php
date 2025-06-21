@@ -39,7 +39,7 @@ class CCS_Sync_Controls {
             <div id="ccs-courses-wrapper" style="display: none;">
                 <div id="ccs-course-list" class="ccs-course-list"></div>
                 
-                <div class="ccs-action-buttons" style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #ddd; display: block;">
+                <div class="ccs-action-buttons" style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #ddd;">
                     <button id="ccs-sync-selected" class="button button-primary">
                         <?php esc_html_e('Sync Selected Courses', 'canvas-course-sync'); ?>
                     </button>
@@ -85,8 +85,6 @@ class CCS_Sync_Controls {
         
         <script type="text/javascript">
         jQuery(document).ready(function($) {
-            console.log('CCS Debug: Sync controls script loaded');
-            
             // Clear any existing event handlers to prevent duplicates
             $('#ccs-select-all, #ccs-deselect-all, #ccs-omit-selected').off('click.ccsControls');
             
@@ -94,25 +92,20 @@ class CCS_Sync_Controls {
             $('#ccs-select-all').on('click.ccsControls', function(e) {
                 e.preventDefault();
                 $('.ccs-course-checkbox').prop('checked', true);
-                console.log('CCS Debug: All courses selected');
             });
             
             $('#ccs-deselect-all').on('click.ccsControls', function(e) {
                 e.preventDefault();
                 $('.ccs-course-checkbox').prop('checked', false);
-                console.log('CCS Debug: All courses deselected');
             });
             
             // Omit courses functionality
             $('#ccs-omit-selected').on('click.ccsControls', function(e) {
                 e.preventDefault();
-                console.log('CCS Debug: Omit button clicked');
                 
                 const selectedCourses = $('.ccs-course-checkbox:checked').map(function() {
                     return $(this).val();
                 }).get();
-                
-                console.log('CCS Debug: Selected courses for omit:', selectedCourses);
                 
                 if (selectedCourses.length === 0) {
                     alert('<?php echo esc_js(__('Please select at least one course to omit.', 'canvas-course-sync')); ?>');
@@ -136,7 +129,6 @@ class CCS_Sync_Controls {
                         course_ids: selectedCourses
                     },
                     success: function(response) {
-                        console.log('CCS Debug: Omit response:', response);
                         button.prop('disabled', false).text(originalText);
                         
                         if (response.success) {
@@ -148,7 +140,6 @@ class CCS_Sync_Controls {
                         }
                     },
                     error: function(xhr, status, error) {
-                        console.error('CCS Debug: Omit AJAX error:', error, xhr.responseText);
                         button.prop('disabled', false).text(originalText);
                         alert('<?php echo esc_js(__('Network error occurred. Please try again.', 'canvas-course-sync')); ?>');
                     }
@@ -157,7 +148,6 @@ class CCS_Sync_Controls {
             
             // Make sure buttons are visible when courses are loaded
             $(document).on('ccs_courses_loaded', function() {
-                console.log('CCS Debug: Courses loaded, showing action buttons');
                 $('.ccs-action-buttons').show();
             });
         });

@@ -3,22 +3,17 @@
  * Course synchronization functionality
  */
 export function initSyncManager($) {
-    console.log('CCS Debug: Initializing sync manager');
-    
-    let syncInProgress = false; // Prevent duplicate syncs
+    let syncInProgress = false;
     
     // Clear any existing event handlers to prevent duplicates
     $('#ccs-sync-selected').off('click.syncManager');
     
-    // Only bind to the main sync button once
     $('#ccs-sync-selected').on('click.syncManager', function(e) {
         e.preventDefault();
         e.stopPropagation();
-        console.log('CCS Debug: Main sync button clicked');
         
         // Prevent duplicate syncs
         if (syncInProgress) {
-            console.log('CCS Debug: Sync already in progress, ignoring click');
             return false;
         }
         
@@ -26,14 +21,12 @@ export function initSyncManager($) {
             return $(this).val();
         }).get();
         
-        console.log('CCS Debug: Selected courses:', selectedCourses);
-        
         if (selectedCourses.length === 0) {
             alert('Please select at least one course to sync.');
             return false;
         }
         
-        // Single confirmation popup
+        // Show confirmation dialog only once
         if (!confirm('Are you sure you want to sync ' + selectedCourses.length + ' selected course(s)?')) {
             return false;
         }
@@ -44,9 +37,7 @@ export function initSyncManager($) {
         const statusText = $('#ccs-sync-status');
         const progressBar = $('#ccs-sync-progress-bar');
         
-        console.log('CCS Debug: Starting sync process...');
-        
-        // Set sync in progress flag
+        // Set sync in progress flag immediately
         syncInProgress = true;
         
         // Disable all sync buttons and show progress
@@ -67,7 +58,6 @@ export function initSyncManager($) {
                     nonce: ccsAjax.syncStatusNonce
                 },
                 success: function(response) {
-                    console.log('CCS Debug: Status response:', response);
                     if (response.success && response.data) {
                         statusText.html(response.data.status || 'Processing...');
                         if (response.data.processed && response.data.total) {
@@ -78,7 +68,7 @@ export function initSyncManager($) {
                     }
                 },
                 error: function(xhr, status, error) {
-                    console.error('CCS Debug: Status check error:', error, xhr.responseText);
+                    console.error('Status check error:', error);
                 }
             });
         }, 2000);
@@ -93,7 +83,6 @@ export function initSyncManager($) {
                 course_ids: selectedCourses
             },
             success: function(response) {
-                console.log('CCS Debug: Sync response:', response);
                 clearInterval(syncInterval);
                 
                 // Re-enable buttons and reset sync flag
@@ -110,12 +99,11 @@ export function initSyncManager($) {
                 } else {
                     const errorMessage = response.data && response.data.message ? response.data.message : 'Sync failed with unknown error.';
                     $('#ccs-sync-message').html('<div class="notice notice-error inline"><p>' + errorMessage + '</p></div>');
-                    console.error('CCS Debug: Sync failed:', response);
                 }
                 
                 results.show();
                 
-                // Auto-refresh after 5 seconds
+                // Auto-refresh after 3 seconds
                 setTimeout(function() {
                     if (confirm('Sync completed. Would you like to refresh the page to see updated results?')) {
                         location.reload();
@@ -123,7 +111,6 @@ export function initSyncManager($) {
                 }, 3000);
             },
             error: function(xhr, status, error) {
-                console.error('CCS Debug: Sync AJAX error:', error, xhr.responseText);
                 clearInterval(syncInterval);
                 
                 // Re-enable buttons and reset sync flag
@@ -146,6 +133,4 @@ export function initSyncManager($) {
         
         return false;
     });
-    
-    console.log('CCS Debug: Sync manager initialized');
 }
