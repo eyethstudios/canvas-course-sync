@@ -1,3 +1,4 @@
+
 === Canvas Course Sync ===
 Contributors: eyethstudios
 Donate link: http://eyethstudios.com/donate
@@ -5,7 +6,7 @@ Tags: canvas, lms, course, sync, education
 Requires at least: 5.0
 Tested up to: 6.4
 Requires PHP: 7.4
-Stable tag: 2.4.4
+Stable tag: 2.4.5
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -46,6 +47,14 @@ The token needs read access to courses and basic user information.
 3. Logging and status monitoring
 
 == Changelog ==
+
+= 2.4.5 =
+* Enhanced WordPress compatibility with improved security and sanitization
+* Fixed AJAX nonce verification and user capability checks
+* Improved Canvas API integration with better error handling
+* Enhanced media handling for course featured images
+* Better content handling for course descriptions and enrollment links
+* Strengthened plugin security throughout all components
 
 = 2.4.4 =
 * Fixed missing "Sync Selected Courses" and "Omit Selected Courses" buttons in course sync interface
@@ -159,6 +168,9 @@ The token needs read access to courses and basic user information.
 * Logging system
 
 == Upgrade Notice ==
+
+= 2.4.5 =
+Enhanced WordPress compatibility with improved security, better API integration, and strengthened plugin security throughout all components.
 
 = 2.4.4 =
 Fixed missing sync and omit course buttons in the course synchronization interface.
