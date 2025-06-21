@@ -87,7 +87,7 @@ class CCS_Sync_Controls {
                     <button id="ccs-sync-selected" class="button button-primary">
                         <?php _e('Sync Selected Courses', 'canvas-course-sync'); ?>
                     </button>
-                    <button id="ccs-omit-selected" class="button button-secondary" style="margin-left: 10px;">
+                    <button id="ccs-omit-courses" class="button button-secondary" style="margin-left: 10px;">
                         <?php _e('Omit Selected Courses', 'canvas-course-sync'); ?>
                     </button>
                 </div>
@@ -123,8 +123,8 @@ class CCS_Sync_Controls {
         
         <script type="text/javascript">
         jQuery(document).ready(function($) {
-            // Add omit courses functionality
-            $('#ccs-omit-selected').on('click', function(e) {
+            // Add omit courses functionality - using consistent ID
+            $('#ccs-omit-courses').on('click', function(e) {
                 e.preventDefault();
                 
                 const selectedCourses = $('.ccs-course-checkbox:checked').map(function() {
