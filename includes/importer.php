@@ -1,3 +1,4 @@
+
 <?php
 /**
  * Course Importer class for Canvas Course Sync
@@ -105,6 +106,21 @@ class CCS_Course_Importer {
             ), 300);
             
             try {
+                // Check if course already exists BEFORE processing
+                $existing = get_posts(array(
+                    'post_type' => 'courses',
+                    'meta_key' => 'canvas_course_id',
+                    'meta_value' => $course_id,
+                    'posts_per_page' => 1,
+                    'post_status' => 'any'
+                ));
+                
+                if (!empty($existing)) {
+                    $results['skipped']++;
+                    if ($this->logger) $this->logger->log('Course already exists, skipping: Canvas ID ' . $course_id);
+                    continue;
+                }
+                
                 $course_details = $this->api->get_course_details($course_id);
                 
                 if (is_wp_error($course_details)) {
@@ -116,19 +132,24 @@ class CCS_Course_Importer {
                 
                 $course_name = isset($course_details['name']) ? $course_details['name'] : 'Untitled Course';
                 
-                // Check if course already exists
-                $existing = get_posts(array(
+                // Double-check for title conflicts as well
+                $existing_by_title = get_posts(array(
                     'post_type' => 'courses',
-                    'meta_key' => 'canvas_course_id',
-                    'meta_value' => $course_id,
+                    'title' => $course_name,
                     'posts_per_page' => 1,
                     'post_status' => 'any'
                 ));
                 
-                if (!empty($existing)) {
-                    $results['skipped']++;
-                    if ($this->logger) $this->logger->log('Course already exists: ' . $course_name . ' (ID: ' . $course_id . ')');
-                    continue;
+                if (!empty($existing_by_title)) {
+                    // Check if it's a different course with same name
+                    $existing_canvas_id = get_post_meta($existing_by_title[0]->ID, 'canvas_course_id', true);
+                    if (intval($existing_canvas_id) === intval($course_id)) {
+                        $results['skipped']++;
+                        if ($this->logger) $this->logger->log('Course already exists by title and Canvas ID: ' . $course_name);
+                        continue;
+                    }
+                    // If different Canvas ID, append ID to make title unique
+                    $course_name = $course_name . ' (Canvas ID: ' . $course_id . ')';
                 }
                 
                 // Prepare course content using content handler with course ID

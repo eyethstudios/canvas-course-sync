@@ -5,10 +5,12 @@
 export function initSyncManager($) {
     let syncInProgress = false;
     
-    // Completely remove any existing handlers to prevent duplicates
-    $('#ccs-sync-selected').off('.sync');
+    // Remove ALL existing sync handlers to prevent duplicates
+    $(document).off('click.sync-manager');
+    $('#ccs-sync-selected').off();
     
-    $('#ccs-sync-selected').on('click.sync', function(e) {
+    // Use namespaced events to prevent conflicts
+    $(document).on('click.sync-manager', '#ccs-sync-selected', function(e) {
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
@@ -34,8 +36,35 @@ export function initSyncManager($) {
             return false;
         }
         
-        // Single confirmation dialog
-        if (!confirm('Are you sure you want to sync ' + selectedCourses.length + ' selected course(s)?')) {
+        // Filter out already synced courses to prevent duplicates
+        const newCoursesToSync = [];
+        $('.ccs-course-checkbox:checked').each(function() {
+            const courseRow = $(this).closest('.ccs-course-item, tr');
+            const statusElement = courseRow.find('.ccs-course-status');
+            const status = statusElement.text().toLowerCase();
+            
+            // Only sync if not already synced
+            if (status !== 'already synced' && status !== 'synced') {
+                newCoursesToSync.push($(this).val());
+            }
+        });
+        
+        if (newCoursesToSync.length === 0) {
+            syncInProgress = false; // Reset flag
+            alert('Selected courses are already synced. Please select new courses to sync.');
+            return false;
+        }
+        
+        if (newCoursesToSync.length !== selectedCourses.length) {
+            const alreadySynced = selectedCourses.length - newCoursesToSync.length;
+            if (!confirm('Warning: ' + alreadySynced + ' selected course(s) are already synced and will be skipped. Continue with syncing ' + newCoursesToSync.length + ' new course(s)?')) {
+                syncInProgress = false; // Reset flag
+                return false;
+            }
+        }
+        
+        // Single confirmation dialog for new courses only
+        if (!confirm('Are you sure you want to sync ' + newCoursesToSync.length + ' new course(s)?')) {
             syncInProgress = false; // Reset flag
             return false;
         }
@@ -81,14 +110,14 @@ export function initSyncManager($) {
             });
         }, 2000);
         
-        // Start the sync process
+        // Start the sync process with filtered courses
         $.ajax({
             url: ccsAjax.ajaxUrl,
             type: 'POST',
             data: {
                 action: 'ccs_sync_courses',
                 nonce: ccsAjax.syncCoursesNonce,
-                course_ids: selectedCourses
+                course_ids: newCoursesToSync
             },
             success: function(response) {
                 console.log('Sync completed successfully');

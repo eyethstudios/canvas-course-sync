@@ -87,20 +87,26 @@ class CCS_Sync_Controls {
         jQuery(document).ready(function($) {
             console.log('CCS Debug: Sync controls script loaded');
             
-            // Simple event delegation for all course action buttons
-            $(document).on('click', '#ccs-select-all', function(e) {
+            // Store nonce for omit functionality
+            window.ccsOmitNonce = '<?php echo esc_js($omit_nonce); ?>';
+            
+            // Remove any existing handlers to prevent duplicates
+            $(document).off('click.ccs-controls');
+            
+            // Use namespaced event delegation to prevent conflicts
+            $(document).on('click.ccs-controls', '#ccs-select-all', function(e) {
                 e.preventDefault();
                 $('.ccs-course-checkbox').prop('checked', true);
                 console.log('CCS Debug: Select all clicked');
             });
             
-            $(document).on('click', '#ccs-deselect-all', function(e) {
+            $(document).on('click.ccs-controls', '#ccs-deselect-all', function(e) {
                 e.preventDefault();
                 $('.ccs-course-checkbox').prop('checked', false);
                 console.log('CCS Debug: Deselect all clicked');
             });
             
-            $(document).on('click', '#ccs-omit-selected', function(e) {
+            $(document).on('click.ccs-controls', '#ccs-omit-selected', function(e) {
                 e.preventDefault();
                 console.log('CCS Debug: Omit button clicked');
                 
@@ -128,7 +134,7 @@ class CCS_Sync_Controls {
                     type: 'POST',
                     data: {
                         action: 'ccs_omit_courses',
-                        nonce: '<?php echo esc_js($omit_nonce); ?>',
+                        nonce: window.ccsOmitNonce,
                         course_ids: selectedCourses
                     },
                     success: function(response) {
