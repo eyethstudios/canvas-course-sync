@@ -79,6 +79,27 @@ class CCS_Course_Importer {
     }
     
     /**
+     * Generate URL slug from course title
+     *
+     * @param string $title Course title
+     * @return string URL slug
+     */
+    private function generate_course_slug($title) {
+        // Convert to lowercase and replace spaces/special chars with hyphens
+        $slug = strtolower($title);
+        $slug = preg_replace('/[^a-z0-9\s\-]/', '', $slug);
+        $slug = preg_replace('/[\s\-]+/', '-', $slug);
+        $slug = trim($slug, '-');
+        
+        // Ensure it's not empty
+        if (empty($slug)) {
+            $slug = 'course';
+        }
+        
+        return $slug;
+    }
+    
+    /**
      * Import courses from Canvas
      *
      * @param array $course_ids Array of course IDs to import
@@ -106,18 +127,23 @@ class CCS_Course_Importer {
             ), 300);
             
             try {
-                // Check if course already exists BEFORE processing
-                $existing = get_posts(array(
+                // STRICT duplicate prevention - check multiple ways
+                $existing_by_canvas_id = get_posts(array(
                     'post_type' => 'courses',
-                    'meta_key' => 'canvas_course_id',
-                    'meta_value' => $course_id,
+                    'meta_query' => array(
+                        array(
+                            'key' => 'canvas_course_id',
+                            'value' => intval($course_id),
+                            'compare' => '='
+                        )
+                    ),
                     'posts_per_page' => 1,
                     'post_status' => 'any'
                 ));
                 
-                if (!empty($existing)) {
+                if (!empty($existing_by_canvas_id)) {
                     $results['skipped']++;
-                    if ($this->logger) $this->logger->log('Course already exists, skipping: Canvas ID ' . $course_id);
+                    if ($this->logger) $this->logger->log('Course already exists (Canvas ID check): ' . $course_id);
                     continue;
                 }
                 
@@ -130,9 +156,9 @@ class CCS_Course_Importer {
                     continue;
                 }
                 
-                $course_name = isset($course_details['name']) ? $course_details['name'] : 'Untitled Course';
+                $course_name = isset($course_details['name']) ? trim($course_details['name']) : 'Untitled Course';
                 
-                // Double-check for title conflicts as well
+                // Additional check by exact title match to prevent any duplicates
                 $existing_by_title = get_posts(array(
                     'post_type' => 'courses',
                     'title' => $course_name,
@@ -141,16 +167,19 @@ class CCS_Course_Importer {
                 ));
                 
                 if (!empty($existing_by_title)) {
-                    // Check if it's a different course with same name
                     $existing_canvas_id = get_post_meta($existing_by_title[0]->ID, 'canvas_course_id', true);
                     if (intval($existing_canvas_id) === intval($course_id)) {
                         $results['skipped']++;
-                        if ($this->logger) $this->logger->log('Course already exists by title and Canvas ID: ' . $course_name);
+                        if ($this->logger) $this->logger->log('Course already exists (title + Canvas ID match): ' . $course_name);
                         continue;
                     }
                     // If different Canvas ID, append ID to make title unique
                     $course_name = $course_name . ' (Canvas ID: ' . $course_id . ')';
                 }
+                
+                // Generate slug-based course URL
+                $course_slug = $this->generate_course_slug($course_name);
+                $enrollment_url = 'https://learn.nationaldeafcenter.org/courses/' . $course_slug;
                 
                 // Prepare course content using content handler with course ID
                 $course_content = '';
@@ -180,10 +209,9 @@ class CCS_Course_Importer {
                     update_post_meta($post_id, 'canvas_end_at', sanitize_text_field($course_details['end_at'] ?? ''));
                     update_post_meta($post_id, 'canvas_enrollment_term_id', intval($course_details['enrollment_term_id'] ?? 0));
                     
-                    // Generate proper course URL for learn.nationaldeafcenter.org
-                    $enrollment_url = 'https://learn.nationaldeafcenter.org/courses/' . $course_id;
+                    // Store the slug-based course URL
                     update_post_meta($post_id, 'link', esc_url_raw($enrollment_url));
-                    if ($this->logger) $this->logger->log('Added course link: ' . $enrollment_url);
+                    if ($this->logger) $this->logger->log('Added slug-based course link: ' . $enrollment_url);
                     
                     // Handle course image
                     if (!empty($course_details['image_download_url']) && $this->media_handler) {
@@ -197,7 +225,7 @@ class CCS_Course_Importer {
                     }
                     
                     $results['imported']++;
-                    if ($this->logger) $this->logger->log('Successfully imported course: ' . $course_name . ' (Post ID: ' . $post_id . ')');
+                    if ($this->logger) $this->logger->log('Successfully imported course: ' . $course_name . ' (Post ID: ' . $post_id . ', URL: ' . $enrollment_url . ')');
                 } else {
                     $results['errors']++;
                     $error_message = is_wp_error($post_id) ? $post_id->get_error_message() : 'Unknown error';

@@ -1,4 +1,3 @@
-
 <?php
 /**
  * Handles content preparation for course imports
@@ -82,6 +81,10 @@ class CCS_Content_Handler {
                     
                     if (!empty($content)) {
                         error_log('CCS Debug: Built detailed content (' . strlen($content) . ' chars)');
+                        
+                        // Add badge and CE information for courses with module content
+                        $content .= $this->get_badge_and_ce_content();
+                        
                         return $content;
                     }
                 } else {
@@ -90,12 +93,8 @@ class CCS_Content_Handler {
             }
         }
         
-        // Fallback content
+        // Fallback content with course description if available
         error_log('CCS Debug: Using fallback content');
-        
-        if (!empty($course_details->syllabus_body)) {
-            $content .= "<h2>Course Syllabus</h2>\n" . wp_kses_post($course_details->syllabus_body) . "\n\n";
-        }
         
         if (!empty($course_details->public_description)) {
             $content .= "<h2>Course Description</h2>\n" . wp_kses_post($course_details->public_description) . "\n\n";
@@ -103,15 +102,12 @@ class CCS_Content_Handler {
             $content .= "<h2>Course Description</h2>\n" . wp_kses_post($course_details->description) . "\n\n";
         }
         
-        // Add basic badge and CE info if no detailed content
-        if (!empty($content)) {
-            $content .= "<h2>Badge Information</h2>\n";
-            $content .= "<p>This course awards a digital badge upon successful completion of all modules and assessments.</p>\n\n";
-            
-            $content .= "<h2>Continuing Education Credits</h2>\n";
-            $content .= "<p>Continuing Education (CE) credits may be available for this course upon successful completion.</p>\n";
-            $content .= "<p><strong>Note:</strong> Participants should verify CE credit acceptance with their specific licensing board or professional organization before enrollment.</p>\n\n";
+        if (!empty($course_details->syllabus_body)) {
+            $content .= "<h2>Course Syllabus</h2>\n" . wp_kses_post($course_details->syllabus_body) . "\n\n";
         }
+        
+        // Add badge and CE info for fallback content too
+        $content .= $this->get_badge_and_ce_content();
         
         error_log('CCS Debug: Final content length: ' . strlen($content));
         return $content;
@@ -139,50 +135,41 @@ class CCS_Content_Handler {
             
             $content .= "<h2>" . esc_html($module['name']) . "</h2>\n";
             
-            // Add actual module description from Canvas if available
+            // Add module description if available
             if (!empty($module['description'])) {
-                $content .= "<h3>Module Overview</h3>\n";
                 $content .= "<div class='module-description'>\n";
                 $content .= wp_kses_post($module['description']) . "\n";
                 $content .= "</div>\n\n";
-                error_log('CCS Debug: Added actual description for module: ' . $module['name']);
+                error_log('CCS Debug: Added module description for: ' . $module['name']);
             }
             
-            // Get module items to extract actual content and learning objectives
+            // Get module items to extract learning objectives and content
             if (!empty($module['id']) && $canvas_course_sync && isset($canvas_course_sync->api)) {
                 $module_items_endpoint = "courses/{$course_id}/modules/{$module['id']}/items?include[]=content_details";
                 $module_items = $canvas_course_sync->api->make_request($module_items_endpoint);
                 
                 if (!is_wp_error($module_items) && !empty($module_items)) {
-                    $content .= $this->extract_module_content($module_items, $module['name']);
+                    $learning_objectives = $this->extract_learning_objectives($module_items, $module['name']);
+                    if (!empty($learning_objectives)) {
+                        $content .= $learning_objectives;
+                    }
                 }
             }
-        }
-        
-        // Add badge and CE information only if we have actual module content
-        if (!empty($content)) {
-            $content .= "<h2>Digital Badge</h2>\n";
-            $content .= "<p>Upon successful completion of all course modules and assessments, participants will receive a digital badge that can be shared on professional networks and social media platforms.</p>\n\n";
-            
-            $content .= "<h2>Continuing Education Credits</h2>\n";
-            $content .= "<p>This course may qualify for Continuing Education (CE) credits. The number of credits and acceptance varies by profession and licensing board.</p>\n";
-            $content .= "<p><strong>Important:</strong> Please verify CE credit acceptance with your specific licensing board or professional organization before enrollment, as requirements vary by state and profession.</p>\n\n";
         }
         
         return $content;
     }
 
     /**
-     * Extract actual content from module items
+     * Extract learning objectives from module items
      * 
      * @param array $module_items Array of module items
      * @param string $module_name Module name for logging
-     * @return string Extracted content
+     * @return string Learning objectives content
      */
-    private function extract_module_content($module_items, $module_name) {
-        $content = '';
-        $learning_objectives = array();
-        $topics_covered = array();
+    private function extract_learning_objectives($module_items, $module_name) {
+        $objectives_content = '';
+        $found_objectives = array();
         
         foreach ($module_items as $item) {
             if (empty($item['title'])) {
@@ -190,71 +177,42 @@ class CCS_Content_Handler {
             }
             
             $item_title = $item['title'];
-            $item_type = isset($item['type']) ? $item['type'] : '';
             
             // Look for learning objectives in various forms
             if (preg_match('/(?:learning\s+)?objectives?|outcomes?|goals?/i', $item_title)) {
-                $learning_objectives[] = $this->clean_objective_text($item_title);
+                
+                // Try to get the actual content of the objective item
+                if (!empty($item['page_url']) && isset($item['type']) && $item['type'] === 'Page') {
+                    // This is a page with objectives - we could fetch its content
+                    $objective_text = $this->clean_objective_text($item_title);
+                    $found_objectives[] = $objective_text;
+                } else {
+                    // Just use the title
+                    $objective_text = $this->clean_objective_text($item_title);
+                    $found_objectives[] = $objective_text;
+                }
+                
+                error_log('CCS Debug: Found learning objective: ' . $objective_text);
                 continue;
             }
             
-            // Extract content from different item types
-            switch ($item_type) {
-                case 'Page':
-                case 'WikiPage':
-                    if (!empty($item['page_url'])) {
-                        $topics_covered[] = esc_html($item_title);
-                    }
-                    break;
-                    
-                case 'Assignment':
-                    $topics_covered[] = esc_html($item_title) . ' (Assignment)';
-                    break;
-                    
-                case 'Discussion':
-                    $topics_covered[] = esc_html($item_title) . ' (Discussion)';
-                    break;
-                    
-                case 'Quiz':
-                    $topics_covered[] = esc_html($item_title) . ' (Assessment)';
-                    break;
-                    
-                case 'File':
-                    if (preg_match('/\.(pdf|doc|docx|ppt|pptx)$/i', $item_title)) {
-                        $topics_covered[] = esc_html($item_title) . ' (Resource)';
-                    }
-                    break;
-                    
-                default:
-                    // Include other content types as topics
-                    if (!preg_match('/^(untitled|unnamed|test)/i', $item_title)) {
-                        $topics_covered[] = esc_html($item_title);
-                    }
-                    break;
+            // Also look for items that might contain objectives in their content
+            if (preg_match('/^(by the end|upon completion|after completing|students will)/i', $item_title)) {
+                $found_objectives[] = esc_html($item_title);
             }
         }
         
-        // Add learning objectives if found
-        if (!empty($learning_objectives)) {
-            $content .= "<h3>Learning Objectives</h3>\n<ul>\n";
-            foreach (array_unique($learning_objectives) as $objective) {
-                $content .= "<li>" . $objective . "</li>\n";
+        // Build learning objectives section
+        if (!empty($found_objectives)) {
+            $objectives_content .= "<h3>Learning Objectives</h3>\n<ul>\n";
+            foreach (array_unique($found_objectives) as $objective) {
+                $objectives_content .= "<li>" . $objective . "</li>\n";
             }
-            $content .= "</ul>\n\n";
-            error_log('CCS Debug: Added ' . count($learning_objectives) . ' specific objectives for: ' . $module_name);
+            $objectives_content .= "</ul>\n\n";
+            error_log('CCS Debug: Added ' . count($found_objectives) . ' learning objectives for: ' . $module_name);
         }
         
-        // Add topics covered if found
-        if (!empty($topics_covered)) {
-            $content .= "<h3>Topics and Activities</h3>\n<ul>\n";
-            foreach (array_unique($topics_covered) as $topic) {
-                $content .= "<li>" . $topic . "</li>\n";
-            }
-            $content .= "</ul>\n\n";
-            error_log('CCS Debug: Added ' . count($topics_covered) . ' topics for: ' . $module_name);
-        }
-        
-        return $content;
+        return $objectives_content;
     }
 
     /**
@@ -279,5 +237,21 @@ class CCS_Content_Handler {
         }
         
         return esc_html($text);
+    }
+    
+    /**
+     * Get badge and continuing education content
+     * 
+     * @return string Badge and CE content
+     */
+    private function get_badge_and_ce_content() {
+        $content = "<h2>Digital Badge</h2>\n";
+        $content .= "<p>Upon successful completion of all course modules and assessments, participants will receive a digital badge that can be shared on professional networks and social media platforms.</p>\n\n";
+        
+        $content .= "<h2>Continuing Education Credits</h2>\n";
+        $content .= "<p>This course may qualify for Continuing Education (CE) credits. The number of credits and acceptance varies by profession and licensing board.</p>\n";
+        $content .= "<p><strong>Important:</strong> Please verify CE credit acceptance with your specific licensing board or professional organization before enrollment, as requirements vary by state and profession.</p>\n\n";
+        
+        return $content;
     }
 }
