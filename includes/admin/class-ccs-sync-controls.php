@@ -85,66 +85,87 @@ class CCS_Sync_Controls {
         
         <script type="text/javascript">
         jQuery(document).ready(function($) {
-            // Ensure clean state - remove all existing handlers first
-            $('#ccs-select-all, #ccs-deselect-all, #ccs-omit-selected').off();
-            
-            // Select/Deselect all functionality
-            $('#ccs-select-all').on('click', function(e) {
-                e.preventDefault();
-                $('.ccs-course-checkbox').prop('checked', true);
-            });
-            
-            $('#ccs-deselect-all').on('click', function(e) {
-                e.preventDefault();
-                $('.ccs-course-checkbox').prop('checked', false);
-            });
-            
-            // Omit courses functionality
-            $('#ccs-omit-selected').on('click', function(e) {
-                e.preventDefault();
+            // Function to bind all course action handlers
+            function bindCourseActionHandlers() {
+                console.log('CCS Debug: Binding course action handlers');
                 
-                const selectedCourses = $('.ccs-course-checkbox:checked').map(function() {
-                    return $(this).val();
-                }).get();
+                // Remove all existing handlers to prevent duplicates
+                $('#ccs-select-all, #ccs-deselect-all, #ccs-omit-selected').off();
                 
-                if (selectedCourses.length === 0) {
-                    alert('<?php echo esc_js(__('Please select at least one course to omit.', 'canvas-course-sync')); ?>');
-                    return;
-                }
-                
-                if (!confirm('<?php echo esc_js(__('Are you sure you want to omit', 'canvas-course-sync')); ?> ' + selectedCourses.length + ' <?php echo esc_js(__('course(s) from future syncs?', 'canvas-course-sync')); ?>')) {
-                    return;
-                }
-                
-                const button = $(this);
-                const originalText = button.text();
-                button.prop('disabled', true).text('<?php echo esc_js(__('Omitting...', 'canvas-course-sync')); ?>');
-                
-                $.ajax({
-                    url: ccsAjax.ajaxUrl,
-                    type: 'POST',
-                    data: {
-                        action: 'ccs_omit_courses',
-                        nonce: '<?php echo esc_js($omit_nonce); ?>',
-                        course_ids: selectedCourses
-                    },
-                    success: function(response) {
-                        button.prop('disabled', false).text(originalText);
-                        
-                        if (response.success) {
-                            alert(response.data.message);
-                            // Refresh course list to show omitted status
-                            $('#ccs-get-courses').trigger('click');
-                        } else {
-                            alert('<?php echo esc_js(__('Error:', 'canvas-course-sync')); ?> ' + (response.data.message || '<?php echo esc_js(__('Unknown error occurred', 'canvas-course-sync')); ?>'));
-                        }
-                    },
-                    error: function(xhr, status, error) {
-                        button.prop('disabled', false).text(originalText);
-                        alert('<?php echo esc_js(__('Network error occurred. Please try again.', 'canvas-course-sync')); ?>');
-                    }
+                // Select/Deselect all functionality
+                $('#ccs-select-all').on('click', function(e) {
+                    e.preventDefault();
+                    $('.ccs-course-checkbox').prop('checked', true);
                 });
+                
+                $('#ccs-deselect-all').on('click', function(e) {
+                    e.preventDefault();
+                    $('.ccs-course-checkbox').prop('checked', false);
+                });
+                
+                // Omit courses functionality
+                $('#ccs-omit-selected').on('click', function(e) {
+                    e.preventDefault();
+                    console.log('CCS Debug: Omit button clicked');
+                    
+                    const selectedCourses = $('.ccs-course-checkbox:checked').map(function() {
+                        return $(this).val();
+                    }).get();
+                    
+                    if (selectedCourses.length === 0) {
+                        alert('<?php echo esc_js(__('Please select at least one course to omit.', 'canvas-course-sync')); ?>');
+                        return;
+                    }
+                    
+                    if (!confirm('<?php echo esc_js(__('Are you sure you want to omit', 'canvas-course-sync')); ?> ' + selectedCourses.length + ' <?php echo esc_js(__('course(s) from future syncs?', 'canvas-course-sync')); ?>')) {
+                        return;
+                    }
+                    
+                    const button = $(this);
+                    const originalText = button.text();
+                    button.prop('disabled', true).text('<?php echo esc_js(__('Omitting...', 'canvas-course-sync')); ?>');
+                    
+                    $.ajax({
+                        url: ccsAjax.ajaxUrl,
+                        type: 'POST',
+                        data: {
+                            action: 'ccs_omit_courses',
+                            nonce: '<?php echo esc_js($omit_nonce); ?>',
+                            course_ids: selectedCourses
+                        },
+                        success: function(response) {
+                            button.prop('disabled', false).text(originalText);
+                            
+                            if (response.success) {
+                                alert(response.data.message);
+                                // Refresh course list to show omitted status
+                                $('#ccs-get-courses').trigger('click');
+                            } else {
+                                alert('<?php echo esc_js(__('Error:', 'canvas-course-sync')); ?> ' + (response.data.message || '<?php echo esc_js(__('Unknown error occurred', 'canvas-course-sync')); ?>'));
+                            }
+                        },
+                        error: function(xhr, status, error) {
+                            button.prop('disabled', false).text(originalText);
+                            alert('<?php echo esc_js(__('Network error occurred. Please try again.', 'canvas-course-sync')); ?>');
+                        }
+                    });
+                });
+            }
+            
+            // Bind handlers when courses wrapper becomes visible
+            $(document).on('DOMNodeInserted', function(e) {
+                if ($(e.target).is('#ccs-courses-wrapper') || $(e.target).find('#ccs-courses-wrapper').length) {
+                    setTimeout(bindCourseActionHandlers, 100);
+                }
             });
+            
+            // Also bind when courses are loaded (fallback)
+            $(document).on('ccs_courses_loaded', function() {
+                bindCourseActionHandlers();
+            });
+            
+            // Initial binding attempt
+            bindCourseActionHandlers();
         });
         </script>
         <?php
