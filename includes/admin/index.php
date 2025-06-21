@@ -19,6 +19,7 @@ add_action('wp_ajax_ccs_clear_logs', 'ccs_ajax_clear_logs');
 add_action('wp_ajax_ccs_refresh_logs', 'ccs_ajax_refresh_logs');
 add_action('wp_ajax_ccs_run_auto_sync', 'ccs_ajax_run_auto_sync');
 add_action('wp_ajax_ccs_omit_courses', 'ccs_ajax_omit_courses');
+add_action('wp_ajax_ccs_restore_omitted', 'ccs_ajax_restore_omitted');
 
 /**
  * AJAX handler for testing connection
@@ -241,43 +242,89 @@ function ccs_ajax_sync_courses() {
  * AJAX handler for omitting courses
  */
 function ccs_ajax_omit_courses() {
+    error_log('CCS: ccs_ajax_omit_courses called');
+    
     // Verify permissions and nonce
     if (!current_user_can('manage_options')) {
+        error_log('CCS: Omit courses - insufficient permissions');
         wp_send_json_error(array('message' => __('You do not have sufficient permissions to access this page.', 'canvas-course-sync')));
     }
     
     $nonce = isset($_POST['nonce']) ? sanitize_text_field(wp_unslash($_POST['nonce'])) : '';
     if (!wp_verify_nonce($nonce, 'ccs_omit_courses')) {
+        error_log('CCS: Omit courses - nonce verification failed');
         wp_send_json_error(array('message' => __('Security check failed.', 'canvas-course-sync')));
     }
     
     // Get course IDs to omit
     $course_ids = isset($_POST['course_ids']) ? array_map('intval', wp_unslash($_POST['course_ids'])) : array();
+    error_log('CCS: Course IDs to omit: ' . print_r($course_ids, true));
     
     if (empty($course_ids)) {
         wp_send_json_error(array('message' => __('No courses selected to omit.', 'canvas-course-sync')));
     }
     
-    // Get existing omitted courses (using simple array format)
+    // Get existing omitted courses
     $omitted_courses = get_option('ccs_omitted_courses', array());
     if (!is_array($omitted_courses)) {
         $omitted_courses = array();
     }
     
-    // Add new courses to omitted list (avoid duplicates)
+    error_log('CCS: Current omitted courses: ' . print_r($omitted_courses, true));
+    
+    // Add new courses to omitted list
+    $newly_omitted = 0;
     foreach ($course_ids as $course_id) {
         $course_id = intval($course_id);
         if ($course_id > 0 && !in_array($course_id, $omitted_courses)) {
             $omitted_courses[] = $course_id;
+            $newly_omitted++;
         }
     }
     
     // Save updated omitted courses list
-    update_option('ccs_omitted_courses', $omitted_courses);
+    $update_result = update_option('ccs_omitted_courses', $omitted_courses);
+    error_log('CCS: Updated omitted courses list: ' . print_r($omitted_courses, true));
+    error_log('CCS: Update option result: ' . ($update_result ? 'success' : 'failed'));
     
     wp_send_json_success(array(
-        'message' => sprintf(__('Successfully omitted %d course(s) from future syncing.', 'canvas-course-sync'), count($course_ids)),
-        'omitted_count' => count($course_ids)
+        'message' => sprintf(__('Successfully omitted %d course(s) from future auto-syncing.', 'canvas-course-sync'), $newly_omitted),
+        'omitted_count' => $newly_omitted,
+        'total_omitted' => count($omitted_courses)
+    ));
+}
+
+/**
+ * AJAX handler for restoring omitted courses
+ */
+function ccs_ajax_restore_omitted() {
+    error_log('CCS: ccs_ajax_restore_omitted called');
+    
+    // Verify permissions and nonce
+    if (!current_user_can('manage_options')) {
+        error_log('CCS: Restore omitted - insufficient permissions');
+        wp_send_json_error(array('message' => __('You do not have sufficient permissions to access this page.', 'canvas-course-sync')));
+    }
+    
+    $nonce = isset($_POST['nonce']) ? sanitize_text_field(wp_unslash($_POST['nonce'])) : '';
+    if (!wp_verify_nonce($nonce, 'ccs_omit_courses')) {
+        error_log('CCS: Restore omitted - nonce verification failed');
+        wp_send_json_error(array('message' => __('Security check failed.', 'canvas-course-sync')));
+    }
+    
+    // Get current omitted courses count
+    $omitted_courses = get_option('ccs_omitted_courses', array());
+    $count = is_array($omitted_courses) ? count($omitted_courses) : 0;
+    
+    error_log('CCS: Restoring ' . $count . ' omitted courses');
+    
+    // Clear the omitted courses list
+    $update_result = update_option('ccs_omitted_courses', array());
+    error_log('CCS: Clear omitted courses result: ' . ($update_result ? 'success' : 'failed'));
+    
+    wp_send_json_success(array(
+        'message' => sprintf(__('Successfully restored %d omitted course(s) for future auto-syncing.', 'canvas-course-sync'), $count),
+        'restored_count' => $count
     ));
 }
 
