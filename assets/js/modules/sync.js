@@ -6,11 +6,12 @@ export function initSyncManager($) {
     let syncInProgress = false;
     
     // Completely remove any existing handlers to prevent duplicates
-    $('#ccs-sync-selected').off();
+    $('#ccs-sync-selected').off('click.sync');
     
-    $('#ccs-sync-selected').on('click', function(e) {
+    $('#ccs-sync-selected').on('click.sync', function(e) {
         e.preventDefault();
         e.stopPropagation();
+        e.stopImmediatePropagation();
         
         // Prevent duplicate syncs
         if (syncInProgress) {
@@ -27,7 +28,7 @@ export function initSyncManager($) {
             return false;
         }
         
-        // Single confirmation dialog
+        // Single confirmation dialog - prevent multiple popups
         if (!confirm('Are you sure you want to sync ' + selectedCourses.length + ' selected course(s)?')) {
             return false;
         }

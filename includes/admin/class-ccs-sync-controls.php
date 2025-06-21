@@ -145,11 +145,6 @@ class CCS_Sync_Controls {
                     }
                 });
             });
-            
-            // Show buttons when courses are loaded
-            $(document).on('ccs_courses_loaded', function() {
-                $('.ccs-action-buttons').show();
-            });
         });
         </script>
         <?php
