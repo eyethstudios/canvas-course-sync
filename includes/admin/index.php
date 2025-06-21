@@ -85,18 +85,18 @@ function ccs_ajax_get_courses() {
             wp_send_json_error(__('Invalid response format from Canvas API.', 'canvas-course-sync'));
         }
         
-        // Filter out excluded courses
+        // Get omitted courses list
+        $omitted_courses = get_option('ccs_omitted_courses', array());
+        if (!is_array($omitted_courses)) {
+            $omitted_courses = array();
+        }
+        
+        // Filter out excluded courses but keep omitted ones for display
         $courses = array_filter($courses, function($course) {
             $course_name = isset($course['name']) ? $course['name'] : '';
-            $course_id = isset($course['id']) ? intval($course['id']) : 0;
             
-            // Check if excluded by title
+            // Check if excluded by title (these are permanently excluded)
             if (function_exists('ccs_is_course_excluded') && ccs_is_course_excluded($course_name)) {
-                return false;
-            }
-            
-            // Check if omitted by user
-            if (function_exists('ccs_is_course_omitted') && ccs_is_course_omitted($course_id)) {
                 return false;
             }
             
@@ -126,7 +126,7 @@ function ccs_ajax_get_courses() {
             }
         }
         
-        // Check which courses already exist in WordPress
+        // Check which courses already exist in WordPress and mark omitted status
         foreach ($courses as $key => $course) {
             $course_id = isset($course['id']) ? intval($course['id']) : 0;
             $course_name = isset($course['name']) ? trim($course['name']) : '';
@@ -147,11 +147,18 @@ function ccs_ajax_get_courses() {
                 }
             }
             
+            // Check if course is omitted
+            $is_omitted = in_array($course_id, $omitted_courses);
+            
             $courses[$key]['exists_in_wp'] = $exists_in_wp;
             $courses[$key]['match_type'] = $match_type;
+            $courses[$key]['is_omitted'] = $is_omitted;
             
             // Add explicit status for easier frontend handling
-            if ($exists_in_wp) {
+            if ($is_omitted) {
+                $courses[$key]['status'] = 'omitted';
+                $courses[$key]['status_label'] = 'Omitted from Auto-Sync';
+            } else if ($exists_in_wp) {
                 if ($match_type === 'canvas_id') {
                     $courses[$key]['status'] = 'synced';
                     $courses[$key]['status_label'] = 'Already synced';
@@ -161,7 +168,7 @@ function ccs_ajax_get_courses() {
                 }
             } else {
                 $courses[$key]['status'] = 'new';
-                $courses[$key]['status_label'] = 'New';
+                $courses[$key]['status_label'] = 'Available for sync';
             }
         }
         
@@ -258,10 +265,12 @@ function ccs_ajax_omit_courses() {
     
     // Get course IDs to omit
     $course_ids = isset($_POST['course_ids']) ? array_map('intval', wp_unslash($_POST['course_ids'])) : array();
+    $course_ids = array_filter($course_ids, function($id) { return $id > 0; });
+    
     error_log('CCS: Course IDs to omit: ' . print_r($course_ids, true));
     
     if (empty($course_ids)) {
-        wp_send_json_error(array('message' => __('No courses selected to omit.', 'canvas-course-sync')));
+        wp_send_json_error(array('message' => __('No valid courses selected to omit.', 'canvas-course-sync')));
     }
     
     // Get existing omitted courses
@@ -272,11 +281,10 @@ function ccs_ajax_omit_courses() {
     
     error_log('CCS: Current omitted courses: ' . print_r($omitted_courses, true));
     
-    // Add new courses to omitted list
+    // Add new courses to omitted list (avoid duplicates)
     $newly_omitted = 0;
     foreach ($course_ids as $course_id) {
-        $course_id = intval($course_id);
-        if ($course_id > 0 && !in_array($course_id, $omitted_courses)) {
+        if (!in_array($course_id, $omitted_courses)) {
             $omitted_courses[] = $course_id;
             $newly_omitted++;
         }
@@ -284,7 +292,7 @@ function ccs_ajax_omit_courses() {
     
     // Save updated omitted courses list
     $update_result = update_option('ccs_omitted_courses', $omitted_courses);
-    error_log('CCS: Updated omitted courses list: ' . print_r($omitted_courses, true));
+    error_log('CCS: Updated omitted courses list. New count: ' . count($omitted_courses));
     error_log('CCS: Update option result: ' . ($update_result ? 'success' : 'failed'));
     
     wp_send_json_success(array(

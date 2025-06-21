@@ -50,14 +50,15 @@
                             renderCourseList(courses, courseList);
                         }
                         
-                        // Show the courses wrapper with action buttons
+                        // Always show the courses wrapper and action buttons
                         coursesWrapper.show();
-                        console.log('CCS Courses: Courses wrapper shown');
+                        $('.ccs-action-buttons').show();
+                        console.log('CCS Courses: Courses wrapper and action buttons shown');
                         
                     } else {
                         const errorMsg = response.data && response.data.message ? response.data.message : (response.data || 'Unknown error occurred');
                         courseList.html('<div class="notice notice-error"><p>Error loading courses: ' + errorMsg + '</p></div>');
-                        coursesWrapper.show(); // Show wrapper even on error so user can retry
+                        coursesWrapper.show();
                     }
                 },
                 error: function(xhr, status, error) {
@@ -87,13 +88,13 @@
         console.log('CCS Courses Module: Course manager initialized');
     }
     
-    // Render course list
+    // Render course list with omitted status
     function renderCourseList(courses, container) {
         console.log('CCS Courses: Rendering ' + courses.length + ' courses');
         
         let html = '<div class="ccs-courses-header" style="margin-bottom: 15px; padding: 10px; background: #f0f0f1; border-left: 4px solid #0073aa;">';
         html += '<strong>Found ' + courses.length + ' course(s) in Canvas</strong>';
-        html += '<p style="margin: 5px 0 0 0; font-size: 13px; color: #666;">Select courses to sync or omit from auto-sync.</p>';
+        html += '<p style="margin: 5px 0 0 0; font-size: 13px; color: #666;">Select courses to sync or manage their auto-sync status.</p>';
         html += '</div>';
         
         html += '<table class="wp-list-table widefat fixed striped" style="margin-bottom: 20px;">';
@@ -101,35 +102,34 @@
         html += '<th scope="col" class="manage-column" style="width: 40px;"><input type="checkbox" id="ccs-select-all-checkbox"></th>';
         html += '<th scope="col" class="manage-column">Course Name</th>';
         html += '<th scope="col" class="manage-column" style="width: 100px;">Canvas ID</th>';
-        html += '<th scope="col" class="manage-column" style="width: 120px;">Status</th>';
+        html += '<th scope="col" class="manage-column" style="width: 140px;">Status</th>';
         html += '</tr></thead>';
         html += '<tbody>';
         
         courses.forEach(function(course, index) {
             const courseId = course.id || 0;
             const courseName = course.name || 'Unnamed Course';
-            const status = course.status_label || 'Unknown';
             const isOmitted = course.is_omitted || false;
             
             let statusClass = 'notice-info';
-            let statusText = status;
+            let statusText = 'Available';
             
             if (isOmitted) {
                 statusClass = 'notice-warning';
-                statusText = 'Omitted';
+                statusText = 'Omitted from Auto-Sync';
             } else if (course.status === 'synced') {
                 statusClass = 'notice-success';
-                statusText = 'Synced';
+                statusText = 'Already Synced';
             } else if (course.status === 'exists') {
                 statusClass = 'notice-alt';
-                statusText = 'Exists';
+                statusText = 'Exists in WordPress';
             }
             
-            html += '<tr>';
+            html += '<tr' + (isOmitted ? ' style="opacity: 0.7;"' : '') + '>';
             html += '<td><input type="checkbox" class="ccs-course-checkbox" value="' + courseId + '" data-course-name="' + escapeHtml(courseName) + '"></td>';
             html += '<td><strong>' + escapeHtml(courseName) + '</strong></td>';
             html += '<td>' + courseId + '</td>';
-            html += '<td><span class="notice ' + statusClass + '" style="padding: 2px 8px; margin: 0; display: inline-block;">' + statusText + '</span></td>';
+            html += '<td><span class="notice ' + statusClass + '" style="padding: 4px 8px; margin: 0; display: inline-block; font-size: 12px;">' + statusText + '</span></td>';
             html += '</tr>';
         });
         
@@ -138,11 +138,11 @@
         container.html(html);
         
         // Add select all functionality for the table header checkbox
-        $('#ccs-select-all-checkbox').on('change', function() {
+        $('#ccs-select-all-checkbox').off('change').on('change', function() {
             $('.ccs-course-checkbox').prop('checked', $(this).prop('checked'));
         });
         
-        console.log('CCS Courses: Course list rendered successfully');
+        console.log('CCS Courses: Course list rendered successfully with omit status');
     }
     
     // Utility function to escape HTML
