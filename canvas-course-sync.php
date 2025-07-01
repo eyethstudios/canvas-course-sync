@@ -185,8 +185,8 @@ class Canvas_Course_Sync {
         }
         
         // Initialize importer
-        if (class_exists('CCS_Course_Importer')) {
-            $this->importer = new CCS_Course_Importer();
+        if (class_exists('CCS_Importer')) {
+            $this->importer = new CCS_Importer();
         }
         
         // Initialize scheduler

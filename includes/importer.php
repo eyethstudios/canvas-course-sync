@@ -14,7 +14,7 @@ if (!defined('ABSPATH')) {
 /**
  * Course Importer class
  */
-class CCS_Course_Importer {
+class CCS_Importer {
     
     /**
      * Logger instance
