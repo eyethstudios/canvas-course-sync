@@ -98,7 +98,7 @@ class CCS_Admin_Page {
             'refreshLogsNonce' => wp_create_nonce('ccs_refresh_logs'),
             'runAutoSyncNonce' => wp_create_nonce('ccs_run_auto_sync'),
             'omitCoursesNonce' => wp_create_nonce('ccs_omit_courses'),
-            'restoreOmittedNonce' => wp_create_nonce('ccs_omit_courses')
+            'restoreOmittedNonce' => wp_create_nonce('ccs_restore_omitted')
         ));
         
         // Enqueue admin styles

@@ -162,7 +162,7 @@ class CCS_Catalog_Validator {
      */
     private function log_info($message) {
         if ($this->logger) {
-            $this->logger->log('info', $message);
+            $this->logger->log($message, 'info');
         }
         error_log('CCS Catalog Validator: ' . $message);
     }
