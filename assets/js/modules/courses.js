@@ -46,10 +46,16 @@
                     loadingSpinner.hide();
                     
                     if (response.success && response.data) {
+                        console.log('CCS Courses: Raw response data:', response.data);
+                        
                         // Handle new response format with validation
                         const courses = response.data.courses || response.data;
                         const validationReport = response.data.validation_report || '';
                         const autoOmittedCount = response.data.auto_omitted_count || 0;
+                        
+                        console.log('CCS Courses: Parsed courses:', courses);
+                        console.log('CCS Courses: Type of courses:', typeof courses);
+                        console.log('CCS Courses: Is array:', Array.isArray(courses));
                         
                         console.log('CCS Courses: Received ' + courses.length + ' courses');
                         
@@ -64,8 +70,13 @@
                             courseList.append(reportDiv);
                         }
                         
-                        if (courses.length === 0) {
-                            courseList.html('<div class="notice notice-info"><p>No courses found in Canvas.</p></div>');
+                        if (!Array.isArray(courses) || courses.length === 0) {
+                            if (!Array.isArray(courses)) {
+                                console.error('CCS Courses: Expected array but got:', typeof courses, courses);
+                                courseList.html('<div class="notice notice-error"><p>Invalid course data format received. Expected array but got: ' + typeof courses + '</p></div>');
+                            } else {
+                                courseList.html('<div class="notice notice-info"><p>No courses found in Canvas.</p></div>');
+                            }
                         } else {
                             renderCourseList(courses, courseList);
                         }
@@ -79,7 +90,19 @@
                         console.log('CCS Courses: Courses wrapper, action buttons shown, and omit functionality initialized');
                         
                     } else {
-                        const errorMsg = response.data && response.data.message ? response.data.message : (response.data || 'Unknown error occurred');
+                        console.error('CCS Courses: Error response:', response);
+                        let errorMsg = 'Unknown error occurred';
+                        
+                        if (response.data) {
+                            if (typeof response.data === 'string') {
+                                errorMsg = response.data;
+                            } else if (response.data.message) {
+                                errorMsg = response.data.message;
+                            } else if (typeof response.data === 'object') {
+                                errorMsg = 'Server returned object: ' + JSON.stringify(response.data).substring(0, 100);
+                            }
+                        }
+                        
                         courseList.html('<div class="notice notice-error"><p>Error loading courses: ' + errorMsg + '</p></div>');
                         coursesWrapper.show();
                     }
