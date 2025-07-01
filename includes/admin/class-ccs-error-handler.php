@@ -1,3 +1,4 @@
+<?php
 /**
  * Canvas Course Sync - Centralized Error Logger
  * Handles JavaScript error logging to server
