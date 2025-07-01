@@ -158,7 +158,8 @@ class Canvas_Course_Sync {
                 'includes/admin/class-ccs-logs-display.php',
                 'includes/admin/class-ccs-email-settings.php',
                 'includes/admin/class-ccs-sync-controls.php',
-                'includes/admin/class-ccs-version-manager.php'
+                'includes/admin/class-ccs-version-manager.php',
+                'includes/admin/class-ccs-error-handler.php'
             );
             
             foreach ($admin_files as $file) {
@@ -339,16 +340,32 @@ class Canvas_Course_Sync {
         // Enqueue admin JavaScript as regular script (not module)
         wp_enqueue_script(
             'ccs-admin-js',
-            plugin_dir_url(__FILE__) . 'assets/js/admin.js',
+            plugin_dir_url(__FILE__) . 'assets/js/modules/core.js',
             array('jquery'),
             CCS_VERSION,
             true
         );
         
-        // Enqueue courses module JavaScript
+        // Enqueue modular JavaScript files
         wp_enqueue_script(
-            'ccs-courses-js',
-            plugin_dir_url(__FILE__) . 'assets/js/modules/courses.js',
+            'ccs-connection-js',
+            plugin_dir_url(__FILE__) . 'assets/js/modules/connection.js',
+            array('jquery', 'ccs-admin-js'),
+            CCS_VERSION,
+            true
+        );
+        
+        wp_enqueue_script(
+            'ccs-logs-js',
+            plugin_dir_url(__FILE__) . 'assets/js/modules/logs.js',
+            array('jquery', 'ccs-admin-js'),
+            CCS_VERSION,
+            true
+        );
+        
+        wp_enqueue_script(
+            'ccs-auto-sync-js',
+            plugin_dir_url(__FILE__) . 'assets/js/modules/auto-sync.js',
             array('jquery', 'ccs-admin-js'),
             CCS_VERSION,
             true
@@ -376,7 +393,9 @@ class Canvas_Course_Sync {
             'refreshLogsNonce' => wp_create_nonce('ccs_refresh_logs'),
             'runAutoSyncNonce' => wp_create_nonce('ccs_run_auto_sync'),
             'omitCoursesNonce' => wp_create_nonce('ccs_omit_courses'),
-            'restoreOmittedNonce' => wp_create_nonce('ccs_restore_omitted')
+            'restoreOmittedNonce' => wp_create_nonce('ccs_restore_omitted'),
+            'logErrorNonce' => wp_create_nonce('ccs_log_js_error'),
+            'toggleAutoSyncNonce' => wp_create_nonce('ccs_toggle_auto_sync')
         ));
         
         // Add additional nonces for course module  
