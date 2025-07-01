@@ -202,25 +202,34 @@ class CCS_Importer {
                     error_log('CCS_Importer: Generated detailed content length: ' . strlen($course_content));
                 }
                 
-                // Create course post as DRAFT with correct post type
-                error_log('CCS_Importer: Creating course as draft...');
-                $post_data = array(
-                    'post_title' => sanitize_text_field($course_name),
-                    'post_content' => wp_kses_post($course_content),
-                    'post_status' => 'draft',
-                    'post_type' => 'courses', // Use plural form to match other components
-                    'post_name' => sanitize_title($course_slug),
-                    'meta_input' => array(
-                        'canvas_course_id' => intval($course_id),
-                        'canvas_course_code' => sanitize_text_field($course_details['course_code'] ?? ''),
-                        'canvas_start_at' => sanitize_text_field($course_details['start_at'] ?? ''),
-                        'canvas_end_at' => sanitize_text_field($course_details['end_at'] ?? ''),
-                        'canvas_enrollment_term_id' => intval($course_details['enrollment_term_id'] ?? 0),
-                        'link' => esc_url_raw($enrollment_url)
-                    )
+                // Create course using database manager transaction
+                error_log('CCS_Importer: Creating course using transaction...');
+                $course_data = array(
+                    'canvas_id' => $course_id,
+                    'title' => $course_name,
+                    'content' => $course_content,
+                    'course_code' => $course_details['course_code'] ?? '',
+                    'start_at' => $course_details['start_at'] ?? '',
+                    'end_at' => $course_details['end_at'] ?? '',
+                    'enrollment_term_id' => $course_details['enrollment_term_id'] ?? 0,
+                    'enrollment_url' => $enrollment_url,
+                    'slug' => $course_slug
                 );
                 
-                $post_id = wp_insert_post($post_data, true);
+                $create_result = $this->db_manager->create_course_with_transaction($course_data);
+                
+                if (!$create_result['success']) {
+                    error_log('CCS_Importer: ERROR - Transaction failed: ' . $create_result['error']);
+                    $results['errors']++;
+                    $results['details'][] = array(
+                        'course_id' => $course_id,
+                        'status' => 'error',
+                        'reason' => 'Database transaction failed: ' . $create_result['error']
+                    );
+                    continue;
+                }
+                
+                $post_id = $create_result['post_id'];
                 
                 if (is_wp_error($post_id)) {
                     error_log('CCS_Importer: ERROR - Failed to create post: ' . $post_id->get_error_message());
