@@ -5,7 +5,7 @@ Tags: canvas, lms, course, sync, education
 Requires at least: 5.0
 Tested up to: 6.4
 Requires PHP: 7.4
-Stable tag: 2.4.7
+Stable tag: 2.4.8
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -46,6 +46,11 @@ The token needs read access to courses and basic user information.
 3. Logging and status monitoring
 
 == Changelog ==
+
+= 2.4.8 =
+* Fixed get courses button functionality with improved error handling
+* Enhanced catalog validator with proper file existence checks
+* Improved backward compatibility for course validation system
 
 = 2.4.7 =
 * Fixed double confirmation popup on course sync completion
@@ -184,6 +189,9 @@ The token needs read access to courses and basic user information.
 * Logging system
 
 == Upgrade Notice ==
+
+= 2.4.8 =
+Fixed get courses button and improved catalog validation error handling.
 
 = 2.4.7 =
 Fixed sync issues, added catalog validation, and improved course visibility in WordPress admin.
