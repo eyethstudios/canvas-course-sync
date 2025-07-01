@@ -5,7 +5,7 @@ Tags: canvas, lms, course, sync, education
 Requires at least: 5.0
 Tested up to: 6.4
 Requires PHP: 7.4
-Stable tag: 2.4.6
+Stable tag: 2.4.7
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -46,6 +46,14 @@ The token needs read access to courses and basic user information.
 3. Logging and status monitoring
 
 == Changelog ==
+
+= 2.4.7 =
+* Fixed double confirmation popup on course sync completion
+* Corrected post type inconsistency - synced courses now appear correctly in WordPress admin
+* Added automatic catalog validation against National Deaf Center approved courses
+* Auto-omit functionality for courses not found in approved catalog
+* Enhanced AJAX handlers with missing omit course nonces
+* Improved sync functionality and course visibility in WordPress admin
 
 = 2.4.6 =
 * Enhanced WordPress compatibility and code cleanup
@@ -176,6 +184,9 @@ The token needs read access to courses and basic user information.
 * Logging system
 
 == Upgrade Notice ==
+
+= 2.4.7 =
+Fixed sync issues, added catalog validation, and improved course visibility in WordPress admin.
 
 = 2.4.6 =
 Enhanced WordPress compatibility with improved code cleanup, fixed sync functionality, and resolved duplicate issues.
