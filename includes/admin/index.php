@@ -86,12 +86,23 @@ function ccs_ajax_get_courses() {
         }
 
         // Validate against catalog and auto-omit non-approved courses
-        require_once CCS_PLUGIN_DIR . 'includes/class-ccs-catalog-validator.php';
-        $catalog_validator = new CCS_Catalog_Validator();
-        $validation_results = $catalog_validator->validate_against_catalog($courses);
-        
-        // Continue with existing course processing
-        $courses = $validation_results['validated'];
+        $catalog_validator_path = CCS_PLUGIN_DIR . 'includes/class-ccs-catalog-validator.php';
+        if (file_exists($catalog_validator_path)) {
+            require_once $catalog_validator_path;
+            $catalog_validator = new CCS_Catalog_Validator();
+            $validation_results = $catalog_validator->validate_against_catalog($courses);
+            
+            // Continue with existing course processing - use validated courses
+            $courses = $validation_results['validated'];
+        } else {
+            error_log('CCS: Catalog validator file not found at: ' . $catalog_validator_path);
+            // Continue without validation
+            $validation_results = array(
+                'validated' => $courses,
+                'omitted' => array(),
+                'auto_omitted_ids' => array()
+            );
+        }
         
         // Get omitted courses list
         $omitted_courses = get_option('ccs_omitted_courses', array());
@@ -187,7 +198,7 @@ function ccs_ajax_get_courses() {
         // Add validation report to response
         $response = array(
             'courses' => $courses,
-            'validation_report' => $catalog_validator->generate_validation_report($validation_results),
+            'validation_report' => isset($catalog_validator) ? $catalog_validator->generate_validation_report($validation_results) : '',
             'auto_omitted_count' => count($validation_results['auto_omitted_ids'])
         );
         
