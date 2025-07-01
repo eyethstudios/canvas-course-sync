@@ -379,6 +379,9 @@ class Canvas_Course_Sync {
             'restoreOmittedNonce' => wp_create_nonce('ccs_omit_courses')
         ));
         
+        // Add omit nonce for course module
+        wp_localize_script('ccs-admin-js', 'ccsOmitNonce', wp_create_nonce('ccs_omit_courses'));
+        
         // Add updater nonce for plugins page
         if ($hook === 'plugins.php') {
             wp_localize_script('ccs-updater-js', 'ccsUpdaterNonce', wp_create_nonce('ccs_check_updates'));
