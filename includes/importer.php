@@ -205,18 +205,18 @@ class CCS_Course_Importer {
                 // Create course post as DRAFT with correct post type
                 error_log('CCS_Importer: Creating course as draft...');
                 $post_data = array(
-                    'post_title' => $course_name,
-                    'post_content' => $course_content,
+                    'post_title' => sanitize_text_field($course_name),
+                    'post_content' => wp_kses_post($course_content),
                     'post_status' => 'draft',
-                    'post_type' => 'courses', // FIXED: Changed from 'course' to 'courses'
-                    'post_name' => $course_slug,
+                    'post_type' => 'course', // WordPress standard - use singular form
+                    'post_name' => sanitize_title($course_slug),
                     'meta_input' => array(
                         'canvas_course_id' => intval($course_id),
-                        'canvas_course_code' => $course_details['course_code'] ?? '',
-                        'canvas_start_at' => $course_details['start_at'] ?? '',
-                        'canvas_end_at' => $course_details['end_at'] ?? '',
+                        'canvas_course_code' => sanitize_text_field($course_details['course_code'] ?? ''),
+                        'canvas_start_at' => sanitize_text_field($course_details['start_at'] ?? ''),
+                        'canvas_end_at' => sanitize_text_field($course_details['end_at'] ?? ''),
                         'canvas_enrollment_term_id' => intval($course_details['enrollment_term_id'] ?? 0),
-                        'link' => $enrollment_url
+                        'link' => esc_url_raw($enrollment_url)
                     )
                 );
                 

@@ -28,11 +28,16 @@
             courseList.empty();
             
             $.ajax({
-                url: window.ccsNonces ? (typeof ccsAjax !== 'undefined' ? ccsAjax.ajaxUrl : ajaxurl) : ajaxurl,
+                url: (typeof ccsAjax !== 'undefined' && ccsAjax.ajaxUrl) ? ccsAjax.ajaxUrl : 
+                     (typeof ajaxurl !== 'undefined') ? ajaxurl : '/wp-admin/admin-ajax.php',
                 type: 'POST',
+                dataType: 'json',
                 data: {
                     action: 'ccs_get_courses',
-                    nonce: window.ccsNonces ? window.ccsNonces.get_courses : (typeof ccsAjax !== 'undefined' ? ccsAjax.getCoursesNonce : '')
+                    nonce: (typeof ccsAjax !== 'undefined' && ccsAjax.getCoursesNonce) ? 
+                           ccsAjax.getCoursesNonce : 
+                           (window.ccsNonces && window.ccsNonces.get_courses) ? 
+                           window.ccsNonces.get_courses : ''
                 },
                 success: function(response) {
                     console.log('CCS Courses: Get courses response:', response);
@@ -158,7 +163,8 @@
         button.prop('disabled', true).text('Omitting...');
         
         $.ajax({
-            url: ajaxurl,
+            url: (typeof ccsAjax !== 'undefined' && ccsAjax.ajaxUrl) ? ccsAjax.ajaxUrl : 
+                 (typeof ajaxurl !== 'undefined') ? ajaxurl : '/wp-admin/admin-ajax.php',
             type: 'POST',
             dataType: 'json',
             data: {
@@ -195,7 +201,8 @@
         button.prop('disabled', true).text('Restoring...');
         
         $.ajax({
-            url: ajaxurl,
+            url: (typeof ccsAjax !== 'undefined' && ccsAjax.ajaxUrl) ? ccsAjax.ajaxUrl : 
+                 (typeof ajaxurl !== 'undefined') ? ajaxurl : '/wp-admin/admin-ajax.php',
             type: 'POST',
             dataType: 'json',
             data: {

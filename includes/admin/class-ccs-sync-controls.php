@@ -106,14 +106,38 @@ class CCS_Sync_Controls {
         </div>
         
         <script type="text/javascript">
-        jQuery(document).ready(function($) {
-            console.log('CCS_Sync_Controls: Setting up omit nonce...');
+        (function($) {
+            'use strict';
             
-            // Store nonce globally for JavaScript access
-            window.ccsOmitNonce = '<?php echo esc_js($omit_nonce); ?>';
-            
-            console.log('CCS_Sync_Controls: Omit nonce set:', window.ccsOmitNonce);
-        });
+            $(document).ready(function() {
+                console.log('CCS_Sync_Controls: Setting up omit nonce...');
+                
+                // Store nonce globally for JavaScript access
+                if (typeof window.ccsOmitNonce === 'undefined') {
+                    window.ccsOmitNonce = '<?php echo esc_js($omit_nonce); ?>';
+                }
+                
+                console.log('CCS_Sync_Controls: Omit nonce set:', window.ccsOmitNonce);
+                
+                // Ensure action buttons are visible when courses wrapper is shown
+                var observer = new MutationObserver(function(mutations) {
+                    mutations.forEach(function(mutation) {
+                        if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+                            var target = $(mutation.target);
+                            if (target.attr('id') === 'ccs-courses-wrapper' && target.is(':visible')) {
+                                $('.ccs-action-buttons').show().css('display', 'block');
+                                console.log('CCS: Action buttons forced visible');
+                            }
+                        }
+                    });
+                });
+                
+                var coursesWrapper = document.getElementById('ccs-courses-wrapper');
+                if (coursesWrapper) {
+                    observer.observe(coursesWrapper, { attributes: true });
+                }
+            });
+        })(jQuery);
         </script>
         
         <style>
