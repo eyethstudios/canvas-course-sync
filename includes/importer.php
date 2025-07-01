@@ -208,7 +208,7 @@ class CCS_Course_Importer {
                     'post_title' => sanitize_text_field($course_name),
                     'post_content' => wp_kses_post($course_content),
                     'post_status' => 'draft',
-                    'post_type' => 'course', // WordPress standard - use singular form
+                    'post_type' => 'courses', // Use plural form to match other components
                     'post_name' => sanitize_title($course_slug),
                     'meta_input' => array(
                         'canvas_course_id' => intval($course_id),

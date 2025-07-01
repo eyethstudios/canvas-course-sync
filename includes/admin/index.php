@@ -113,7 +113,7 @@ function ccs_ajax_get_courses() {
         
         // Get existing WordPress courses for comparison
         $existing_wp_courses = get_posts(array(
-            'post_type'      => 'course',
+            'post_type'      => 'courses',
             'post_status'    => array('draft', 'publish', 'private', 'pending'),
             'posts_per_page' => -1,
             'fields'         => 'ids',

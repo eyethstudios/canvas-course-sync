@@ -194,12 +194,11 @@ export function initSyncManager($) {
                 
                 results.show();
                 
-                // Auto-refresh after 3 seconds
+                // Auto-refresh after 3 seconds (removed extra confirmation)
                 setTimeout(function() {
-                    if (confirm('Sync completed. Would you like to refresh the page to see updated results?')) {
-                        location.reload();
-                    }
-                }, 3000);
+                    console.log('CCS_Sync: Auto-refreshing page after sync completion');
+                    location.reload();
+                }, 2000);
             },
             error: function(xhr, status, error) {
                 console.error('CCS_Sync: Sync AJAX error:', error);
