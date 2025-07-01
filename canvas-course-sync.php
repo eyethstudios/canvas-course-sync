@@ -376,11 +376,12 @@ class Canvas_Course_Sync {
             'refreshLogsNonce' => wp_create_nonce('ccs_refresh_logs'),
             'runAutoSyncNonce' => wp_create_nonce('ccs_run_auto_sync'),
             'omitCoursesNonce' => wp_create_nonce('ccs_omit_courses'),
-            'restoreOmittedNonce' => wp_create_nonce('ccs_omit_courses')
+            'restoreOmittedNonce' => wp_create_nonce('ccs_restore_omitted')
         ));
         
-        // Add omit nonce for course module
+        // Add additional nonces for course module  
         wp_localize_script('ccs-admin-js', 'ccsOmitNonce', wp_create_nonce('ccs_omit_courses'));
+        wp_localize_script('ccs-admin-js', 'ccsRestoreNonce', wp_create_nonce('ccs_restore_omitted'));
         
         // Add updater nonce for plugins page
         if ($hook === 'plugins.php') {

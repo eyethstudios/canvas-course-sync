@@ -342,7 +342,7 @@ function ccs_ajax_restore_omitted() {
     }
     
     $nonce = isset($_POST['nonce']) ? sanitize_text_field(wp_unslash($_POST['nonce'])) : '';
-    if (!wp_verify_nonce($nonce, 'ccs_omit_courses')) {
+    if (!wp_verify_nonce($nonce, 'ccs_restore_omitted')) {
         error_log('CCS: Restore omitted - nonce verification failed');
         wp_send_json_error(array('message' => __('Security check failed.', 'canvas-course-sync')));
     }

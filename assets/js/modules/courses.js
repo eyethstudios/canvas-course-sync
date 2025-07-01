@@ -222,7 +222,7 @@
             dataType: 'json',
             data: {
                 action: 'ccs_restore_omitted',
-                nonce: window.ccsOmitNonce || ''
+                nonce: window.ccsRestoreNonce || window.ccsOmitNonce || ''
             },
             success: function(response) {
                 console.log('CCS: Restore response:', response);
