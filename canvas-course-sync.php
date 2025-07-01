@@ -246,6 +246,12 @@ class Canvas_Course_Sync {
             'default' => false,
             'show_in_rest' => false
         ));
+        register_setting('ccs_settings', 'ccs_catalog_url', array(
+            'type' => 'string',
+            'sanitize_callback' => 'esc_url_raw',
+            'default' => 'https://learn.nationaldeafcenter.org/',
+            'show_in_rest' => false
+        ));
     }
 
     /**

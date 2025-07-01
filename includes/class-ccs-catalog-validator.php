@@ -12,30 +12,19 @@ if (!defined('ABSPATH')) {
 class CCS_Catalog_Validator {
     
     /**
-     * Approved course titles from National Deaf Center catalog
-     */
-    private $approved_courses = [
-        'Assistive Technology in Training and Workplace Settings',
-        'Deaf Awareness for Vocational Rehabilitation Professionals',
-        'Effective Mentoring for Deaf People',
-        'Introduction to Deaf Rehabilitation',
-        'Partnering with Deaf Youth: Strength-Based Transition Planning for VR Professionals',
-        'Pre-Employment Transition Services (Pre-ETS) and Deaf Youth',
-        'Data-Driven Decision Making: What Does it Matter?',
-        'Deaf 101',
-        'Finding Data About Deaf People',
-        'Summer Programs for Deaf Youth: Stories and Strategies',
-        'Attitudes as Barriers for Deaf People',
-        'Building Relationships with Deaf Communities',
-        'Discovering System Barriers and Exploring the WHY',
-        'Transforming Systems to Improve Experiences for Deaf People',
-        'Legal Frameworks and Responsibilities for Accessibility'
-    ];
-
-    /**
      * Logger instance
      */
     private $logger;
+
+    /**
+     * Catalog URL
+     */
+    private $catalog_url;
+
+    /**
+     * Cached course list from catalog
+     */
+    private $catalog_courses = null;
 
     /**
      * Constructor
@@ -45,6 +34,126 @@ class CCS_Catalog_Validator {
         if ($canvas_course_sync && isset($canvas_course_sync->logger)) {
             $this->logger = $canvas_course_sync->logger;
         }
+        
+        // Get catalog URL from settings
+        $this->catalog_url = get_option('ccs_catalog_url', 'https://learn.nationaldeafcenter.org/');
+    }
+
+    /**
+     * Fetch course list from catalog URL
+     */
+    private function fetch_catalog_courses() {
+        if ($this->catalog_courses !== null) {
+            return $this->catalog_courses;
+        }
+
+        $cache_key = 'ccs_catalog_courses_' . md5($this->catalog_url);
+        $cached = get_transient($cache_key);
+        
+        if ($cached !== false) {
+            $this->catalog_courses = $cached;
+            return $this->catalog_courses;
+        }
+
+        // Fetch courses from catalog URL
+        $response = wp_remote_get($this->catalog_url, array(
+            'timeout' => 30,
+            'headers' => array(
+                'User-Agent' => 'Canvas Course Sync Plugin'
+            )
+        ));
+
+        if (is_wp_error($response)) {
+            $this->log_info('Failed to fetch catalog from ' . $this->catalog_url . ': ' . $response->get_error_message());
+            // Fallback to default catalog
+            $this->catalog_courses = $this->get_default_catalog();
+            return $this->catalog_courses;
+        }
+
+        $body = wp_remote_retrieve_body($response);
+        $courses = $this->parse_catalog_html($body);
+        
+        if (empty($courses)) {
+            $this->log_info('No courses found in catalog, using default list');
+            $courses = $this->get_default_catalog();
+        }
+
+        // Cache for 1 hour
+        set_transient($cache_key, $courses, HOUR_IN_SECONDS);
+        $this->catalog_courses = $courses;
+        
+        $this->log_info('Fetched ' . count($courses) . ' courses from catalog: ' . $this->catalog_url);
+        return $this->catalog_courses;
+
+    /**
+     * Parse HTML content to extract course titles
+     */
+    private function parse_catalog_html($html) {
+        $courses = array();
+        
+        // Create DOMDocument to parse HTML
+        $dom = new DOMDocument();
+        libxml_use_internal_errors(true);
+        $dom->loadHTML($html);
+        libxml_clear_errors();
+        
+        $xpath = new DOMXPath($dom);
+        
+        // Common selectors for course titles
+        $selectors = array(
+            '//h1[contains(@class, "course-title")]',
+            '//h2[contains(@class, "course-title")]', 
+            '//h3[contains(@class, "course-title")]',
+            '//*[contains(@class, "course-name")]',
+            '//*[contains(@class, "course-title")]',
+            '//h1', '//h2', '//h3' // Fallback to all headings
+        );
+        
+        foreach ($selectors as $selector) {
+            $nodes = $xpath->query($selector);
+            foreach ($nodes as $node) {
+                $title = trim($node->textContent);
+                if (!empty($title) && strlen($title) > 5) {
+                    $courses[] = $title;
+                }
+            }
+            
+            // If we found courses with specific selectors, use those
+            if (!empty($courses) && $selector !== '//h1' && $selector !== '//h2' && $selector !== '//h3') {
+                break;
+            }
+        }
+        
+        // Remove duplicates and clean up
+        $courses = array_unique($courses);
+        $courses = array_filter($courses, function($course) {
+            return !empty($course) && strlen($course) > 5;
+        });
+        
+        return array_values($courses);
+    }
+
+    /**
+     * Get default catalog courses (fallback)
+     */
+    private function get_default_catalog() {
+        return [
+            'Assistive Technology in Training and Workplace Settings',
+            'Deaf Awareness for Vocational Rehabilitation Professionals',
+            'Effective Mentoring for Deaf People',
+            'Introduction to Deaf Rehabilitation',
+            'Partnering with Deaf Youth: Strength-Based Transition Planning for VR Professionals',
+            'Pre-Employment Transition Services (Pre-ETS) and Deaf Youth',
+            'Data-Driven Decision Making: What Does it Matter?',
+            'Deaf 101',
+            'Finding Data About Deaf People',
+            'Summer Programs for Deaf Youth: Stories and Strategies',
+            'Attitudes as Barriers for Deaf People',
+            'Building Relationships with Deaf Communities',
+            'Discovering System Barriers and Exploring the WHY',
+            'Transforming Systems to Improve Experiences for Deaf People',
+            'Legal Frameworks and Responsibilities for Accessibility'
+        ];
     }
 
     /**
@@ -64,6 +173,9 @@ class CCS_Catalog_Validator {
             return $results;
         }
 
+        // Get catalog courses
+        $approved_courses = $this->fetch_catalog_courses();
+
         // Get current omitted courses
         $omitted_courses = get_option('ccs_omitted_courses', []);
         if (!is_array($omitted_courses)) {
@@ -79,7 +191,7 @@ class CCS_Catalog_Validator {
             }
 
             // Check if course is in approved catalog
-            if ($this->is_course_approved($course_name)) {
+            if ($this->is_course_approved($course_name, $approved_courses)) {
                 $results['validated'][] = $course;
                 $this->log_info("Course validated: {$course_name} (ID: {$course_id})");
             } else {
@@ -106,18 +218,23 @@ class CCS_Catalog_Validator {
      * Check if course title is approved in catalog
      * 
      * @param string $course_name Course name to check
+     * @param array $approved_courses List of approved courses
      * @return bool True if approved, false otherwise
      */
-    private function is_course_approved($course_name) {
+    private function is_course_approved($course_name, $approved_courses = null) {
+        if ($approved_courses === null) {
+            $approved_courses = $this->fetch_catalog_courses();
+        }
+        
         $course_name = trim($course_name);
         
         // Exact match first
-        if (in_array($course_name, $this->approved_courses)) {
+        if (in_array($course_name, $approved_courses)) {
             return true;
         }
 
         // Fuzzy matching for slight variations
-        foreach ($this->approved_courses as $approved_course) {
+        foreach ($approved_courses as $approved_course) {
             // Check if course name contains the approved course title (case insensitive)
             if (stripos($course_name, $approved_course) !== false || 
                 stripos($approved_course, $course_name) !== false) {
@@ -141,7 +258,7 @@ class CCS_Catalog_Validator {
      * @return array List of approved course titles
      */
     public function get_approved_courses() {
-        return $this->approved_courses;
+        return $this->fetch_catalog_courses();
     }
 
     /**
@@ -150,10 +267,16 @@ class CCS_Catalog_Validator {
      * @param string $course_name Course name to approve
      */
     public function add_approved_course($course_name) {
-        if (!empty($course_name) && !in_array($course_name, $this->approved_courses)) {
-            $this->approved_courses[] = trim($course_name);
-            // In production, this should be saved to database or config
-            $this->log_info("Added approved course: {$course_name}");
+        if (!empty($course_name)) {
+            $approved_courses = $this->fetch_catalog_courses();
+            if (!in_array($course_name, $approved_courses)) {
+                $approved_courses[] = trim($course_name);
+                // Clear cache to force refresh
+                $cache_key = 'ccs_catalog_courses_' . md5($this->catalog_url);
+                delete_transient($cache_key);
+                $this->catalog_courses = $approved_courses;
+                $this->log_info("Added approved course: {$course_name}");
+            }
         }
     }
 

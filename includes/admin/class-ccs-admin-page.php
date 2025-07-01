@@ -64,9 +64,11 @@ class CCS_Admin_Page {
         if (isset($_POST['submit']) && check_admin_referer('ccs_settings_nonce', 'ccs_settings_nonce')) {
             $domain = isset($_POST['ccs_canvas_domain']) ? esc_url_raw(wp_unslash($_POST['ccs_canvas_domain'])) : '';
             $token = isset($_POST['ccs_canvas_token']) ? sanitize_text_field(wp_unslash($_POST['ccs_canvas_token'])) : '';
+            $catalog_url = isset($_POST['ccs_catalog_url']) ? esc_url_raw(wp_unslash($_POST['ccs_catalog_url'])) : '';
             
             update_option('ccs_canvas_domain', $domain);
             update_option('ccs_canvas_token', $token);
+            update_option('ccs_catalog_url', $catalog_url);
             
             echo '<div class="notice notice-success"><p>' . __('Settings saved!', 'canvas-course-sync') . '</p></div>';
             
@@ -143,6 +145,19 @@ class CCS_Admin_Page {
                                         <a href="https://community.canvaslms.com/docs/DOC-10806-4214724194" target="_blank">
                                             <?php _e('How to get an API token', 'canvas-course-sync'); ?>
                                         </a>
+                                    </p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">
+                                    <label for="ccs_catalog_url"><?php _e('Course Catalog URL', 'canvas-course-sync'); ?></label>
+                                </th>
+                                <td>
+                                    <input type="url" name="ccs_catalog_url" id="ccs_catalog_url" class="regular-text" 
+                                           value="<?php echo esc_url(get_option('ccs_catalog_url', 'https://learn.nationaldeafcenter.org/')); ?>" 
+                                           placeholder="https://learn.nationaldeafcenter.org/" />
+                                    <p class="description">
+                                        <?php _e('URL of the course catalog to validate courses against. Only courses found in this catalog will be synced.', 'canvas-course-sync'); ?>
                                     </p>
                                 </td>
                             </tr>
