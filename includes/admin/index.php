@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-// Register AJAX handlers
+// Register AJAX handlers - Admin only (requires manage_options capability)
 add_action('wp_ajax_ccs_test_connection', 'ccs_ajax_test_connection');
 add_action('wp_ajax_ccs_get_courses', 'ccs_ajax_get_courses');
 add_action('wp_ajax_ccs_sync_courses', 'ccs_ajax_sync_courses');

@@ -374,7 +374,9 @@ class Canvas_Course_Sync {
             'syncStatusNonce' => wp_create_nonce('ccs_sync_status'),
             'clearLogsNonce' => wp_create_nonce('ccs_clear_logs'),
             'refreshLogsNonce' => wp_create_nonce('ccs_refresh_logs'),
-            'runAutoSyncNonce' => wp_create_nonce('ccs_run_auto_sync')
+            'runAutoSyncNonce' => wp_create_nonce('ccs_run_auto_sync'),
+            'omitCoursesNonce' => wp_create_nonce('ccs_omit_courses'),
+            'restoreOmittedNonce' => wp_create_nonce('ccs_omit_courses')
         ));
         
         // Add updater nonce for plugins page
