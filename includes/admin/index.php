@@ -84,6 +84,14 @@ function ccs_ajax_get_courses() {
         if (!is_array($courses)) {
             wp_send_json_error(__('Invalid response format from Canvas API.', 'canvas-course-sync'));
         }
+
+        // Validate against catalog and auto-omit non-approved courses
+        require_once CCS_PLUGIN_DIR . 'includes/class-ccs-catalog-validator.php';
+        $catalog_validator = new CCS_Catalog_Validator();
+        $validation_results = $catalog_validator->validate_against_catalog($courses);
+        
+        // Continue with existing course processing
+        $courses = $validation_results['validated'];
         
         // Get omitted courses list
         $omitted_courses = get_option('ccs_omitted_courses', array());
@@ -176,7 +184,14 @@ function ccs_ajax_get_courses() {
         // Reset array keys to ensure proper JSON encoding
         $courses = array_values($courses);
         
-        wp_send_json_success($courses);
+        // Add validation report to response
+        $response = array(
+            'courses' => $courses,
+            'validation_report' => $catalog_validator->generate_validation_report($validation_results),
+            'auto_omitted_count' => count($validation_results['auto_omitted_ids'])
+        );
+        
+        wp_send_json_success($response);
         
     } catch (Exception $e) {
         wp_send_json_error(__('An error occurred while fetching courses: ', 'canvas-course-sync') . $e->getMessage());

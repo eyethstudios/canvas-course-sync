@@ -46,8 +46,23 @@
                     loadingSpinner.hide();
                     
                     if (response.success && response.data) {
-                        const courses = response.data;
+                        // Handle new response format with validation
+                        const courses = response.data.courses || response.data;
+                        const validationReport = response.data.validation_report || '';
+                        const autoOmittedCount = response.data.auto_omitted_count || 0;
+                        
                         console.log('CCS Courses: Received ' + courses.length + ' courses');
+                        
+                        if (autoOmittedCount > 0) {
+                            console.log('CCS Courses: Auto-omitted ' + autoOmittedCount + ' courses not in catalog');
+                        }
+                        
+                        // Display validation report if available
+                        if (validationReport) {
+                            const reportDiv = $('<div class="ccs-validation-report-wrapper" style="margin-bottom: 20px;"></div>');
+                            reportDiv.html(validationReport);
+                            courseList.append(reportDiv);
+                        }
                         
                         if (courses.length === 0) {
                             courseList.html('<div class="notice notice-info"><p>No courses found in Canvas.</p></div>');
