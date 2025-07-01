@@ -31,7 +31,7 @@ class CCS_Database_Manager {
         // Create custom table for course tracking if needed
         $this->maybe_create_course_tracking_table();
         
-        error_log('CCS_Database_Manager: Initialized at ' . current_time('mysql'));
+        // Database manager initialized
     }
     
     /**
@@ -64,7 +64,7 @@ class CCS_Database_Manager {
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
         $result = dbDelta($sql);
         
-        error_log('CCS_Database_Manager: Course tracking table creation result: ' . print_r($result, true));
+        // Suppress output for AJAX requests
     }
     
     /**

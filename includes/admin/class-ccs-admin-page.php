@@ -53,7 +53,7 @@ class CCS_Admin_Page {
         }
         $this->script_verifier = new CCS_Script_Verifier();
         
-        error_log('CCS_Admin_Page: Constructor completed with script verifier');
+        // Script verifier initialized
     }
 
     /**

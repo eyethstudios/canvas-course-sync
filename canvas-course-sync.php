@@ -413,7 +413,7 @@ class Canvas_Course_Sync {
             wp_localize_script('ccs-updater-js', 'ccsUpdaterNonce', wp_create_nonce('ccs_check_updates'));
         }
         
-        error_log('CCS Debug: Admin scripts enqueued for hook: ' . $hook);
+        // Admin scripts enqueued successfully
     }
 }
 
