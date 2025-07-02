@@ -47,58 +47,31 @@ class CCS_Importer {
     private $slug_generator;
     
     /**
-     * Constructor
+     * Constructor with dependency injection
+     *
+     * @param CCS_Logger $logger Logger instance
+     * @param CCS_Canvas_API $api Canvas API instance
+     * @param CCS_Media_Handler $media_handler Media handler instance
+     * @param CCS_Content_Handler $content_handler Content handler instance
+     * @param CCS_Database_Manager $db_manager Database manager instance
+     * @param CCS_Slug_Generator $slug_generator Slug generator instance
      */
-    public function __construct() {
-        // Initialize handlers immediately
-        $this->init_handlers();
+    public function __construct(
+        CCS_Logger $logger,
+        CCS_Canvas_API $api,
+        CCS_Media_Handler $media_handler,
+        CCS_Content_Handler $content_handler,
+        CCS_Database_Manager $db_manager,
+        CCS_Slug_Generator $slug_generator
+    ) {
+        $this->logger = $logger;
+        $this->api = $api;
+        $this->media_handler = $media_handler;
+        $this->content_handler = $content_handler;
+        $this->db_manager = $db_manager;
+        $this->slug_generator = $slug_generator;
     }
 
-    /**
-     * Initialize all handlers
-     */
-    private function init_handlers() {
-        // Get main plugin instance
-        $canvas_course_sync = canvas_course_sync();
-        
-        // Initialize logger
-        if ($canvas_course_sync && isset($canvas_course_sync->logger)) {
-            $this->logger = $canvas_course_sync->logger;
-        } elseif (class_exists('CCS_Logger')) {
-            $this->logger = new CCS_Logger();
-        }
-        
-        // Initialize API
-        if ($canvas_course_sync && isset($canvas_course_sync->api)) {
-            $this->api = $canvas_course_sync->api;
-        } elseif (class_exists('CCS_Canvas_API')) {
-            $this->api = new CCS_Canvas_API();
-        }
-        
-        // Initialize media handler
-        if (!class_exists('CCS_Media_Handler')) {
-            require_once plugin_dir_path(__FILE__) . 'handlers/class-ccs-media-handler.php';
-        }
-        $this->media_handler = new CCS_Media_Handler();
-        
-        // Initialize content handler  
-        if (!class_exists('CCS_Content_Handler')) {
-            require_once plugin_dir_path(__FILE__) . 'handlers/class-ccs-content-handler.php';
-        }
-        $this->content_handler = new CCS_Content_Handler();
-
-        // Initialize database manager
-        if (!class_exists('CCS_Database_Manager')) {
-            require_once plugin_dir_path(__FILE__) . 'class-ccs-database-manager.php';
-        }
-        $this->db_manager = new CCS_Database_Manager();
-
-        // Initialize slug generator
-        if (!class_exists('CCS_Slug_Generator')) {
-            require_once plugin_dir_path(__FILE__) . 'class-ccs-slug-generator.php';
-        }
-        $this->slug_generator = new CCS_Slug_Generator();
-    }
     
     /**
      * Import courses from Canvas

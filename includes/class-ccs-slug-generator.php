@@ -20,14 +20,12 @@ class CCS_Slug_Generator {
     private $logger;
     
     /**
-     * Constructor
+     * Constructor with dependency injection
+     *
+     * @param CCS_Logger|null $logger Logger instance (optional)
      */
-    public function __construct() {
-        $canvas_course_sync = canvas_course_sync();
-        if ($canvas_course_sync && isset($canvas_course_sync->logger)) {
-            $this->logger = $canvas_course_sync->logger;
-        }
-        
+    public function __construct(CCS_Logger $logger = null) {
+        $this->logger = $logger;
         error_log('CCS_Slug_Generator: Initialized at ' . current_time('mysql'));
     }
     

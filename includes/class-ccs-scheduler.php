@@ -39,13 +39,16 @@ class CCS_Scheduler {
     private $db_manager;
 
     /**
-     * Constructor
+     * Constructor with dependency injection
+     *
+     * @param CCS_Logger|null $logger Logger instance (optional)
+     * @param CCS_Canvas_API|null $api Canvas API instance (optional)
+     * @param CCS_Importer|null $importer Importer instance (optional)
      */
-    public function __construct() {
-        $canvas_course_sync = canvas_course_sync();
-        $this->logger = ($canvas_course_sync && isset($canvas_course_sync->logger)) ? $canvas_course_sync->logger : new CCS_Logger();
-        $this->api = ($canvas_course_sync && isset($canvas_course_sync->api)) ? $canvas_course_sync->api : new CCS_Canvas_API();
-        $this->importer = ($canvas_course_sync && isset($canvas_course_sync->importer)) ? $canvas_course_sync->importer : new CCS_Importer();
+    public function __construct(CCS_Logger $logger = null, CCS_Canvas_API $api = null, CCS_Importer $importer = null) {
+        $this->logger = $logger ?: new CCS_Logger();
+        $this->api = $api ?: new CCS_Canvas_API($this->logger);
+        $this->importer = $importer;
         
         // Schedule weekly sync if enabled
         add_action('ccs_weekly_sync', array($this, 'run_auto_sync'));
@@ -139,10 +142,7 @@ class CCS_Scheduler {
         
         // Initialize database manager if not already available
         if (!isset($this->db_manager)) {
-            if (!class_exists('CCS_Database_Manager')) {
-                require_once plugin_dir_path(__FILE__) . 'class-ccs-database-manager.php';
-            }
-            $this->db_manager = new CCS_Database_Manager();
+            $this->db_manager = new CCS_Database_Manager($this->logger);
         }
         
         $this->logger->log('Checking ' . count($canvas_courses) . ' Canvas courses for duplicates using database manager');

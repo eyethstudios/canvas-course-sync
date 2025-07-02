@@ -45,17 +45,14 @@ class CCS_Canvas_API {
     private $logger;
     
     /**
-     * Constructor
+     * Constructor with dependency injection
+     *
+     * @param CCS_Logger|null $logger Logger instance (optional)
      */
-    public function __construct() {
+    public function __construct(CCS_Logger $logger = null) {
         $this->canvas_domain = get_option('ccs_canvas_domain');
         $this->canvas_token = get_option('ccs_canvas_token');
-        
-        // Get logger from main plugin instance
-        $canvas_course_sync = canvas_course_sync();
-        if ($canvas_course_sync && isset($canvas_course_sync->logger)) {
-            $this->logger = $canvas_course_sync->logger;
-        }
+        $this->logger = $logger;
     }
     
     /**

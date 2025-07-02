@@ -174,7 +174,7 @@ class Canvas_Course_Sync {
     }
 
     /**
-     * Initialize components safely
+     * Initialize components safely with dependency injection
      */
     public function init_components() {
         // Initialize logger first
@@ -182,19 +182,35 @@ class Canvas_Course_Sync {
             $this->logger = new CCS_Logger();
         }
         
-        // Initialize API
+        // Initialize API with logger dependency
         if (class_exists('CCS_Canvas_API')) {
-            $this->api = new CCS_Canvas_API();
+            $this->api = new CCS_Canvas_API($this->logger);
         }
         
-        // Initialize importer
+        // Initialize importer with all dependencies
         if (class_exists('CCS_Importer')) {
-            $this->importer = new CCS_Importer();
+            // Create other dependencies first
+            $media_handler = class_exists('CCS_Media_Handler') ? new CCS_Media_Handler() : null;
+            $content_handler = class_exists('CCS_Content_Handler') ? new CCS_Content_Handler() : null;
+            $db_manager = class_exists('CCS_Database_Manager') ? new CCS_Database_Manager($this->logger) : null;
+            $slug_generator = class_exists('CCS_Slug_Generator') ? new CCS_Slug_Generator($this->logger) : null;
+            
+            // Only create importer if all dependencies are available
+            if ($this->logger && $this->api && $media_handler && $content_handler && $db_manager && $slug_generator) {
+                $this->importer = new CCS_Importer(
+                    $this->logger,
+                    $this->api,
+                    $media_handler,
+                    $content_handler,
+                    $db_manager,
+                    $slug_generator
+                );
+            }
         }
         
-        // Initialize scheduler
+        // Initialize scheduler with dependencies
         if (class_exists('CCS_Scheduler')) {
-            $this->scheduler = new CCS_Scheduler();
+            $this->scheduler = new CCS_Scheduler($this->logger, $this->api, $this->importer);
         }
         
         // Initialize admin components
