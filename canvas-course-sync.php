@@ -405,6 +405,24 @@ class Canvas_Course_Sync {
             true
         );
         
+        // Enqueue email settings module JavaScript
+        wp_enqueue_script(
+            'ccs-email-settings-js',
+            plugin_dir_url(__FILE__) . 'assets/js/modules/email-settings.js',
+            array('jquery', 'ccs-admin-js'),
+            CCS_VERSION,
+            true
+        );
+        
+        // Enqueue sync controls module JavaScript
+        wp_enqueue_script(
+            'ccs-sync-controls-js',
+            plugin_dir_url(__FILE__) . 'assets/js/modules/sync-controls.js',
+            array('jquery', 'ccs-admin-js'),
+            CCS_VERSION,
+            true
+        );
+        
         // Enqueue updater JavaScript on plugins page
         if ($hook === 'plugins.php') {
             wp_enqueue_script(

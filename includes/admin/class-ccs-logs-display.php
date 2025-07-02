@@ -34,24 +34,7 @@ class CCS_Logs_Display {
      * Render logs page
      */
     public function render() {
-        // Enqueue scripts
-        wp_enqueue_script('jquery');
-        
-        // Enqueue admin script
-        wp_enqueue_script(
-            'ccs-admin',
-            CCS_PLUGIN_URL . 'assets/js/admin.js',
-            array('jquery'),
-            CCS_VERSION,
-            true
-        );
-        
-        // Localize script with AJAX data
-        wp_localize_script('ccs-admin', 'ccsAjax', array(
-            'ajaxUrl' => admin_url('admin-ajax.php'),
-            'clearLogsNonce' => wp_create_nonce('ccs_clear_logs'),
-            'refreshLogsNonce' => wp_create_nonce('ccs_refresh_logs')
-        ));
+        // Scripts are already enqueued by main plugin
         
         ?>
         <div class="wrap">
@@ -120,27 +103,6 @@ class CCS_Logs_Display {
                 <?php endforeach; ?>
             </tbody>
         </table>
-        
-        <style>
-        .ccs-log-level {
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-size: 11px;
-            font-weight: bold;
-        }
-        .ccs-log-level-info {
-            background: #d1ecf1;
-            color: #0c5460;
-        }
-        .ccs-log-level-warning {
-            background: #fff3cd;
-            color: #856404;
-        }
-        .ccs-log-level-error {
-            background: #f8d7da;
-            color: #721c24;
-        }
-        </style>
         <?php
     }
 }

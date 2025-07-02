@@ -112,62 +112,6 @@ class CCS_Sync_Controls {
             </div>
         </div>
         
-        <script type="text/javascript">
-        (function($) {
-            'use strict';
-            
-            $(document).ready(function() {
-                console.log('CCS_Sync_Controls: Omit nonces available:', typeof ccsOmitData !== 'undefined' ? ccsOmitData : 'Not available');
-            });
-        })(jQuery);
-        </script>
-        
-        <style>
-        .ccs-action-buttons {
-            background: #f9f9f9;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            padding: 20px;
-            margin-top: 20px;
-        }
-        
-        .ccs-action-buttons h3 {
-            margin-top: 0;
-            margin-bottom: 15px;
-            color: #333;
-        }
-        
-        .ccs-button-group {
-            margin-bottom: 10px;
-        }
-        
-        .ccs-button-group button {
-            margin-right: 10px;
-            margin-bottom: 5px;
-        }
-        
-        .ccs-omit-btn {
-            background-color: #dc3545;
-            border-color: #dc3545;
-            color: white;
-        }
-        
-        .ccs-omit-btn:hover {
-            background-color: #c82333;
-            border-color: #bd2130;
-        }
-        
-        .ccs-restore-btn {
-            background-color: #28a745;
-            border-color: #28a745;
-            color: white;
-        }
-        
-        .ccs-restore-btn:hover {
-            background-color: #218838;
-            border-color: #1e7e34;
-        }
-        </style>
         <?php
         
         error_log('CCS_Sync_Controls: render() method completed');

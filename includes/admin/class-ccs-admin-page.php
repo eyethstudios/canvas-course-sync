@@ -126,39 +126,7 @@ class CCS_Admin_Page {
             }
         }
 
-        // Enqueue scripts and styles
-        wp_enqueue_script('jquery');
-        
-        // Enqueue admin script
-        wp_enqueue_script(
-            'ccs-admin-js',
-            CCS_PLUGIN_URL . 'assets/js/modules/core.js',
-            array('jquery'),
-            CCS_VERSION,
-            true
-        );
-        
-        // Localize script with AJAX data
-        wp_localize_script('ccs-admin-js', 'ccsAjax', array(
-            'ajaxUrl' => admin_url('admin-ajax.php'),
-            'testConnectionNonce' => wp_create_nonce('ccs_test_connection'),
-            'getCoursesNonce' => wp_create_nonce('ccs_get_courses'),
-            'syncCoursesNonce' => wp_create_nonce('ccs_sync_courses'),
-            'syncStatusNonce' => wp_create_nonce('ccs_sync_status'),
-            'clearLogsNonce' => wp_create_nonce('ccs_clear_logs'),
-            'refreshLogsNonce' => wp_create_nonce('ccs_refresh_logs'),
-            'runAutoSyncNonce' => wp_create_nonce('ccs_run_auto_sync'),
-            'omitCoursesNonce' => wp_create_nonce('ccs_omit_courses'),
-            'restoreOmittedNonce' => wp_create_nonce('ccs_restore_omitted')
-        ));
-        
-        // Enqueue admin styles
-        wp_enqueue_style(
-            'ccs-admin',
-            CCS_PLUGIN_URL . 'assets/css/admin.css',
-            array(),
-            CCS_VERSION
-        );
+        // Scripts and styles are already enqueued by main plugin
         
         ?>
         <div class="wrap">
@@ -309,40 +277,6 @@ class CCS_Admin_Page {
             </div>
         </div>
         
-        <style>
-        .ccs-log-level {
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-size: 11px;
-            font-weight: bold;
-        }
-        .ccs-log-level-info {
-            background: #d1ecf1;
-            color: #0c5460;
-        }
-        .ccs-log-level-warning {
-            background: #fff3cd;
-            color: #856404;
-        }
-        .ccs-log-level-error {
-            background: #f8d7da;
-            color: #721c24;
-        }
-        .ccs-success {
-            color: green; 
-            padding: 10px; 
-            background: #d4edda; 
-            border: 1px solid #c3e6cb; 
-            border-radius: 4px;
-        }
-        .ccs-error {
-            color: #721c24; 
-            padding: 10px; 
-            background: #f8d7da; 
-            border: 1px solid #f5c6cb; 
-            border-radius: 4px;
-        }
-        </style>
         <?php
     }
 }
