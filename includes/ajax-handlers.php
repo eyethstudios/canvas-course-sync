@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
  */
 function ccs_test_connection_handler() {
     // Verify nonce
-    if (!wp_verify_nonce($_POST['nonce'], 'ccs_test_connection')) {
+    if (!wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ccs_test_connection')) {
         wp_die('Security check failed');
     }
     
@@ -45,7 +45,7 @@ add_action('wp_ajax_ccs_test_connection', 'ccs_test_connection_handler');
  */
 function ccs_get_courses_handler() {
     // Verify nonce
-    if (!wp_verify_nonce($_POST['nonce'], 'ccs_get_courses')) {
+    if (!wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ccs_get_courses')) {
         wp_die('Security check failed');
     }
     
@@ -147,7 +147,7 @@ add_action('wp_ajax_ccs_get_courses', 'ccs_get_courses_handler');
  */
 function ccs_sync_courses_handler() {
     // Verify nonce
-    if (!wp_verify_nonce($_POST['nonce'], 'ccs_sync_courses')) {
+    if (!wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ccs_sync_courses')) {
         wp_die('Security check failed');
     }
     
@@ -198,7 +198,7 @@ add_action('wp_ajax_ccs_sync_courses', 'ccs_sync_courses_handler');
  */
 function ccs_sync_status_handler() {
     // Verify nonce
-    if (!wp_verify_nonce($_POST['nonce'], 'ccs_sync_status')) {
+    if (!wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ccs_sync_status')) {
         wp_die('Security check failed');
     }
     
@@ -221,7 +221,7 @@ add_action('wp_ajax_ccs_sync_status', 'ccs_sync_status_handler');
  */
 function ccs_clear_logs_handler() {
     // Verify nonce
-    if (!wp_verify_nonce($_POST['nonce'], 'ccs_clear_logs')) {
+    if (!wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ccs_clear_logs')) {
         wp_die('Security check failed');
     }
     
@@ -246,7 +246,7 @@ add_action('wp_ajax_ccs_clear_logs', 'ccs_clear_logs_handler');
  */
 function ccs_refresh_logs_handler() {
     // Verify nonce
-    if (!wp_verify_nonce($_POST['nonce'], 'ccs_refresh_logs')) {
+    if (!wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ccs_refresh_logs')) {
         wp_die('Security check failed');
     }
     
@@ -295,7 +295,7 @@ add_action('wp_ajax_ccs_refresh_logs', 'ccs_refresh_logs_handler');
  */
 function ccs_run_auto_sync_handler() {
     // Verify nonce
-    if (!wp_verify_nonce($_POST['nonce'], 'ccs_run_auto_sync')) {
+    if (!wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ccs_run_auto_sync')) {
         wp_die('Security check failed');
     }
     
@@ -325,7 +325,7 @@ add_action('wp_ajax_ccs_run_auto_sync', 'ccs_run_auto_sync_handler');
  */
 function ccs_omit_courses_handler() {
     // Verify nonce
-    if (!wp_verify_nonce($_POST['nonce'], 'ccs_omit_courses')) {
+    if (!wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ccs_omit_courses')) {
         wp_die('Security check failed');
     }
     
@@ -362,7 +362,7 @@ add_action('wp_ajax_ccs_omit_courses', 'ccs_omit_courses_handler');
  */
 function ccs_restore_omitted_handler() {
     // Verify nonce
-    if (!wp_verify_nonce($_POST['nonce'], 'ccs_restore_omitted')) {
+    if (!wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ccs_restore_omitted')) {
         wp_die('Security check failed');
     }
     
@@ -383,7 +383,7 @@ add_action('wp_ajax_ccs_restore_omitted', 'ccs_restore_omitted_handler');
  */
 function ccs_toggle_auto_sync_handler() {
     // Verify nonce
-    if (!wp_verify_nonce($_POST['nonce'], 'ccs_toggle_auto_sync')) {
+    if (!wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ccs_toggle_auto_sync')) {
         wp_die('Security check failed');
     }
     
@@ -406,7 +406,7 @@ add_action('wp_ajax_ccs_toggle_auto_sync', 'ccs_toggle_auto_sync_handler');
  */
 function ccs_log_js_error_handler() {
     // Verify nonce
-    if (!wp_verify_nonce($_POST['nonce'], 'ccs_log_js_error')) {
+    if (!wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ccs_log_js_error')) {
         wp_die('Security check failed');
     }
     

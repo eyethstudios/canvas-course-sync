@@ -55,7 +55,7 @@ class CCS_Scheduler {
         add_action('wp', array($this, 'schedule_auto_sync'));
         
         // Hook to clear schedule on deactivation
-        register_deactivation_hook(CCS_PLUGIN_DIR . 'canvas-course-sync.php', array($this, 'clear_scheduled_sync'));
+        register_deactivation_hook(CCS_PLUGIN_FILE, array($this, 'clear_scheduled_sync'));
     }
 
     /**
