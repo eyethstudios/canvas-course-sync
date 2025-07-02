@@ -22,6 +22,11 @@ class CCS_Logger {
     private $table_name;
     
     /**
+     * Flag to track if table existence has been verified
+     */
+    private $table_verified = false;
+    
+    /**
      * Constructor
      */
     public function __construct() {
@@ -33,13 +38,20 @@ class CCS_Logger {
      * Public method to ensure table exists (for activation)
      */
     public function ensure_table_exists() {
-        $this->create_table_if_not_exists();
+        $this->create_table_if_not_exists(true);
     }
     
     /**
      * Create logs table if it doesn't exist
+     *
+     * @param bool $force Force table check even if already verified
      */
-    private function create_table_if_not_exists() {
+    private function create_table_if_not_exists($force = false) {
+        // Skip check if already verified and not forced
+        if (!$force && $this->table_verified) {
+            return;
+        }
+        
         global $wpdb;
         
         // Check if table exists
@@ -49,6 +61,7 @@ class CCS_Logger {
         ));
         
         if ($table_exists) {
+            $this->table_verified = true;
             return;
         }
         
@@ -75,6 +88,8 @@ class CCS_Logger {
         
         if (!$table_created) {
             error_log('CCS Logger: Failed to create table ' . $this->table_name);
+        } else {
+            $this->table_verified = true;
         }
     }
     
