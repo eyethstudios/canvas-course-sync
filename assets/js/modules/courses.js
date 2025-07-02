@@ -207,7 +207,7 @@
             dataType: 'json',
             data: {
                 action: 'ccs_omit_courses',
-                nonce: window.ccsOmitNonce || '',
+                nonce: (typeof ccsOmitData !== 'undefined' && ccsOmitData.omitNonce) ? ccsOmitData.omitNonce : '',
                 course_ids: courseIds
             },
             success: function(response) {
@@ -245,7 +245,7 @@
             dataType: 'json',
             data: {
                 action: 'ccs_restore_omitted',
-                nonce: window.ccsRestoreNonce || window.ccsOmitNonce || ''
+                nonce: (typeof ccsOmitData !== 'undefined' && ccsOmitData.restoreNonce) ? ccsOmitData.restoreNonce : ''
             },
             success: function(response) {
                 console.log('CCS: Restore response:', response);

@@ -31,6 +31,13 @@ class CCS_Sync_Controls {
         $omit_nonce = wp_create_nonce('ccs_omit_courses');
         error_log('CCS_Sync_Controls: Generated omit nonce: ' . $omit_nonce);
         
+        // Enqueue and localize script for omit functionality
+        wp_enqueue_script('jquery');
+        wp_localize_script('ccs-admin-js', 'ccsOmitData', array(
+            'omitNonce' => $omit_nonce,
+            'restoreNonce' => wp_create_nonce('ccs_restore_omitted')
+        ));
+        
         ?>
         <div class="ccs-panel">
             <h2><?php esc_html_e('Synchronize Courses', 'canvas-course-sync'); ?></h2>
@@ -110,14 +117,7 @@ class CCS_Sync_Controls {
             'use strict';
             
             $(document).ready(function() {
-                console.log('CCS_Sync_Controls: Setting up omit nonce...');
-                
-                // Store nonce globally for JavaScript access
-                if (typeof window.ccsOmitNonce === 'undefined') {
-                    window.ccsOmitNonce = '<?php echo esc_js($omit_nonce); ?>';
-                }
-                
-                console.log('CCS_Sync_Controls: Omit nonce set:', window.ccsOmitNonce);
+                console.log('CCS_Sync_Controls: Omit nonces available:', typeof ccsOmitData !== 'undefined' ? ccsOmitData : 'Not available');
                 
                 // Ensure action buttons are visible when courses wrapper is shown
                 var observer = new MutationObserver(function(mutations) {
