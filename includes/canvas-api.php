@@ -11,6 +11,19 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+// Define API constants
+if (!defined('CCS_MAX_API_PAGES')) {
+    define('CCS_MAX_API_PAGES', 10);
+}
+
+if (!defined('CCS_API_TIMEOUT')) {
+    define('CCS_API_TIMEOUT', 30);
+}
+
+if (!defined('CCS_FILE_DOWNLOAD_TIMEOUT')) {
+    define('CCS_FILE_DOWNLOAD_TIMEOUT', 60);
+}
+
 /**
  * Canvas API class
  */
@@ -67,7 +80,7 @@ class CCS_Canvas_API {
                 'Authorization' => 'Bearer ' . $this->canvas_token,
                 'Content-Type' => 'application/json'
             ),
-            'timeout' => 30
+            'timeout' => CCS_API_TIMEOUT
         );
         
         if ($data && $method !== 'GET') {
@@ -134,7 +147,7 @@ class CCS_Canvas_API {
     public function get_courses($per_page = 100) {
         $all_courses = array();
         $page = 1;
-        $max_pages = 10; // Safety limit
+        $max_pages = CCS_MAX_API_PAGES; // Safety limit
         
         do {
             $endpoint = "courses?enrollment_type=teacher&include[]=syllabus_body&include[]=public_description&include[]=total_students&per_page={$per_page}&page={$page}";
@@ -210,7 +223,7 @@ class CCS_Canvas_API {
         }
         
         $args = array(
-            'timeout' => 60,
+            'timeout' => CCS_FILE_DOWNLOAD_TIMEOUT,
             'headers' => array(
                 'Authorization' => 'Bearer ' . $this->canvas_token
             )
