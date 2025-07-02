@@ -286,3 +286,92 @@ input:checked + .ccs-toggle-slider:before {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+
+/* Progress Bar Styles */
+.ccs-progress-bar-container {
+    width: 100%;
+    height: 20px;
+    background: #f1f1f1;
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 10px 0;
+}
+
+.ccs-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #0073aa, #005a87);
+    border-radius: 10px;
+    transition: width 0.3s ease;
+    width: 0%;
+}
+
+/* Results Table Styles */
+.ccs-results-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+.ccs-results-table th,
+.ccs-results-table td {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    text-align: left;
+}
+
+.ccs-results-table th {
+    background: #f9f9f9;
+    font-weight: bold;
+    width: 100px;
+}
+
+/* Course List Styles */
+.ccs-course-list {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: #fff;
+}
+
+.ccs-course-item {
+    padding: 12px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.ccs-course-item:last-child {
+    border-bottom: none;
+}
+
+.ccs-course-item:hover {
+    background: #f9f9f9;
+}
+
+.ccs-course-item input[type="checkbox"] {
+    margin: 0;
+}
+
+.ccs-course-item label {
+    margin: 0;
+    cursor: pointer;
+    flex: 1;
+}
+
+/* Debug Panel Styles */
+.ccs-debug-panel {
+    margin-top: 20px;
+    padding: 15px;
+    background: #f9f9f9;
+    border-left: 4px solid #00a0d2;
+}
+
+.ccs-debug-status-available {
+    color: green;
+}
+
+.ccs-debug-status-missing {
+    color: red;
+}

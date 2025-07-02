@@ -266,7 +266,7 @@ class CCS_Admin_Page {
                 </div>
 
                 <!-- Debug Panel -->
-                <div class="ccs-panel" style="margin-top: 20px; padding: 15px; background: #f9f9f9; border-left: 4px solid #00a0d2;">
+                <div class="ccs-panel ccs-debug-panel">
                     <h3><?php _e('Debug Information', 'canvas-course-sync'); ?></h3>
                     <p><strong>Plugin Version:</strong> <?php echo esc_html(CCS_VERSION); ?></p>
                     <p><strong>Canvas Domain:</strong> <?php echo esc_html(get_option('ccs_canvas_domain', 'Not set')); ?></p>
@@ -282,98 +282,9 @@ class CCS_Admin_Page {
                     </p>
                     <p><strong>JavaScript Status:</strong> <span id="js-status">Loading...</span></p>
                     <p><strong>AJAX Object:</strong> <span id="ajax-status">Checking...</span></p>
-                    
-                    <script>
-                        jQuery(document).ready(function($) {
-                            console.log('CCS Debug: Admin page DOM ready');
-                            
-                            // Update status indicators
-                            $('#js-status').text('Loaded');
-                            
-                            if (typeof ccsAjax !== 'undefined') {
-                                $('#ajax-status').html('<span style="color: green;">Available</span>');
-                                console.log('CCS Debug: ccsAjax object:', ccsAjax);
-                            } else {
-                                $('#ajax-status').html('<span style="color: red;">Missing</span>');
-                                console.error('CCS Debug: ccsAjax object not available');
-                            }
-                        });
-                    </script>
                 </div>
             </div>
         </div>
-        
-        <style>
-        .ccs-log-level {
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-size: 11px;
-            font-weight: bold;
-        }
-        .ccs-log-level-info {
-            background: #d1ecf1;
-            color: #0c5460;
-        }
-        .ccs-log-level-warning {
-            background: #fff3cd;
-            color: #856404;
-        }
-        .ccs-log-level-error {
-            background: #f8d7da;
-            color: #721c24;
-        }
-        .ccs-success {
-            color: green; 
-            padding: 10px; 
-            background: #d4edda; 
-            border: 1px solid #c3e6cb; 
-            border-radius: 4px;
-        }
-        .ccs-error {
-            color: #721c24; 
-            padding: 10px; 
-            background: #f8d7da; 
-            border: 1px solid #f5c6cb; 
-            border-radius: 4px;
-        }
-        .ccs-action-buttons {
-            background: #f9f9f9;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            padding: 20px;
-            margin-top: 20px;
-        }
-        .ccs-action-buttons h3 {
-            margin-top: 0;
-            margin-bottom: 15px;
-            color: #333;
-        }
-        .ccs-button-group {
-            margin-bottom: 10px;
-        }
-        .ccs-button-group button {
-            margin-right: 10px;
-            margin-bottom: 5px;
-        }
-        .ccs-omit-btn {
-            background-color: #dc3545 !important;
-            border-color: #dc3545 !important;
-            color: white !important;
-        }
-        .ccs-omit-btn:hover {
-            background-color: #c82333 !important;
-            border-color: #bd2130 !important;
-        }
-        .ccs-restore-btn {
-            background-color: #28a745 !important;
-            border-color: #28a745 !important;
-            color: white !important;
-        }
-        .ccs-restore-btn:hover {
-            background-color: #218838 !important;
-            border-color: #1e7e34 !important;
-        }
-        </style>
         <?php
     }
 }

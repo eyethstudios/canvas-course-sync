@@ -149,13 +149,13 @@ class CCS_Scheduler {
         
         foreach ($canvas_courses as $course) {
             // Use standardized database manager check
-            $exists_check = $this->db_manager->course_exists($course->id, $course->name);
+            $exists_check = $this->db_manager->course_exists($course['id'], $course['name']);
             
             if ($exists_check['exists']) {
-                $this->logger->log('Skipping course "' . $course->name . '" - already exists (' . $exists_check['type'] . ') - Post ID: ' . $exists_check['post_id']);
+                $this->logger->log('Skipping course "' . $course['name'] . '" - already exists (' . $exists_check['type'] . ') - Post ID: ' . $exists_check['post_id']);
             } else {
                 $new_courses[] = $course;
-                $this->logger->log('Course "' . $course->name . '" marked for import (Canvas ID: ' . $course->id . ')');
+                $this->logger->log('Course "' . $course['name'] . '" marked for import (Canvas ID: ' . $course['id'] . ')');
             }
         }
         
@@ -189,15 +189,15 @@ class CCS_Scheduler {
             $wp_posts = get_posts(array(
                 'post_type' => 'courses',
                 'meta_key' => 'canvas_course_id',
-                'meta_value' => $course->id,
+                'meta_value' => $course['id'],
                 'posts_per_page' => 1,
             ));
             
             if (!empty($wp_posts)) {
                 $edit_link = get_edit_post_link($wp_posts[0]->ID);
-                $message .= sprintf("- %s\n  Edit: %s\n\n", $course->name, $edit_link);
+                $message .= sprintf("- %s\n  Edit: %s\n\n", $course['name'], $edit_link);
             } else {
-                $message .= sprintf("- %s (not found in WordPress)\n\n", $course->name);
+                $message .= sprintf("- %s (not found in WordPress)\n\n", $course['name']);
             }
         }
         

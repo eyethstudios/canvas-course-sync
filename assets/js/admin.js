@@ -562,6 +562,24 @@
         }
     };
     
+    // Debug panel functionality
+    const DebugPanel = {
+        init: function() {
+            console.log('CCS Debug: Admin page DOM ready');
+            
+            // Update status indicators
+            $('#js-status').text('Loaded');
+            
+            if (typeof ccsAjax !== 'undefined') {
+                $('#ajax-status').html('<span class="ccs-debug-status-available">Available</span>');
+                console.log('CCS Debug: ccsAjax object:', ccsAjax);
+            } else {
+                $('#ajax-status').html('<span class="ccs-debug-status-missing">Missing</span>');
+                console.error('CCS Debug: ccsAjax object not available');
+            }
+        }
+    };
+    
     // Initialize everything when document is ready
     $(document).ready(function() {
         console.log('CCS: Initializing admin functionality');
@@ -571,6 +589,7 @@
             CourseManager.init();
             LogManager.init();
             AutoSync.init();
+            DebugPanel.init();
             
             console.log('CCS: All modules initialized successfully');
         } catch (error) {
