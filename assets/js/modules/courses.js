@@ -81,13 +81,12 @@
                             renderCourseList(courses, courseList);
                         }
                         
-                        // Show the courses wrapper and action buttons
+                        // Show the courses wrapper (which contains action buttons)
                         coursesWrapper.show();
-                        $('.ccs-action-buttons').show();
                         
                         // Initialize omit functionality after courses are loaded
                         initOmitFunctionality();
-                        console.log('CCS Courses: Courses wrapper, action buttons shown, and omit functionality initialized');
+                        console.log('CCS Courses: Courses wrapper shown and omit functionality initialized');
                         
                     } else {
                         console.error('CCS Courses: Error response:', response);

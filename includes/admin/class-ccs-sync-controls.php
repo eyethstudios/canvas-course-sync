@@ -56,8 +56,8 @@ class CCS_Sync_Controls {
                 <!-- Course list container -->
                 <div id="ccs-course-list" class="ccs-course-list" style="margin-bottom: 20px;"></div>
                 
-                <!-- Action buttons - ALWAYS VISIBLE when courses are loaded -->
-                <div class="ccs-action-buttons" style="display: block !important; visibility: visible !important;">
+                <!-- Action buttons -->
+                <div class="ccs-action-buttons">
                     <h3><?php esc_html_e('Course Actions', 'canvas-course-sync'); ?></h3>
                     
                     <div class="ccs-button-group" style="margin-bottom: 15px;">
@@ -118,37 +118,17 @@ class CCS_Sync_Controls {
             
             $(document).ready(function() {
                 console.log('CCS_Sync_Controls: Omit nonces available:', typeof ccsOmitData !== 'undefined' ? ccsOmitData : 'Not available');
-                
-                // Ensure action buttons are visible when courses wrapper is shown
-                var observer = new MutationObserver(function(mutations) {
-                    mutations.forEach(function(mutation) {
-                        if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
-                            var target = $(mutation.target);
-                            if (target.attr('id') === 'ccs-courses-wrapper' && target.is(':visible')) {
-                                $('.ccs-action-buttons').show().css('display', 'block');
-                                console.log('CCS: Action buttons forced visible');
-                            }
-                        }
-                    });
-                });
-                
-                var coursesWrapper = document.getElementById('ccs-courses-wrapper');
-                if (coursesWrapper) {
-                    observer.observe(coursesWrapper, { attributes: true });
-                }
             });
         })(jQuery);
         </script>
         
         <style>
         .ccs-action-buttons {
-            background: #f9f9f9 !important;
-            border: 1px solid #ddd !important;
-            border-radius: 4px !important;
-            padding: 20px !important;
-            margin-top: 20px !important;
-            display: block !important;
-            visibility: visible !important;
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 20px;
+            margin-top: 20px;
         }
         
         .ccs-action-buttons h3 {
@@ -167,32 +147,25 @@ class CCS_Sync_Controls {
         }
         
         .ccs-omit-btn {
-            background-color: #dc3545 !important;
-            border-color: #dc3545 !important;
-            color: white !important;
+            background-color: #dc3545;
+            border-color: #dc3545;
+            color: white;
         }
         
         .ccs-omit-btn:hover {
-            background-color: #c82333 !important;
-            border-color: #bd2130 !important;
+            background-color: #c82333;
+            border-color: #bd2130;
         }
         
         .ccs-restore-btn {
-            background-color: #28a745 !important;
-            border-color: #28a745 !important;
-            color: white !important;
+            background-color: #28a745;
+            border-color: #28a745;
+            color: white;
         }
         
         .ccs-restore-btn:hover {
-            background-color: #218838 !important;
-            border-color: #1e7e34 !important;
-        }
-        
-        /* Force visibility of action buttons */
-        #ccs-courses-wrapper .ccs-action-buttons {
-            display: block !important;
-            visibility: visible !important;
-            opacity: 1 !important;
+            background-color: #218838;
+            border-color: #1e7e34;
         }
         </style>
         <?php
