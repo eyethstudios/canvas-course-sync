@@ -88,6 +88,7 @@ class CCS_Catalog_Validator {
         
         $this->log_info('Fetched ' . count($courses) . ' courses from user-configured catalog: ' . $this->catalog_url);
         return $this->catalog_courses;
+    } // FIX: Added missing closing brace
 
     /**
      * Parse HTML content to extract course titles
