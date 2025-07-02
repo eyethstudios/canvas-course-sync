@@ -166,7 +166,7 @@ class CCS_Database_Manager {
             $post_data = array(
                 'post_title' => sanitize_text_field($course_data['title']),
                 'post_content' => $course_data['content'] ?? '',
-                'post_status' => 'publish',
+                'post_status' => 'draft',
                 'post_type' => 'courses',
                 'post_author' => get_current_user_id()
             );
