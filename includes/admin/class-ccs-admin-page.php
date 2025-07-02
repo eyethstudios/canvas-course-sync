@@ -66,67 +66,18 @@ class CCS_Admin_Page {
             $token = isset($_POST['ccs_canvas_token']) ? sanitize_text_field(wp_unslash($_POST['ccs_canvas_token'])) : '';
             $catalog_url = isset($_POST['ccs_catalog_url']) ? esc_url_raw(wp_unslash($_POST['ccs_catalog_url'])) : '';
             
-            // Validate inputs
-            $validation_errors = array();
+            update_option('ccs_canvas_domain', $domain);
+            update_option('ccs_canvas_token', $token);
+            update_option('ccs_catalog_url', $catalog_url);
             
-            // Validate Canvas domain
-            if (!empty($domain)) {
-                // Remove protocol for validation
-                $domain_clean = preg_replace('/^https?:\/\//', '', $domain);
-                if (empty($domain_clean) || !filter_var('https://' . $domain_clean, FILTER_VALIDATE_URL)) {
-                    $validation_errors[] = __('Canvas domain must be a valid URL (e.g., myschool.instructure.com)', 'canvas-course-sync');
-                } elseif (!preg_match('/\.(instructure\.com|canvas\.net|beta\.instructure\.com)$/i', $domain_clean) && 
-                         !preg_match('/canvas/i', $domain_clean)) {
-                    $validation_errors[] = __('Canvas domain should be a Canvas LMS URL (typically ends with .instructure.com)', 'canvas-course-sync');
-                }
-            } else {
-                $validation_errors[] = __('Canvas domain is required', 'canvas-course-sync');
-            }
+            echo '<div class="notice notice-success"><p>' . __('Settings saved!', 'canvas-course-sync') . '</p></div>';
             
-            // Validate Canvas token
-            if (!empty($token)) {
-                if (strlen($token) < 10) {
-                    $validation_errors[] = __('Canvas API token appears to be too short (minimum 10 characters)', 'canvas-course-sync');
-                } elseif (strlen($token) > 500) {
-                    $validation_errors[] = __('Canvas API token appears to be too long (maximum 500 characters)', 'canvas-course-sync');
-                } elseif (!preg_match('/^[a-zA-Z0-9~_-]+$/', $token)) {
-                    $validation_errors[] = __('Canvas API token contains invalid characters', 'canvas-course-sync');
-                }
-            } else {
-                $validation_errors[] = __('Canvas API token is required', 'canvas-course-sync');
-            }
-            
-            // Validate catalog URL
-            if (!empty($catalog_url) && !filter_var($catalog_url, FILTER_VALIDATE_URL)) {
-                $validation_errors[] = __('Catalog URL must be a valid URL', 'canvas-course-sync');
-            }
-            
-            // Save settings only if validation passes
-            if (empty($validation_errors)) {
-                update_option('ccs_canvas_domain', $domain);
-                update_option('ccs_canvas_token', $token);
-                update_option('ccs_catalog_url', $catalog_url);
-                
-                echo '<div class="notice notice-success"><p>' . __('Settings saved successfully!', 'canvas-course-sync') . '</p></div>';
-                
-                if ($this->logger) {
-                    $this->logger->log('Settings updated via admin page - Domain: ' . $domain);
-                }
-            } else {
-                // Display validation errors
-                echo '<div class="notice notice-error"><p><strong>' . __('Validation errors:', 'canvas-course-sync') . '</strong></p><ul>';
-                foreach ($validation_errors as $error) {
-                    echo '<li>' . esc_html($error) . '</li>';
-                }
-                echo '</ul></div>';
-                
-                if ($this->logger) {
-                    $this->logger->log('Settings validation failed: ' . implode(', ', $validation_errors), 'warning');
-                }
+            if ($this->logger) {
+                $this->logger->log('Settings updated via admin page');
             }
         }
 
-        // Scripts and styles are already enqueued by main plugin
+        // NOTE: Scripts are now enqueued in main plugin file - do not enqueue here
         
         ?>
         <div class="wrap">
@@ -202,13 +153,69 @@ class CCS_Admin_Page {
                             <?php _e('Get Courses', 'canvas-course-sync'); ?>
                         </button>
                         
-                        <div id="ccs-courses-list" class="ccs-courses-container" style="margin: 15px 0;"></div>
+                        <span id="ccs-loading-courses" style="display: none;">
+                            <div class="ccs-spinner"></div>
+                            <?php _e('Loading courses...', 'canvas-course-sync'); ?>
+                        </span>
                         
-                        <button type="button" id="ccs-sync-selected" class="button button-primary" style="display: none; margin: 10px 0;">
-                            <?php _e('Sync Selected Courses', 'canvas-course-sync'); ?>
-                        </button>
-                        
-                        <div id="ccs-sync-status" class="ccs-sync-status" style="margin-top: 10px;"></div>
+                        <div id="ccs-courses-wrapper" style="display: none; margin-top: 20px;">
+                            <!-- Course list container -->
+                            <div id="ccs-course-list" class="ccs-course-list" style="margin-bottom: 20px;"></div>
+                            
+                            <!-- Action buttons -->
+                            <div class="ccs-action-buttons">
+                                <h3><?php _e('Course Actions', 'canvas-course-sync'); ?></h3>
+                                
+                                <div class="ccs-button-group" style="margin-bottom: 15px;">
+                                    <button id="ccs-select-all" class="button">
+                                        <?php _e('Select All', 'canvas-course-sync'); ?>
+                                    </button>
+                                    <button id="ccs-deselect-all" class="button">
+                                        <?php _e('Deselect All', 'canvas-course-sync'); ?>
+                                    </button>
+                                </div>
+                                
+                                <div class="ccs-button-group">
+                                    <button id="ccs-sync-selected" class="button button-primary">
+                                        <?php _e('Sync Selected Courses', 'canvas-course-sync'); ?>
+                                    </button>
+                                    <button id="ccs-omit-selected" class="button ccs-omit-btn">
+                                        <?php _e('Omit Selected from Auto-Sync', 'canvas-course-sync'); ?>
+                                    </button>
+                                    <button id="ccs-restore-omitted" class="button ccs-restore-btn">
+                                        <?php _e('Restore All Omitted Courses', 'canvas-course-sync'); ?>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Progress and results sections -->
+                            <div id="ccs-sync-progress" style="display: none; margin-top: 20px;">
+                                <p><?php _e('Syncing selected courses...', 'canvas-course-sync'); ?></p>
+                                <div class="ccs-progress-bar-container">
+                                    <div id="ccs-sync-progress-bar" class="ccs-progress-bar"></div>
+                                </div>
+                                <div id="ccs-sync-status"></div>
+                            </div>
+                            
+                            <div id="ccs-sync-results" style="display: none; margin-top: 20px;">
+                                <h3><?php _e('Sync Results', 'canvas-course-sync'); ?></h3>
+                                <div id="ccs-sync-message"></div>
+                                <table class="ccs-results-table">
+                                    <tr>
+                                        <th><?php _e('Imported', 'canvas-course-sync'); ?></th>
+                                        <td id="ccs-imported">0</td>
+                                    </tr>
+                                    <tr>
+                                        <th><?php _e('Skipped', 'canvas-course-sync'); ?></th>
+                                        <td id="ccs-skipped">0</td>
+                                    </tr>
+                                    <tr>
+                                        <th><?php _e('Errors', 'canvas-course-sync'); ?></th>
+                                        <td id="ccs-errors">0</td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -273,10 +280,100 @@ class CCS_Admin_Page {
                         echo $table_exists ? 'Created' : 'Missing';
                         ?>
                     </p>
+                    <p><strong>JavaScript Status:</strong> <span id="js-status">Loading...</span></p>
+                    <p><strong>AJAX Object:</strong> <span id="ajax-status">Checking...</span></p>
+                    
+                    <script>
+                        jQuery(document).ready(function($) {
+                            console.log('CCS Debug: Admin page DOM ready');
+                            
+                            // Update status indicators
+                            $('#js-status').text('Loaded');
+                            
+                            if (typeof ccsAjax !== 'undefined') {
+                                $('#ajax-status').html('<span style="color: green;">Available</span>');
+                                console.log('CCS Debug: ccsAjax object:', ccsAjax);
+                            } else {
+                                $('#ajax-status').html('<span style="color: red;">Missing</span>');
+                                console.error('CCS Debug: ccsAjax object not available');
+                            }
+                        });
+                    </script>
                 </div>
             </div>
         </div>
         
+        <style>
+        .ccs-log-level {
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        .ccs-log-level-info {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        .ccs-log-level-warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .ccs-log-level-error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .ccs-success {
+            color: green; 
+            padding: 10px; 
+            background: #d4edda; 
+            border: 1px solid #c3e6cb; 
+            border-radius: 4px;
+        }
+        .ccs-error {
+            color: #721c24; 
+            padding: 10px; 
+            background: #f8d7da; 
+            border: 1px solid #f5c6cb; 
+            border-radius: 4px;
+        }
+        .ccs-action-buttons {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        .ccs-action-buttons h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #333;
+        }
+        .ccs-button-group {
+            margin-bottom: 10px;
+        }
+        .ccs-button-group button {
+            margin-right: 10px;
+            margin-bottom: 5px;
+        }
+        .ccs-omit-btn {
+            background-color: #dc3545 !important;
+            border-color: #dc3545 !important;
+            color: white !important;
+        }
+        .ccs-omit-btn:hover {
+            background-color: #c82333 !important;
+            border-color: #bd2130 !important;
+        }
+        .ccs-restore-btn {
+            background-color: #28a745 !important;
+            border-color: #28a745 !important;
+            color: white !important;
+        }
+        .ccs-restore-btn:hover {
+            background-color: #218838 !important;
+            border-color: #1e7e34 !important;
+        }
+        </style>
         <?php
     }
 }
