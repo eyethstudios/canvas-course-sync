@@ -455,7 +455,8 @@ class Canvas_Course_Sync {
                 'omitCourses' => wp_create_nonce('ccs_omit_courses'),
                 'restoreOmitted' => wp_create_nonce('ccs_restore_omitted'),
                 'logError' => wp_create_nonce('ccs_log_js_error'),
-                'toggleAutoSync' => wp_create_nonce('ccs_toggle_auto_sync')
+                'toggleAutoSync' => wp_create_nonce('ccs_toggle_auto_sync'),
+                'checkUpdates' => wp_create_nonce('ccs_check_updates')
             ),
             'messages' => array(
                 'confirmSync' => __('Are you sure you want to sync the selected courses?', 'canvas-course-sync'),

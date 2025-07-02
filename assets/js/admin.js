@@ -580,6 +580,37 @@
         }
     };
     
+    // GitHub update checker - make it globally available
+    window.ccsCheckForUpdates = function() {
+        console.log('CCS: Checking for updates');
+        
+        if (!ccsAjax.nonces.checkUpdates) {
+            console.error('CCS: Update check nonce not available');
+            alert('Update check not available - missing security nonce');
+            return;
+        }
+        
+        $.ajax({
+            url: ccsAjax.ajaxUrl,
+            type: 'POST',
+            data: {
+                action: 'ccs_check_updates',
+                nonce: ccsAjax.nonces.checkUpdates
+            },
+            timeout: 30000,
+            success: function(response) {
+                if (response.success) {
+                    alert(response.data.message || 'Update check completed');
+                } else {
+                    alert('Update check failed: ' + (response.data || 'Unknown error'));
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('CCS: Update check failed:', error);
+                alert('Update check failed: ' + error);
+            }
+        });
+    };
     // Initialize everything when document is ready
     $(document).ready(function() {
         console.log('CCS: Initializing admin functionality');
