@@ -82,15 +82,15 @@ class CCS_Admin_Page {
         
         // Enqueue admin script
         wp_enqueue_script(
-            'ccs-admin',
-            CCS_PLUGIN_URL . 'assets/js/admin.js',
+            'ccs-admin-js',
+            CCS_PLUGIN_URL . 'assets/js/modules/core.js',
             array('jquery'),
             CCS_VERSION,
             true
         );
         
         // Localize script with AJAX data
-        wp_localize_script('ccs-admin', 'ccsAjax', array(
+        wp_localize_script('ccs-admin-js', 'ccsAjax', array(
             'ajaxUrl' => admin_url('admin-ajax.php'),
             'testConnectionNonce' => wp_create_nonce('ccs_test_connection'),
             'getCoursesNonce' => wp_create_nonce('ccs_get_courses'),
