@@ -305,31 +305,6 @@ class CCS_Admin_Page {
                         echo $table_exists ? 'Created' : 'Missing';
                         ?>
                     </p>
-                    <p><strong>JavaScript Status:</strong> <span id="js-status">Loading...</span></p>
-                    <p><strong>AJAX Object:</strong> <span id="ajax-status">Checking...</span></p>
-                    
-                    <script>
-                        jQuery(document).ready(function($) {
-                            console.log('CCS Debug: Admin page DOM ready');
-                            
-                            // Update status indicators
-                            $('#js-status').text('Loaded');
-                            
-                            if (typeof ccsAjax !== 'undefined') {
-                                $('#ajax-status').html('<span style="color: green;">Available</span>');
-                                console.log('CCS Debug: ccsAjax object:', ccsAjax);
-                            } else {
-                                $('#ajax-status').html('<span style="color: red;">Missing</span>');
-                                console.error('CCS Debug: ccsAjax object not available');
-                            }
-                            
-                            // Check if buttons exist
-                            console.log('CCS Debug: Test connection button exists:', $('#ccs-test-connection').length > 0);
-                            console.log('CCS Debug: Get courses button exists:', $('#ccs-get-courses').length > 0);
-                            console.log('CCS Debug: Clear logs button exists:', $('#ccs-clear-logs').length > 0);
-                            console.log('CCS Debug: Refresh logs button exists:', $('#ccs-refresh-logs').length > 0);
-                        });
-                    </script>
                 </div>
             </div>
         </div>
