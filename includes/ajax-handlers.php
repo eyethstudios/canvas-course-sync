@@ -403,23 +403,5 @@ add_action('wp_ajax_ccs_toggle_auto_sync', 'ccs_toggle_auto_sync_handler');
 
 /**
  * Log JavaScript errors
+ * REMOVED - This handler is now in includes/admin/class-ccs-error-handler.php to avoid conflicts
  */
-function ccs_log_js_error_handler() {
-    // Verify nonce
-    if (!wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ccs_log_js_error')) {
-        wp_die('Security check failed');
-    }
-    
-    $message = isset($_POST['message']) ? sanitize_text_field($_POST['message']) : '';
-    $context = isset($_POST['context']) ? sanitize_text_field($_POST['context']) : 'JavaScript';
-    
-    if (!empty($message)) {
-        $canvas_course_sync = canvas_course_sync();
-        if ($canvas_course_sync && $canvas_course_sync->logger) {
-            $canvas_course_sync->logger->log('[JS Error] ' . $context . ': ' . $message, 'error');
-        }
-    }
-    
-    wp_send_json_success('Error logged');
-}
-add_action('wp_ajax_ccs_log_js_error', 'ccs_log_js_error_handler');

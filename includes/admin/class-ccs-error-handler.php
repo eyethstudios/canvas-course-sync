@@ -68,43 +68,8 @@ function ccs_ajax_log_js_error() {
 
 /**
  * AJAX handler for toggling auto-sync setting
+ * REMOVED - This handler is now in includes/ajax-handlers.php to avoid conflicts
  */
-function ccs_ajax_toggle_auto_sync() {
-    // Verify permissions and nonce
-    if (!current_user_can('manage_options')) {
-        wp_send_json_error(array('message' => __('Insufficient permissions.', 'canvas-course-sync')));
-        return;
-    }
-    
-    if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ccs_toggle_auto_sync')) {
-        wp_send_json_error(array('message' => __('Security check failed.', 'canvas-course-sync')));
-        return;
-    }
-    
-    // Get enabled status
-    $enabled = isset($_POST['enabled']) ? (bool) intval($_POST['enabled']) : false;
-    
-    // Update option
-    $result = update_option('ccs_auto_sync_enabled', $enabled);
-    
-    if ($result !== false) {
-        $status = $enabled ? 'enabled' : 'disabled';
-        
-        // Log the change
-        $canvas_course_sync = canvas_course_sync();
-        if ($canvas_course_sync && $canvas_course_sync->logger) {
-            $canvas_course_sync->logger->log("Auto-sync {$status} via admin interface");
-        }
-        
-        wp_send_json_success(array(
-            'message' => sprintf(__('Auto-sync %s successfully.', 'canvas-course-sync'), $status),
-            'enabled' => $enabled
-        ));
-    } else {
-        wp_send_json_error(array('message' => __('Failed to update auto-sync setting.', 'canvas-course-sync')));
-    }
-}
 
 // Register AJAX handlers
 add_action('wp_ajax_ccs_log_js_error', 'ccs_ajax_log_js_error');
-add_action('wp_ajax_ccs_toggle_auto_sync', 'ccs_ajax_toggle_auto_sync');
