@@ -54,13 +54,13 @@ function ccs_get_courses_handler() {
         wp_die('Insufficient permissions');
     }
     
-    $canvas_course_sync = canvas_course_sync();
-    if (!$canvas_course_sync || !$canvas_course_sync->api) {
-        wp_send_json_error('Canvas API not initialized');
-        return;
-    }
-    
     try {
+        $canvas_course_sync = canvas_course_sync();
+        if (!$canvas_course_sync || !$canvas_course_sync->api) {
+            wp_send_json_error('Canvas API not initialized');
+            return;
+        }
+        
         // Get courses from Canvas
         $courses = $canvas_course_sync->api->get_courses();
         
