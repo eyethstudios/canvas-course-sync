@@ -35,8 +35,12 @@ class CCS_Catalog_Validator {
             $this->logger = $canvas_course_sync->logger;
         }
         
-        // Get catalog URL from settings
+        // Get catalog URL from settings (user-configurable)
         $this->catalog_url = get_option('ccs_catalog_url', CCS_DEFAULT_CATALOG_URL);
+        
+        if (empty($this->catalog_url)) {
+            $this->catalog_url = CCS_DEFAULT_CATALOG_URL;
+        }
     }
 
     /**
@@ -82,7 +86,7 @@ class CCS_Catalog_Validator {
         set_transient($cache_key, $courses, HOUR_IN_SECONDS);
         $this->catalog_courses = $courses;
         
-        $this->log_info('Fetched ' . count($courses) . ' courses from catalog: ' . $this->catalog_url);
+        $this->log_info('Fetched ' . count($courses) . ' courses from user-configured catalog: ' . $this->catalog_url);
         return $this->catalog_courses;
 
     /**

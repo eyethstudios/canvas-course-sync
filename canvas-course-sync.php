@@ -146,8 +146,11 @@ class Canvas_Course_Sync {
             'includes/class-ccs-catalog-validator.php',
             'includes/class-ccs-slug-generator.php',
             'includes/handlers/class-ccs-media-handler.php',
-            'includes/handlers/class-ccs-content-handler.php',
-            'includes/ajax-handlers.php'
+            'includes/handlers/class-ccs-content-handler.php'
+        );
+        
+        // Load AJAX handlers
+        require_once CCS_PLUGIN_DIR . 'includes/ajax-handlers.php';
         );
         
         foreach ($required_files as $file) {
