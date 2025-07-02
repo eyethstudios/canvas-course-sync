@@ -36,7 +36,7 @@ class CCS_Catalog_Validator {
         }
         
         // Get catalog URL from settings
-        $this->catalog_url = get_option('ccs_catalog_url', 'https://learn.nationaldeafcenter.org/');
+        $this->catalog_url = get_option('ccs_catalog_url', CCS_DEFAULT_CATALOG_URL);
     }
 
     /**

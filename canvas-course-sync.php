@@ -34,6 +34,7 @@ define('CCS_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('CCS_PLUGIN_BASENAME', plugin_basename(__FILE__));
 define('CCS_PLUGIN_FILE', __FILE__);
 define('CCS_GITHUB_REPO', 'eyethstudios/canvas-course-sync');
+define('CCS_DEFAULT_CATALOG_URL', 'https://learn.nationaldeafcenter.org/');
 
 /**
  * Main plugin class
@@ -267,7 +268,7 @@ class Canvas_Course_Sync {
         register_setting('ccs_settings', 'ccs_catalog_url', array(
             'type' => 'string',
             'sanitize_callback' => 'esc_url_raw',
-            'default' => 'https://learn.nationaldeafcenter.org/',
+            'default' => CCS_DEFAULT_CATALOG_URL,
             'show_in_rest' => false
         ));
     }

@@ -211,7 +211,7 @@ class CCS_Slug_Generator {
     public function generate_enrollment_url($slug) {
         error_log('CCS_Slug_Generator: generate_enrollment_url() called with slug: "' . $slug . '"');
         
-        $base_url = 'https://learn.nationaldeafcenter.org/courses/';
+        $base_url = CCS_DEFAULT_CATALOG_URL . 'courses/';
         $full_url = $base_url . $slug;
         
         error_log('CCS_Slug_Generator: Generated enrollment URL: "' . $full_url . '"');

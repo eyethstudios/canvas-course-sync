@@ -203,8 +203,8 @@ class CCS_Admin_Page {
                                 </th>
                                 <td>
                                     <input type="url" name="ccs_catalog_url" id="ccs_catalog_url" class="regular-text" 
-                                           value="<?php echo esc_url(get_option('ccs_catalog_url', 'https://learn.nationaldeafcenter.org/')); ?>" 
-                                           placeholder="https://learn.nationaldeafcenter.org/" />
+                                           value="<?php echo esc_url(get_option('ccs_catalog_url', CCS_DEFAULT_CATALOG_URL)); ?>" 
+                                           placeholder="<?php echo esc_attr(CCS_DEFAULT_CATALOG_URL); ?>" />
                                     <p class="description">
                                         <?php _e('URL of the course catalog to validate courses against. Only courses found in this catalog will be synced.', 'canvas-course-sync'); ?>
                                     </p>
