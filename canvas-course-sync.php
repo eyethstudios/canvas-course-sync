@@ -138,6 +138,8 @@ class Canvas_Course_Sync {
             'includes/importer.php',
             'includes/class-ccs-scheduler.php',
             'includes/class-ccs-github-updater.php',
+            'includes/class-ccs-database-manager.php',
+            'includes/class-ccs-slug-generator.php',
             'includes/handlers/class-ccs-media-handler.php',
             'includes/handlers/class-ccs-content-handler.php'
         );
