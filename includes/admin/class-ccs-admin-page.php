@@ -66,14 +66,63 @@ class CCS_Admin_Page {
             $token = isset($_POST['ccs_canvas_token']) ? sanitize_text_field(wp_unslash($_POST['ccs_canvas_token'])) : '';
             $catalog_url = isset($_POST['ccs_catalog_url']) ? esc_url_raw(wp_unslash($_POST['ccs_catalog_url'])) : '';
             
-            update_option('ccs_canvas_domain', $domain);
-            update_option('ccs_canvas_token', $token);
-            update_option('ccs_catalog_url', $catalog_url);
+            // Validate inputs
+            $validation_errors = array();
             
-            echo '<div class="notice notice-success"><p>' . __('Settings saved!', 'canvas-course-sync') . '</p></div>';
+            // Validate Canvas domain
+            if (!empty($domain)) {
+                // Remove protocol for validation
+                $domain_clean = preg_replace('/^https?:\/\//', '', $domain);
+                if (empty($domain_clean) || !filter_var('https://' . $domain_clean, FILTER_VALIDATE_URL)) {
+                    $validation_errors[] = __('Canvas domain must be a valid URL (e.g., myschool.instructure.com)', 'canvas-course-sync');
+                } elseif (!preg_match('/\.(instructure\.com|canvas\.net|beta\.instructure\.com)$/i', $domain_clean) && 
+                         !preg_match('/canvas/i', $domain_clean)) {
+                    $validation_errors[] = __('Canvas domain should be a Canvas LMS URL (typically ends with .instructure.com)', 'canvas-course-sync');
+                }
+            } else {
+                $validation_errors[] = __('Canvas domain is required', 'canvas-course-sync');
+            }
             
-            if ($this->logger) {
-                $this->logger->log('Settings updated via admin page');
+            // Validate Canvas token
+            if (!empty($token)) {
+                if (strlen($token) < 10) {
+                    $validation_errors[] = __('Canvas API token appears to be too short (minimum 10 characters)', 'canvas-course-sync');
+                } elseif (strlen($token) > 500) {
+                    $validation_errors[] = __('Canvas API token appears to be too long (maximum 500 characters)', 'canvas-course-sync');
+                } elseif (!preg_match('/^[a-zA-Z0-9~_-]+$/', $token)) {
+                    $validation_errors[] = __('Canvas API token contains invalid characters', 'canvas-course-sync');
+                }
+            } else {
+                $validation_errors[] = __('Canvas API token is required', 'canvas-course-sync');
+            }
+            
+            // Validate catalog URL
+            if (!empty($catalog_url) && !filter_var($catalog_url, FILTER_VALIDATE_URL)) {
+                $validation_errors[] = __('Catalog URL must be a valid URL', 'canvas-course-sync');
+            }
+            
+            // Save settings only if validation passes
+            if (empty($validation_errors)) {
+                update_option('ccs_canvas_domain', $domain);
+                update_option('ccs_canvas_token', $token);
+                update_option('ccs_catalog_url', $catalog_url);
+                
+                echo '<div class="notice notice-success"><p>' . __('Settings saved successfully!', 'canvas-course-sync') . '</p></div>';
+                
+                if ($this->logger) {
+                    $this->logger->log('Settings updated via admin page - Domain: ' . $domain);
+                }
+            } else {
+                // Display validation errors
+                echo '<div class="notice notice-error"><p><strong>' . __('Validation errors:', 'canvas-course-sync') . '</strong></p><ul>';
+                foreach ($validation_errors as $error) {
+                    echo '<li>' . esc_html($error) . '</li>';
+                }
+                echo '</ul></div>';
+                
+                if ($this->logger) {
+                    $this->logger->log('Settings validation failed: ' . implode(', ', $validation_errors), 'warning');
+                }
             }
         }
 
