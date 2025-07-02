@@ -362,7 +362,7 @@ class Canvas_Course_Sync {
             CCS_VERSION
         );
         
-        // Enqueue admin JavaScript as regular script (not module)
+        // Enqueue consolidated admin JavaScript
         wp_enqueue_script(
             'ccs-admin-js',
             plugin_dir_url(__FILE__) . 'assets/js/admin.js',
@@ -371,27 +371,21 @@ class Canvas_Course_Sync {
             true
         );
         
-        // Enqueue courses module JavaScript
-        wp_enqueue_script(
-            'ccs-courses-js',
-            plugin_dir_url(__FILE__) . 'assets/js/modules/courses.js',
-            array('jquery', 'ccs-admin-js'),
-            CCS_VERSION,
-            true
-        );
-        
-        // Enqueue updater JavaScript on plugins page
+        // Enqueue updater JavaScript on plugins page only
         if ($hook === 'plugins.php') {
             wp_enqueue_script(
                 'ccs-updater-js',
-                plugin_dir_url(__FILE__) . 'assets/js/modules/updater.js',
+                plugin_dir_url(__FILE__) . 'assets/js/updater.js',
                 array(),
                 CCS_VERSION,
                 true
             );
+            
+            // Add updater nonce
+            wp_localize_script('ccs-updater-js', 'ccsUpdaterNonce', wp_create_nonce('ccs_check_updates'));
         }
         
-        // Localize script with AJAX data
+        // Localize script with AJAX data (SINGLE SOURCE OF TRUTH)
         wp_localize_script('ccs-admin-js', 'ccsAjax', array(
             'ajaxUrl' => admin_url('admin-ajax.php'),
             'testConnectionNonce' => wp_create_nonce('ccs_test_connection'),
@@ -406,17 +400,6 @@ class Canvas_Course_Sync {
             'logErrorNonce' => wp_create_nonce('ccs_log_js_error'),
             'toggleAutoSyncNonce' => wp_create_nonce('ccs_toggle_auto_sync')
         ));
-        
-        // Add additional nonces for course module  
-        wp_localize_script('ccs-admin-js', 'ccsOmitNonce', wp_create_nonce('ccs_omit_courses'));
-        wp_localize_script('ccs-admin-js', 'ccsRestoreNonce', wp_create_nonce('ccs_restore_omitted'));
-        
-        // Add updater nonce for plugins page
-        if ($hook === 'plugins.php') {
-            wp_localize_script('ccs-updater-js', 'ccsUpdaterNonce', wp_create_nonce('ccs_check_updates'));
-        }
-        
-        // Admin scripts enqueued successfully
     }
 }
 
