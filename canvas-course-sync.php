@@ -365,33 +365,8 @@ class Canvas_Course_Sync {
         // Enqueue admin JavaScript as regular script (not module)
         wp_enqueue_script(
             'ccs-admin-js',
-            plugin_dir_url(__FILE__) . 'assets/js/modules/core.js',
+            plugin_dir_url(__FILE__) . 'assets/js/admin.js',
             array('jquery'),
-            CCS_VERSION,
-            true
-        );
-        
-        // Enqueue modular JavaScript files
-        wp_enqueue_script(
-            'ccs-connection-js',
-            plugin_dir_url(__FILE__) . 'assets/js/modules/connection.js',
-            array('jquery', 'ccs-admin-js'),
-            CCS_VERSION,
-            true
-        );
-        
-        wp_enqueue_script(
-            'ccs-logs-js',
-            plugin_dir_url(__FILE__) . 'assets/js/modules/logs.js',
-            array('jquery', 'ccs-admin-js'),
-            CCS_VERSION,
-            true
-        );
-        
-        wp_enqueue_script(
-            'ccs-auto-sync-js',
-            plugin_dir_url(__FILE__) . 'assets/js/modules/auto-sync.js',
-            array('jquery', 'ccs-admin-js'),
             CCS_VERSION,
             true
         );
@@ -400,24 +375,6 @@ class Canvas_Course_Sync {
         wp_enqueue_script(
             'ccs-courses-js',
             plugin_dir_url(__FILE__) . 'assets/js/modules/courses.js',
-            array('jquery', 'ccs-admin-js'),
-            CCS_VERSION,
-            true
-        );
-        
-        // Enqueue email settings module JavaScript
-        wp_enqueue_script(
-            'ccs-email-settings-js',
-            plugin_dir_url(__FILE__) . 'assets/js/modules/email-settings.js',
-            array('jquery', 'ccs-admin-js'),
-            CCS_VERSION,
-            true
-        );
-        
-        // Enqueue sync controls module JavaScript
-        wp_enqueue_script(
-            'ccs-sync-controls-js',
-            plugin_dir_url(__FILE__) . 'assets/js/modules/sync-controls.js',
             array('jquery', 'ccs-admin-js'),
             CCS_VERSION,
             true
