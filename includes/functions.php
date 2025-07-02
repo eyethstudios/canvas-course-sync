@@ -12,88 +12,27 @@ if (!defined('ABSPATH')) {
 }
 
 /**
- * Get list of excluded course titles
+ * Get list of course titles to exclude from sync (DEPRECATED - replaced by catalog validation)
+ * Kept for backward compatibility
  *
- * @return array Array of course titles to exclude from sync
+ * @deprecated Use CCS_Catalog_Validator instead
+ * @return array Array of course titles to exclude
  */
 function ccs_get_excluded_course_titles() {
-    return array(
-        'Engaging Communities for Systems Change',
-        'Deaf 101',
-        'Attitudes as Barriers for Deaf People',
-        'Foundations of Effective Accommodation',
-        'Instructional Strategies for Deaf Student Success',
-        'Teaching Deaf Students Online',
-        'Improving Campus Access',
-        'Note Taker Training',
-        'Developing Accessible Work Based Learning Programs',
-        'Start and Build a Mentoring Program for Deaf Youth',
-        'Designing Summer Programs for Deaf Youth',
-        'Discovering System Barriers and Exploring the WHY',
-        'Legal Frameworks and Responsibilities for Accessibility',
-        'Accommodations 101',
-        'Building Relationships with Deaf Communities',
-        'Using UDL Principles for Teaching Deaf Students Online',
-        'Introduction to Interpreting Services',
-        'Captioned Media 101',
-        'Introduction to Remote Services',
-        'Speech to Text 101',
-        'Designing Accessible Online Experiences for Deaf People',
-        'Transforming Systems to Improve Experiences for Deaf People',
-        'Testing Experiences for Deaf Students',
-        'Coordinating Services for Deaf Students',
-        'OnDemand Webinar: Commencement for All: Making Graduation Accessible',
-        'OnDemand Webinar: What are Assistive Listening Systems?',
-        'OnDemand Webinar: Preparing Access Services for Deaf College Students: Tips & Resources',
-        'OnDemand Webinar: Does Auto Captioning Effectively Accommodate Deaf People?',
-        'OnDemand Webinar: Deaf People Leading the Way',
-        'OnDemand Webinar: For Deaf People, By Deaf People: Centering Deaf People in Systems Change',
-        'OnDemand Webinar: Centralized Systems that Promote #DeafSuccess at Colleges',
-        'OnDemand Webinar: Mentoring Deaf Youth Leads to #DeafSuccess',
-        'Data-Driven Decision Making: Why Does it Matter?',
-        'Supporting Accessible Learning Environments and Instruction for Deaf Students',
-        'Introduction to Assistive Listening Devices and Systems',
-        'Finding Data about Deaf People',
-        'Collecting Data from the Community',
-        'Work-Based Learning Programs',
-        'Hosting Community Conversations Facilitated Course',
-        'Improving Campus Access Facilitated Course',
-        'Advanced Practices: Evaluating & Managing Services Using Data Facilitated Course',
-        'OnDemand Webinar: Using Data to Further Dialogue for Change',
-        'OnDemand Webinar: Pathways To and Through Health Science Education'
-    );
+    // Return empty array - exclusion now handled by catalog validation
+    return array();
 }
 
 /**
- * Check if a course title should be excluded from sync
+ * Check if a course title should be excluded from sync (DEPRECATED)
+ * Replaced by catalog validation in CCS_Catalog_Validator
  *
+ * @deprecated Use CCS_Catalog_Validator::validate_against_catalog() instead
  * @param string $course_title The course title to check
- * @return bool True if course should be excluded, false otherwise
+ * @return bool Always returns false - exclusion now handled by catalog validation
  */
 function ccs_is_course_excluded($course_title) {
-    if (empty($course_title)) {
-        return false;
-    }
-    
-    $excluded_titles = ccs_get_excluded_course_titles();
-    $course_title_lower = strtolower(trim($course_title));
-    
-    foreach ($excluded_titles as $excluded_title) {
-        $excluded_title_lower = strtolower(trim($excluded_title));
-        
-        // Check for exact match or partial match
-        if ($course_title_lower === $excluded_title_lower || 
-            strpos($course_title_lower, $excluded_title_lower) !== false ||
-            strpos($excluded_title_lower, $course_title_lower) !== false) {
-            return true;
-        }
-    }
-    
-    // Also exclude courses with "SHELL" or "Template" in the name
-    if (stripos($course_title, 'SHELL') !== false || stripos($course_title, 'Template') !== false) {
-        return true;
-    }
-    
+    // Always return false - exclusion now handled by catalog validation
     return false;
 }
 

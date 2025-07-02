@@ -96,13 +96,17 @@ class CCS_Scheduler {
 
             $this->logger->log('Found ' . count($canvas_courses) . ' courses from Canvas API');
 
-            // Filter out excluded courses
-            $filtered_courses = array_filter($canvas_courses, function($course) {
-                $course_name = isset($course['name']) ? $course['name'] : '';
-                return !ccs_is_course_excluded($course_name);
-            });
+            // Validate courses against catalog instead of hard-coded exclusions
+            if (class_exists('CCS_Catalog_Validator')) {
+                $validator = new CCS_Catalog_Validator();
+                $validation_results = $validator->validate_against_catalog($canvas_courses);
+                $filtered_courses = $validation_results['validated'];
+            } else {
+                // Fallback - use all courses if validator not available
+                $filtered_courses = $canvas_courses;
+            }
 
-            $this->logger->log('After filtering excluded courses: ' . count($filtered_courses) . ' courses remain');
+            $this->logger->log('After catalog validation: ' . count($filtered_courses) . ' courses remain');
 
             // Find new courses (not already in WordPress)
             $new_courses = $this->find_new_courses($filtered_courses);

@@ -79,11 +79,8 @@ function ccs_get_courses_handler() {
                 continue;
             }
             
-            // Check if course is excluded by title
-            if (function_exists('ccs_is_course_excluded') && ccs_is_course_excluded($course['name'])) {
-                $auto_omitted_count++;
-                continue; // Skip excluded courses entirely
-            }
+            // Validate course against catalog instead of hard-coded exclusions
+            // This will be done in bulk after getting all courses
             
             // Check if course already exists
             $exists_check = array('exists' => false);
@@ -103,25 +100,41 @@ function ccs_get_courses_handler() {
             );
         }
         
-        // Create validation report
-        $validation_report = '';
-        if ($auto_omitted_count > 0) {
-            $validation_report = '<div class="notice notice-info"><p>';
-            $validation_report .= sprintf(__('Note: %d courses were automatically filtered out based on exclusion rules.', 'canvas-course-sync'), $auto_omitted_count);
-            $validation_report .= '</p></div>';
+        // Now validate all courses against catalog
+        if (class_exists('CCS_Catalog_Validator')) {
+            $validator = new CCS_Catalog_Validator();
+            $validation_results = $validator->validate_against_catalog($processed_courses);
+            
+            // Update processed courses with validation results
+            $validated_courses = $validation_results['validated'];
+            $auto_omitted_count = count($validation_results['auto_omitted_ids']);
+            
+            // Create validation report
+            $validation_report = '';
+            if ($auto_omitted_count > 0) {
+                $validation_report = '<div class="notice notice-info"><p>';
+                $validation_report .= sprintf(__('Note: %d courses were automatically omitted because they were not found in the course catalog.', 'canvas-course-sync'), $auto_omitted_count);
+                $validation_report .= '</p></div>';
+                
+                // Add detailed report
+                $validation_report .= $validator->generate_validation_report($validation_results);
+            }
+            
+            wp_send_json_success(array(
+                'courses' => $validated_courses,
+                'total' => count($validated_courses),
+                'auto_omitted_count' => $auto_omitted_count,
+                'validation_report' => $validation_report
+            ));
+        } else {
+            // Fallback if validator not available
+            wp_send_json_success(array(
+                'courses' => $processed_courses,
+                'total' => count($processed_courses),
+                'auto_omitted_count' => 0,
+                'validation_report' => ''
+            ));
         }
-        
-        wp_send_json_success(array(
-            'courses' => $processed_courses,
-            'total' => count($processed_courses),
-            'auto_omitted_count' => $auto_omitted_count,
-            'validation_report' => $validation_report
-        ));
-        
-        wp_send_json_success(array(
-            'courses' => $processed_courses,
-            'total' => count($processed_courses)
-        ));
         
     } catch (Exception $e) {
         wp_send_json_error('Error retrieving courses: ' . $e->getMessage());

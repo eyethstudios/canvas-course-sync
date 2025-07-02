@@ -24,13 +24,13 @@
             console.error(`CCS Error ${timestamp}: [${context}] ${errorMsg}`, error);
             
             // Log to server if available
-            if (ccsAjax.logErrorNonce) {
+            if (ccsAjax.nonces && ccsAjax.nonces.logError) {
                 $.ajax({
                     url: ccsAjax.ajaxUrl,
                     type: 'POST',
                     data: {
                         action: 'ccs_log_js_error',
-                        nonce: ccsAjax.logErrorNonce,
+                        nonce: ccsAjax.nonces.logError,
                         message: errorMsg,
                         context: context,
                         url: window.location.href
@@ -112,7 +112,7 @@
                 type: 'POST',
                 data: {
                     action: 'ccs_test_connection',
-                    nonce: ccsAjax.testConnectionNonce
+                    nonce: ccsAjax.nonces.testConnection
                 },
                 timeout: 30000,
                 success: function(response) {
@@ -168,7 +168,7 @@
                 type: 'POST',
                 data: {
                     action: 'ccs_get_courses',
-                    nonce: ccsAjax.getCoursesNonce
+                    nonce: ccsAjax.nonces.getCourses
                 },
                 timeout: 60000,
                 success: function(response) {
@@ -282,7 +282,7 @@
                 type: 'POST',
                 data: {
                     action: 'ccs_sync_courses',
-                    nonce: ccsAjax.syncCoursesNonce,
+                    nonce: ccsAjax.nonces.syncCourses,
                     course_ids: selectedCourses
                 },
                 timeout: 300000, // 5 minutes
@@ -358,7 +358,7 @@
                 type: 'POST',
                 data: {
                     action: 'ccs_omit_courses',
-                    nonce: ccsAjax.omitCoursesNonce,
+                    nonce: ccsAjax.nonces.omitCourses,
                     course_ids: selectedCourses
                 },
                 success: function(response) {
@@ -396,7 +396,7 @@
                 type: 'POST',
                 data: {
                     action: 'ccs_restore_omitted',
-                    nonce: ccsAjax.restoreOmittedNonce
+                    nonce: ccsAjax.nonces.restoreOmitted
                 },
                 success: function(response) {
                     if (response.success) {
@@ -448,7 +448,7 @@
                 type: 'POST',
                 data: {
                     action: 'ccs_refresh_logs',
-                    nonce: ccsAjax.refreshLogsNonce
+                    nonce: ccsAjax.nonces.refreshLogs
                 },
                 success: function(response) {
                     if (response.success && response.data) {
@@ -485,7 +485,7 @@
                 type: 'POST',
                 data: {
                     action: 'ccs_clear_logs',
-                    nonce: ccsAjax.clearLogsNonce
+                    nonce: ccsAjax.nonces.clearLogs
                 },
                 success: function(response) {
                     if (response.success) {
@@ -526,7 +526,7 @@
                 type: 'POST',
                 data: {
                     action: 'ccs_run_auto_sync',
-                    nonce: ccsAjax.runAutoSyncNonce
+                    nonce: ccsAjax.nonces.runAutoSync
                 },
                 timeout: 120000, // 2 minutes
                 success: function(response) {
