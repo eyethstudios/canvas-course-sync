@@ -32,6 +32,13 @@ class CCS_Scheduler {
     private $importer;
 
     /**
+     * Database manager instance
+     *
+     * @var CCS_Database_Manager
+     */
+    private $db_manager;
+
+    /**
      * Constructor
      */
     public function __construct() {
@@ -130,54 +137,25 @@ class CCS_Scheduler {
     private function find_new_courses($canvas_courses) {
         $new_courses = array();
         
-        // Get existing WordPress courses for comparison
-        $existing_wp_courses = get_posts(array(
-            'post_type'      => 'courses',
-            'post_status'    => array('draft', 'publish', 'private', 'pending'),
-            'posts_per_page' => -1,
-            'fields'         => 'ids'
-        ));
-        
-        $existing_titles = array();
-        $existing_canvas_ids = array();
-        
-        foreach ($existing_wp_courses as $post_id) {
-            $title = get_the_title($post_id);
-            $canvas_id = get_post_meta($post_id, 'canvas_course_id', true);
-            
-            if (!empty($title)) {
-                $existing_titles[] = strtolower(trim($title));
+        // Initialize database manager if not already available
+        if (!isset($this->db_manager)) {
+            if (!class_exists('CCS_Database_Manager')) {
+                require_once plugin_dir_path(__FILE__) . 'class-ccs-database-manager.php';
             }
-            if (!empty($canvas_id)) {
-                $existing_canvas_ids[] = $canvas_id;
-            }
+            $this->db_manager = new CCS_Database_Manager();
         }
         
-        $this->logger->log('Found ' . count($existing_wp_courses) . ' existing WordPress courses for comparison');
-        $this->logger->log('Existing Canvas IDs: ' . count($existing_canvas_ids) . ', Existing titles: ' . count($existing_titles));
+        $this->logger->log('Checking ' . count($canvas_courses) . ' Canvas courses for duplicates using database manager');
         
         foreach ($canvas_courses as $course) {
-            $exists_in_wp = false;
-            $match_type = '';
+            // Use standardized database manager check
+            $exists_check = $this->db_manager->course_exists($course->id, $course->name);
             
-            // Check by Canvas ID first (most reliable)
-            if (in_array($course->id, $existing_canvas_ids)) {
-                $exists_in_wp = true;
-                $match_type = 'canvas_id';
-                $this->logger->log('Skipping course "' . $course->name . '" - already exists by Canvas ID: ' . $course->id);
+            if ($exists_check['exists']) {
+                $this->logger->log('Skipping course "' . $course->name . '" - already exists (' . $exists_check['type'] . ') - Post ID: ' . $exists_check['post_id']);
             } else {
-                // Check by title (case-insensitive)
-                $course_title_lower = strtolower(trim($course->name));
-                if (in_array($course_title_lower, $existing_titles)) {
-                    $exists_in_wp = true;
-                    $match_type = 'title';
-                    $this->logger->log('Skipping course "' . $course->name . '" - already exists by title match');
-                }
-            }
-            
-            if (!$exists_in_wp) {
                 $new_courses[] = $course;
-                $this->logger->log('Course "' . $course->name . '" marked for import (ID: ' . $course->id . ')');
+                $this->logger->log('Course "' . $course->name . '" marked for import (Canvas ID: ' . $course->id . ')');
             }
         }
         
