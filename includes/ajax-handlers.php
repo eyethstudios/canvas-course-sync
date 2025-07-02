@@ -55,12 +55,18 @@ function ccs_get_courses_handler() {
     }
     
     try {
+        error_log('CCS Debug: Starting get_courses_handler');
+        
         $canvas_course_sync = canvas_course_sync();
+        error_log('CCS Debug: canvas_course_sync function result: ' . ($canvas_course_sync ? 'success' : 'failed'));
+        
         if (!$canvas_course_sync || !$canvas_course_sync->api) {
+            error_log('CCS Debug: Canvas API not initialized - canvas_course_sync: ' . ($canvas_course_sync ? 'exists' : 'null') . ', api: ' . (isset($canvas_course_sync->api) ? 'exists' : 'null'));
             wp_send_json_error('Canvas API not initialized');
             return;
         }
         
+        error_log('CCS Debug: About to call get_courses()');
         // Get courses from Canvas
         $courses = $canvas_course_sync->api->get_courses();
         
