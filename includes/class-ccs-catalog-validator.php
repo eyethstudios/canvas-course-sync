@@ -308,19 +308,28 @@ class CCS_Catalog_Validator {
             return true;
         }
 
-        // Fuzzy matching for slight variations
+        // Fuzzy matching for slight variations - more strict criteria
         foreach ($approved_courses as $approved_course) {
-            // Check if course name contains the approved course title (case insensitive)
-            if (stripos($course_name, $approved_course) !== false || 
-                stripos($approved_course, $course_name) !== false) {
-                return true;
-            }
-
-            // Check similarity (85% match)
+            // Only check similarity for meaningful matches (85% similarity)
             $similarity = 0;
             similar_text(strtolower($course_name), strtolower($approved_course), $similarity);
             if ($similarity >= 85) {
                 return true;
+            }
+            
+            // Check if the course names are substantially similar (at least 70% of the shorter string length)
+            $course_len = strlen($course_name);
+            $approved_len = strlen($approved_course);
+            $min_len = min($course_len, $approved_len);
+            
+            // Only allow substring matching if the match is substantial (at least 70% of the shorter string)
+            if ($min_len > 10) { // Only for reasonably long course names
+                if (stripos($course_name, $approved_course) !== false && $approved_len >= ($course_len * 0.7)) {
+                    return true;
+                }
+                if (stripos($approved_course, $course_name) !== false && $course_len >= ($approved_len * 0.7)) {
+                    return true;
+                }
             }
         }
 
