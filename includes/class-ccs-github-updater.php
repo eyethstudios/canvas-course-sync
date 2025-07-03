@@ -53,7 +53,17 @@ class CCS_GitHub_Updater {
      * Get current plugin version with fallback
      */
     private function get_current_version() {
-        return defined('CCS_VERSION') ? CCS_VERSION : $this->version;
+        // First try to get from plugin data to ensure accuracy
+        if (!function_exists('get_plugin_data')) {
+            require_once(ABSPATH . 'wp-admin/includes/plugin.php');
+        }
+        
+        $plugin_data = get_plugin_data($this->plugin_file);
+        if (!empty($plugin_data['Version'])) {
+            return $this->normalize_version($plugin_data['Version']);
+        }
+        
+        return defined('CCS_VERSION') ? $this->normalize_version(CCS_VERSION) : $this->normalize_version($this->version);
     }
     
     /**
@@ -90,7 +100,28 @@ class CCS_GitHub_Updater {
                 return false;
             ";
             
-            $links[] = '<a href="javascript:void(0);" onclick="' . $check_updates_js . '" style="color: #2271b1;">' . __('Check for updates', 'canvas-course-sync') . '</a>';
+            $check_updates_js = "
+                if (typeof ccsCheckForUpdates === 'function') {
+                    ccsCheckForUpdates();
+                } else {
+                    jQuery.post(ajaxurl, {
+                        action: 'ccs_check_updates',
+                        nonce: '" . wp_create_nonce('ccs_check_updates') . "'
+                    }, function(response) {
+                        if (response.success) {
+                            alert('Update check completed: ' + response.data.message);
+                            if(response.data.update_available) {
+                                location.reload();
+                            }
+                        } else {
+                            alert('Update check failed: ' + (response.data || 'Unknown error'));
+                        }
+                    });
+                }
+                return false;
+            ";
+            
+            $links[] = '<a href="#" onclick="' . esc_attr($check_updates_js) . '" style="color: #2271b1;">' . __('Check for updates', 'canvas-course-sync') . '</a>';
             
             error_log('CCS Debug: Added ' . count($links) . ' total links');
         } else {
@@ -157,6 +188,7 @@ class CCS_GitHub_Updater {
     private function normalize_version($version) {
         $version = trim($version);
         $version = ltrim($version, 'v');
+        $version = ltrim($version, 'V');
         
         // Extract semantic version pattern
         if (preg_match('/^(\d+)\.(\d+)\.(\d+)/', $version, $matches)) {
@@ -175,6 +207,9 @@ class CCS_GitHub_Updater {
         delete_site_transient('update_plugins');
         wp_clean_update_cache();
         
+        // Force WordPress to check for updates
+        wp_update_plugins();
+        
         error_log('CCS Debug: Forced update check completed - cleared all caches');
     }
     
@@ -182,35 +217,45 @@ class CCS_GitHub_Updater {
      * Check for plugin updates
      */
     public function check_for_update($transient) {
-        if (empty($transient->checked)) {
-            return $transient;
+        if (empty($transient)) {
+            $transient = new stdClass();
         }
         
-        $remote_version = $this->get_remote_version();
+        // Always add our plugin to the checked list
+        if (!isset($transient->checked)) {
+            $transient->checked = array();
+        }
+        
         $current_version = $this->get_current_version();
+        $transient->checked[$this->plugin_slug] = $current_version;
+        
+        $remote_version = $this->get_remote_version();
         
         if ($this->is_update_available($current_version, $remote_version)) {
-            $update_data = array(
-                'slug' => $this->plugin_basename,
-                'plugin' => $this->plugin_slug,
-                'new_version' => $remote_version,
-                'url' => 'https://github.com/' . $this->github_repo,
-                'package' => $this->get_download_url($remote_version),
-                'tested' => get_bloginfo('version'),
-                'requires_php' => '7.4',
-                'compatibility' => new stdClass()
+            $update_data = new stdClass();
+            $update_data->slug = $this->plugin_basename;
+            $update_data->plugin = $this->plugin_slug;
+            $update_data->new_version = $remote_version;
+            $update_data->url = 'https://github.com/' . $this->github_repo;
+            $update_data->package = $this->get_download_url($remote_version);
+            $update_data->tested = get_bloginfo('version');
+            $update_data->requires_php = '7.4';
+            $update_data->compatibility = new stdClass();
+            $update_data->icons = array(
+                'default' => 'https://raw.githubusercontent.com/' . $this->github_repo . '/main/assets/icon-256x256.png'
             );
             
-            $transient->response[$this->plugin_slug] = (object) $update_data;
+            $transient->response[$this->plugin_slug] = $update_data;
             error_log('CCS Debug: Update available - added to WordPress update system');
         } else {
-            // Make sure to remove from no_update as well
-            if (isset($transient->response[$this->plugin_slug])) {
-                unset($transient->response[$this->plugin_slug]);
-            }
-            if (isset($transient->no_update[$this->plugin_slug])) {
-                unset($transient->no_update[$this->plugin_slug]);
-            }
+            // Add to no_update if current version is up to date
+            $no_update_data = new stdClass();
+            $no_update_data->slug = $this->plugin_basename;
+            $no_update_data->plugin = $this->plugin_slug;
+            $no_update_data->new_version = $current_version;
+            $no_update_data->url = 'https://github.com/' . $this->github_repo;
+            
+            $transient->no_update[$this->plugin_slug] = $no_update_data;
         }
         
         return $transient;
@@ -253,20 +298,19 @@ class CCS_GitHub_Updater {
         
         if ($response_code === 200 && !empty($response_body)) {
             $data = json_decode($response_body, true);
-            error_log('CCS Debug: GitHub API response data: ' . print_r($data, true));
             
             if (isset($data['tag_name']) && !empty($data['tag_name'])) {
                 $clean_version = $this->normalize_version($data['tag_name']);
                 
                 if (!empty($clean_version)) {
                     error_log('CCS Debug: Setting cached version: ' . $clean_version);
-                    set_transient($cache_key, $clean_version, 30 * MINUTE_IN_SECONDS); // Shorter cache
+                    set_transient($cache_key, $clean_version, 30 * MINUTE_IN_SECONDS);
                     return $clean_version;
                 }
             }
         }
         
-        error_log('CCS Debug: Failed to get GitHub version, using current version. Response code: ' . $response_code);
+        error_log('CCS Debug: Failed to get GitHub version, using current version');
         return $this->get_current_version();
     }
     
@@ -275,7 +319,9 @@ class CCS_GitHub_Updater {
      */
     private function get_download_url($version = null) {
         if ($version) {
-            return 'https://github.com/' . $this->github_repo . '/archive/refs/tags/v' . $version . '.zip';
+            // Try both with and without 'v' prefix
+            $tag = 'v' . ltrim($version, 'v');
+            return 'https://github.com/' . $this->github_repo . '/archive/refs/tags/' . $tag . '.zip';
         }
         return 'https://github.com/' . $this->github_repo . '/archive/refs/heads/main.zip';
     }
@@ -296,10 +342,12 @@ class CCS_GitHub_Updater {
         
         $plugin_folder = $this->plugin_basename;
         
+        // If source already has correct name, use it
         if (basename($source) === $plugin_folder) {
             return $source;
         }
         
+        // Find the plugin file in extracted folder
         $files = $wp_filesystem->dirlist($source);
         
         if (!empty($files)) {
@@ -307,11 +355,15 @@ class CCS_GitHub_Updater {
                 if ($file_data['type'] === 'd') {
                     $potential_source = trailingslashit($source) . $file;
                     
-                    if ($wp_filesystem->exists($potential_source . '/' . basename($this->plugin_file))) {
+                    // Check if this directory contains our plugin file
+                    if ($wp_filesystem->exists($potential_source . '/canvas-course-sync.php')) {
                         $corrected_source = trailingslashit($remote_source) . $plugin_folder;
                         
+                        // Move to correct location
                         if ($wp_filesystem->move($potential_source, $corrected_source)) {
                             return $corrected_source;
+                        } else {
+                            return new WP_Error('rename_failed', 'Failed to rename plugin directory');
                         }
                     }
                 }
@@ -366,7 +418,7 @@ class CCS_GitHub_Updater {
      * Plugin information for update screen
      */
     public function plugin_info($result, $action, $args) {
-        if ($action !== 'plugin_information' || $args->slug !== $this->plugin_basename) {
+        if ($action !== 'plugin_information' || !isset($args->slug) || $args->slug !== $this->plugin_basename) {
             return $result;
         }
         
@@ -393,11 +445,19 @@ class CCS_GitHub_Updater {
                 'description' => $data['description'] ?? 'Synchronize courses from Canvas LMS to WordPress with full API integration and course management.',
                 'changelog' => 'View changelog on <a href="' . ($data['html_url'] ?? 'https://github.com/' . $this->github_repo) . '/releases" target="_blank">GitHub</a>'
             );
-            $result->download_link = $this->get_download_url();
+            $result->download_link = $this->get_download_url($this->get_remote_version());
             $result->requires = '5.0';
             $result->tested = get_bloginfo('version');
             $result->requires_php = '7.4';
             $result->last_updated = $data['updated_at'] ?? date('Y-m-d');
+            $result->banners = array(
+                'low' => 'https://raw.githubusercontent.com/' . $this->github_repo . '/main/assets/banner-772x250.png',
+                'high' => 'https://raw.githubusercontent.com/' . $this->github_repo . '/main/assets/banner-1544x500.png'
+            );
+            $result->icons = array(
+                '1x' => 'https://raw.githubusercontent.com/' . $this->github_repo . '/main/assets/icon-128x128.png',
+                '2x' => 'https://raw.githubusercontent.com/' . $this->github_repo . '/main/assets/icon-256x256.png'
+            );
         }
         
         return $result;
