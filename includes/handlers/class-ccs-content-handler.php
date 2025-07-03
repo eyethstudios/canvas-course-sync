@@ -59,190 +59,89 @@ class CCS_Content_Handler {
         $course_id = $course_details['id'];
         $content = '';
 
-        // Course Overview Section
-        $content .= $this->build_course_overview($course_details);
+        // Module Description Section (primary content)
+        $content .= $this->build_module_description($course_details);
 
-        // Detailed Modules Section
-        $content .= $this->build_modules_content($course_id);
+        // Learning Objectives Section (specific learning outcomes)
+        $content .= $this->build_learning_objectives($course_id, $course_details);
 
-        // Learning Outcomes Section
-        $content .= $this->build_learning_outcomes($course_id);
+        // Badge Information Section
+        $content .= $this->build_badge_information($course_details);
 
-        // Assessment and Completion Section
-        $content .= $this->build_assessment_section($course_id);
-
-        // Badge and CE Credits Section (course-specific)
-        $content .= $this->build_credentials_section($course_details);
+        // Continuing Education Credit Section
+        $content .= $this->build_ce_credit_information($course_details);
 
         return $content;
     }
 
     /**
-     * Build course overview section
+     * Build module description section
      */
-    private function build_course_overview($course_details) {
+    private function build_module_description($course_details) {
         $content = '';
         
-        if (!empty($course_details['public_description'])) {
-            $content .= "<div class='course-overview'>\n";
-            $content .= "<h2>Course Overview</h2>\n";
-            $content .= wp_kses_post($course_details['public_description']) . "\n";
-            $content .= "</div>\n\n";
-        }
-
-        if (!empty($course_details['syllabus_body'])) {
-            $content .= "<div class='course-syllabus'>\n";
-            $content .= "<h2>Course Information</h2>\n";
-            $content .= wp_kses_post($course_details['syllabus_body']) . "\n";
-            $content .= "</div>\n\n";
-        }
-
-        return $content;
-    }
-
-    /**
-     * Build detailed modules content
-     */
-    private function build_modules_content($course_id) {
-        if (!$this->api) {
-            return '';
-        }
-
-        $modules = $this->api->get_course_modules($course_id);
+        $content .= "<div class='module-description'>\n";
+        $content .= "<h2>Module Description</h2>\n";
         
-        if (is_wp_error($modules) || empty($modules)) {
-            return '';
+        // Use public description or syllabus as primary description
+        $description = '';
+        if (!empty($course_details['public_description'])) {
+            $description = $course_details['public_description'];
+        } elseif (!empty($course_details['syllabus_body'])) {
+            $description = $course_details['syllabus_body'];
+        } elseif (!empty($course_details['description'])) {
+            $description = $course_details['description'];
         }
-
-        $content = "<div class='course-modules'>\n";
-        $content .= "<h2>Course Modules</h2>\n";
-
-        foreach ($modules as $module) {
-            if (empty($module['name'])) {
-                continue;
-            }
-
-            $content .= "<div class='module'>\n";
-            $content .= "<h3>" . esc_html($module['name']) . "</h3>\n";
-
-            // Module description
-            if (!empty($module['description'])) {
-                $content .= "<div class='module-description'>\n";
-                $content .= wp_kses_post($module['description']) . "\n";
-                $content .= "</div>\n";
-            }
-
-            // Get module items for detailed content
-            $module_items = $this->get_module_items($course_id, $module['id']);
-            if (!empty($module_items)) {
-                $content .= $this->build_module_items_content($module_items);
-            }
-
-            $content .= "</div>\n\n";
+        
+        if ($description) {
+            $content .= wp_kses_post($description) . "\n";
+        } else {
+            // Fallback generic description
+            $course_name = $course_details['name'] ?? 'this course';
+            $content .= "<p>This module provides comprehensive training and information related to " . esc_html($course_name) . ". Participants will gain practical knowledge and skills that can be applied in professional settings.</p>\n";
         }
-
+        
         $content .= "</div>\n\n";
         return $content;
     }
 
     /**
-     * Get module items from Canvas API
+     * Build learning objectives section
      */
-    private function get_module_items($course_id, $module_id) {
-        if (!$this->api) {
-            return array();
-        }
-
-        $endpoint = "courses/{$course_id}/modules/{$module_id}/items?include[]=content_details";
-        $items = $this->api->make_request($endpoint);
-
-        if (is_wp_error($items)) {
-            return array();
-        }
-
-        return is_array($items) ? $items : array();
-    }
-
-    /**
-     * Build module items content
-     */
-    private function build_module_items_content($items) {
-        $content = "<div class='module-items'>\n";
-        $content .= "<ul>\n";
-
-        foreach ($items as $item) {
-            if (empty($item['title'])) {
-                continue;
-            }
-
-            $content .= "<li>";
-            $content .= "<strong>" . esc_html($item['title']) . "</strong>";
-
-            // Add item type badge
-            if (!empty($item['type'])) {
-                $type_label = $this->get_item_type_label($item['type']);
-                $content .= " <span class='item-type'>[" . $type_label . "]</span>";
-            }
-
-            // Add item description if available
-            if (!empty($item['content_details']['body'])) {
-                $content .= "<div class='item-description'>";
-                $content .= wp_kses_post($item['content_details']['body']);
-                $content .= "</div>";
-            }
-
-            $content .= "</li>\n";
-        }
-
-        $content .= "</ul>\n</div>\n";
-        return $content;
-    }
-
-    /**
-     * Get readable item type label
-     */
-    private function get_item_type_label($type) {
-        $types = array(
-            'Assignment' => 'Assignment',
-            'Quiz' => 'Quiz',
-            'Page' => 'Reading',
-            'Discussion' => 'Discussion',
-            'ExternalUrl' => 'External Link',
-            'File' => 'Document',
-            'ExternalTool' => 'Interactive Tool'
-        );
-
-        return isset($types[$type]) ? $types[$type] : $type;
-    }
-
-    /**
-     * Build learning outcomes section
-     */
-    private function build_learning_outcomes($course_id) {
-        if (!$this->api) {
-            return '';
-        }
-
-        // Get course outcomes
-        $outcomes = $this->api->make_request("courses/{$course_id}/outcome_groups");
+    private function build_learning_objectives($course_id, $course_details) {
+        $content = '';
         
-        if (is_wp_error($outcomes) || empty($outcomes)) {
-            return '';
-        }
-
-        $content = "<div class='learning-outcomes'>\n";
-        $content .= "<h2>Learning Outcomes</h2>\n";
-        $content .= "<p>Upon successful completion of this course, you will be able to:</p>\n";
+        $content .= "<div class='learning-objectives'>\n";
+        $content .= "<h2>Learning Objectives</h2>\n";
+        $content .= "<p><strong>Participants will be able to:</strong></p>\n";
         $content .= "<ul>\n";
 
-        foreach ($outcomes as $outcome_group) {
-            if (!empty($outcome_group['outcomes'])) {
-                foreach ($outcome_group['outcomes'] as $outcome) {
-                    if (!empty($outcome['description'])) {
-                        $content .= "<li>" . wp_kses_post($outcome['description']) . "</li>\n";
+        // Try to get objectives from Canvas API first
+        $objectives_found = false;
+        if ($this->api) {
+            $outcomes = $this->api->make_request("courses/{$course_id}/outcome_groups");
+            
+            if (!is_wp_error($outcomes) && !empty($outcomes)) {
+                foreach ($outcomes as $outcome_group) {
+                    if (!empty($outcome_group['outcomes'])) {
+                        foreach ($outcome_group['outcomes'] as $outcome) {
+                            if (!empty($outcome['description'])) {
+                                $content .= "<li>" . wp_kses_post($outcome['description']) . "</li>\n";
+                                $objectives_found = true;
+                            }
+                        }
                     }
                 }
             }
+        }
+
+        // Fallback to generic learning objectives if none found
+        if (!$objectives_found) {
+            $course_name = $course_details['name'] ?? 'the subject matter';
+            $content .= "<li>Demonstrate comprehensive knowledge of " . esc_html($course_name) . " and its practical applications</li>\n";
+            $content .= "<li>Identify key strategies and best practices related to the course content</li>\n";
+            $content .= "<li>Apply learned concepts in professional and practical settings</li>\n";
+            $content .= "<li>Evaluate and implement solutions based on course material</li>\n";
         }
 
         $content .= "</ul>\n</div>\n\n";
@@ -250,80 +149,47 @@ class CCS_Content_Handler {
     }
 
     /**
-     * Build assessment section
+     * Build badge information section
      */
-    private function build_assessment_section($course_id) {
-        if (!$this->api) {
-            return '';
-        }
-
-        // Get assignments and quizzes
-        $assignments = $this->api->make_request("courses/{$course_id}/assignments");
-        $quizzes = $this->api->make_request("courses/{$course_id}/quizzes");
-
-        $content = "<div class='course-assessment'>\n";
-        $content .= "<h2>Assessment & Completion Requirements</h2>\n";
-
-        if (!is_wp_error($assignments) && !empty($assignments)) {
-            $content .= "<h3>Assignments</h3>\n<ul>\n";
-            foreach ($assignments as $assignment) {
-                if (!empty($assignment['name'])) {
-                    $content .= "<li>" . esc_html($assignment['name']);
-                    if (!empty($assignment['points_possible'])) {
-                        $content .= " (" . $assignment['points_possible'] . " points)";
-                    }
-                    $content .= "</li>\n";
-                }
-            }
-            $content .= "</ul>\n";
-        }
-
-        if (!is_wp_error($quizzes) && !empty($quizzes)) {
-            $content .= "<h3>Quizzes & Assessments</h3>\n<ul>\n";
-            foreach ($quizzes as $quiz) {
-                if (!empty($quiz['title'])) {
-                    $content .= "<li>" . esc_html($quiz['title']);
-                    if (!empty($quiz['points_possible'])) {
-                        $content .= " (" . $quiz['points_possible'] . " points)";
-                    }
-                    $content .= "</li>\n";
-                }
-            }
-            $content .= "</ul>\n";
-        }
-
+    private function build_badge_information($course_details) {
+        $content = '';
+        
+        $content .= "<div class='badge-information'>\n";
+        $content .= "<h2>Badge Information</h2>\n";
+        
+        // Determine badge category based on course content
+        $badge_category = $this->determine_badge_category($course_details);
+        
+        $content .= "<p><strong>Module content category:</strong> " . esc_html($badge_category) . "</p>\n";
+        
+        $course_name = $course_details['name'] ?? 'Course';
+        $content .= "<div class='badge-display'>\n";
+        $content .= "<p><strong>" . esc_html($course_name) . "</strong></p>\n";
+        $content .= "<p>Upon successful completion, you will receive a digital badge that validates your achievement in " . esc_html($badge_category) . ".</p>\n";
+        $content .= "<p>Learn more about <a href='https://nationaldeafcenter.badgr.com/public/organization/badges' target='_blank'>NDC Badges here</a>.</p>\n";
+        $content .= "</div>\n";
+        
         $content .= "</div>\n\n";
         return $content;
     }
 
     /**
-     * Build course-specific credentials section
+     * Build continuing education credit information section
      */
-    private function build_credentials_section($course_details) {
-        $course_name = $course_details['name'] ?? 'this course';
+    private function build_ce_credit_information($course_details) {
+        $content = '';
         
-        $content = "<div class='course-credentials'>\n";
+        $content .= "<div class='continuing-education-credit'>\n";
+        $content .= "<h2>Continuing Education Credit</h2>\n";
         
-        // Digital Badge Section
-        $content .= "<h2>Digital Badge</h2>\n";
-        $content .= "<p>Upon successful completion of <strong>" . esc_html($course_name) . "</strong>, you will receive a digital badge that validates your achievement. This badge can be:</p>\n";
-        $content .= "<ul>\n";
-        $content .= "<li>Shared on professional networks like LinkedIn</li>\n";
-        $content .= "<li>Added to your email signature</li>\n";
-        $content .= "<li>Included in your professional portfolio</li>\n";
-        $content .= "<li>Used to demonstrate your expertise to employers</li>\n";
-        $content .= "</ul>\n\n";
-
-        // CE Credits Section
-        $content .= "<h2>Continuing Education Credits</h2>\n";
-        
-        // Try to extract CE information from course details
+        // Try to extract specific CE hours from course details
         $ce_hours = $this->extract_ce_hours($course_details);
         
         if ($ce_hours) {
-            $content .= "<p><strong>" . esc_html($course_name) . "</strong> is approved for <strong>" . $ce_hours . " continuing education credits</strong>.</p>\n";
+            $content .= "<p>This module is pre-approved for <strong>" . esc_html($ce_hours) . " NDC Continuing Professional Education Clock Hours</strong> and <strong>" . esc_html($ce_hours) . " CRCC Clock Hours</strong>.</p>\n";
         } else {
-            $content .= "<p><strong>" . esc_html($course_name) . "</strong> may qualify for continuing education credits.</p>\n";
+            // Default to 1 hour if no specific hours found
+            $content .= "<p>This module is pre-approved for <strong>1 NDC Continuing Professional Education Clock Hour</strong> and <strong>1 CRCC Clock Hour</strong>.</p>\n";
         }
         
         $content .= "<div class='ce-details'>\n";
@@ -338,8 +204,47 @@ class CCS_Content_Handler {
         $content .= "</div>\n";
         
         $content .= "</div>\n\n";
-        
         return $content;
+    }
+
+    /**
+     * Determine badge category based on course content
+     */
+    private function determine_badge_category($course_details) {
+        $course_name = strtolower($course_details['name'] ?? '');
+        $description = strtolower($course_details['public_description'] ?? '') . ' ' . strtolower($course_details['syllabus_body'] ?? '');
+        
+        // Check for accessibility-related keywords
+        if (strpos($course_name, 'accessibility') !== false || 
+            strpos($course_name, 'assistive') !== false ||
+            strpos($description, 'accessibility') !== false ||
+            strpos($description, 'assistive technology') !== false) {
+            return 'Accessibility Practices';
+        }
+        
+        // Check for rehabilitation keywords
+        if (strpos($course_name, 'rehabilitation') !== false || 
+            strpos($course_name, 'vocational') !== false ||
+            strpos($description, 'rehabilitation') !== false ||
+            strpos($description, 'vocational') !== false) {
+            return 'Vocational Rehabilitation';
+        }
+        
+        // Check for mentoring keywords
+        if (strpos($course_name, 'mentor') !== false || 
+            strpos($description, 'mentor') !== false) {
+            return 'Professional Development';
+        }
+        
+        // Check for awareness/education keywords
+        if (strpos($course_name, 'awareness') !== false || 
+            strpos($course_name, 'deaf') !== false ||
+            strpos($description, 'deaf awareness') !== false) {
+            return 'Deaf Awareness';
+        }
+        
+        // Default category
+        return 'Professional Development';
     }
 
     /**
@@ -360,7 +265,7 @@ class CCS_Content_Handler {
                 
                 // Look for patterns like "1.5 CE", "2 hours", "3.0 credits"
                 if (preg_match('/(\d+(?:\.\d+)?)\s*(?:CE|credit|hour)s?/i', $text, $matches)) {
-                    return $matches[1] . ' hours';
+                    return $matches[1];
                 }
             }
         }
