@@ -317,7 +317,7 @@ class CCS_Catalog_Validator {
             // Check similarity (90% match for better precision)
             $similarity = 0;
             similar_text(strtolower($course_name), strtolower($approved_course), $similarity);
-            if ($similarity >= 90) {
+            if ($similarity >= 98) {
                 error_log("CCS_Catalog_Validator: APPROVED - High similarity ({$similarity}%) between '{$course_name}' and '{$approved_course}'");
                 return true;
             }
