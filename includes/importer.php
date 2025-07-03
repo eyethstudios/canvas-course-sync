@@ -74,6 +74,17 @@ class CCS_Importer {
 
     
     /**
+     * Check if a course exists
+     *
+     * @param int $course_id Canvas course ID
+     * @param string $course_name Course name
+     * @return array Course exists check result
+     */
+    public function course_exists($course_id, $course_name = '') {
+        return $this->db_manager->course_exists($course_id, $course_name);
+    }
+
+    /**
      * Import courses from Canvas
      *
      * @param array $course_ids Array of course IDs to import

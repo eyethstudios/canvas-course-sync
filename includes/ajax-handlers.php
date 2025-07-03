@@ -90,8 +90,8 @@ function ccs_get_courses_handler() {
             
             // Check if course already exists
             $exists_check = array('exists' => false);
-            if ($canvas_course_sync->importer && $canvas_course_sync->importer->db_manager) {
-                $exists_check = $canvas_course_sync->importer->db_manager->course_exists($course['id'], $course['name']);
+            if ($canvas_course_sync->importer) {
+                $exists_check = $canvas_course_sync->importer->course_exists($course['id'], $course['name']);
             }
             
             // Check if course is manually omitted
