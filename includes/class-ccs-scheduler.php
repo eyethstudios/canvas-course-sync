@@ -152,11 +152,19 @@ class CCS_Scheduler {
         $this->logger->log('Checking ' . count($canvas_courses) . ' Canvas courses for duplicates using database manager');
         
         foreach ($canvas_courses as $course) {
-            // Use standardized database manager check
+            // Use standardized database manager check with enhanced logic for deleted courses
             $exists_check = $this->db_manager->course_exists($course['id'], $course['name']);
             
             if ($exists_check['exists']) {
-                $this->logger->log('Skipping course "' . $course['name'] . '" - already exists (' . $exists_check['type'] . ') - Post ID: ' . $exists_check['post_id']);
+                // Check if the existing post is actually available (same logic as manual sync)
+                $existing_post = get_post($exists_check['post_id']);
+                if ($existing_post && $existing_post->post_status !== 'trash') {
+                    $this->logger->log('Skipping course "' . $course['name'] . '" - already exists and is active (' . $exists_check['type'] . ') - Post ID: ' . $exists_check['post_id']);
+                } else {
+                    // Course tracking exists but post is deleted/trashed - include for re-import
+                    $new_courses[] = $course;
+                    $this->logger->log('Course "' . $course['name'] . '" marked for re-import (tracking exists but post deleted) - Canvas ID: ' . $course['id']);
+                }
             } else {
                 $new_courses[] = $course;
                 $this->logger->log('Course "' . $course['name'] . '" marked for import (Canvas ID: ' . $course['id'] . ')');
