@@ -104,28 +104,46 @@ class CCS_Catalog_Validator {
         
         $xpath = new DOMXPath($dom);
         
-        // Common selectors for course titles
-        $selectors = array(
-            '//h1[contains(@class, "course-title")]',
-            '//h2[contains(@class, "course-title")]', 
-            '//h3[contains(@class, "course-title")]',
-            '//*[contains(@class, "course-name")]',
-            '//*[contains(@class, "course-title")]',
-            '//h1', '//h2', '//h3' // Fallback to all headings
-        );
+        // Look for course links specifically - the catalog uses [**Course Name**] format
+        $link_nodes = $xpath->query('//a[contains(@href, "/courses/")]');
         
-        foreach ($selectors as $selector) {
-            $nodes = $xpath->query($selector);
-            foreach ($nodes as $node) {
-                $title = trim($node->textContent);
-                if (!empty($title) && strlen($title) > 5) {
+        foreach ($link_nodes as $link) {
+            $title = trim($link->textContent);
+            // Remove asterisks from markdown-style formatting
+            $title = trim($title, '*');
+            
+            if (!empty($title) && strlen($title) > 5) {
+                // Skip common navigation links
+                if (!in_array(strtolower($title), ['courses', 'course', 'home', 'about', 'contact'])) {
                     $courses[] = $title;
                 }
             }
+        }
+        
+        // Fallback: Look for specific course title selectors
+        if (empty($courses)) {
+            $selectors = array(
+                '//h1[contains(@class, "course-title")]',
+                '//h2[contains(@class, "course-title")]', 
+                '//h3[contains(@class, "course-title")]',
+                '//*[contains(@class, "course-name")]',
+                '//*[contains(@class, "course-title")]',
+                '//h1', '//h2', '//h3' // Final fallback
+            );
             
-            // If we found courses with specific selectors, use those
-            if (!empty($courses) && $selector !== '//h1' && $selector !== '//h2' && $selector !== '//h3') {
-                break;
+            foreach ($selectors as $selector) {
+                $nodes = $xpath->query($selector);
+                foreach ($nodes as $node) {
+                    $title = trim($node->textContent);
+                    if (!empty($title) && strlen($title) > 5) {
+                        $courses[] = $title;
+                    }
+                }
+                
+                // If we found courses with specific selectors, use those
+                if (!empty($courses) && $selector !== '//h1' && $selector !== '//h2' && $selector !== '//h3') {
+                    break;
+                }
             }
         }
         
@@ -134,6 +152,8 @@ class CCS_Catalog_Validator {
         $courses = array_filter($courses, function($course) {
             return !empty($course) && strlen($course) > 5;
         });
+        
+        $this->log_info('Parsed ' . count($courses) . ' courses from catalog HTML');
         
         return array_values($courses);
     }
@@ -146,7 +166,23 @@ class CCS_Catalog_Validator {
             'Assistive Technology in Training and Workplace Settings',
             'Deaf Awareness for Vocational Rehabilitation Professionals',
             'Effective Mentoring for Deaf People',
-            'Introduction to Deaf Rehabilitation'
+            'Introduction to Deaf Rehabilitation',
+            'Partnering with Deaf Youth: Strength-Based Transition Planning for VR Professionals',
+            'Pre-Employment Transition Services (Pre-ETS) and Deaf Youth',
+            'Data-Driven Decision Making: What Does it Matter?',
+            'Deaf 101',
+            'Finding Data About Deaf People',
+            'Summer Programs for Deaf Youth: Stories and Strategies',
+            'Attitudes as Barriers for Deaf People',
+            'Building Relationships with Deaf Communities',
+            'Discovering System Barriers and Exploring the WHY',
+            'Transforming Systems to Improve Experiences for Deaf People',
+            'Legal Frameworks and Responsibilities for Accessibility',
+            'Accommodations 101',
+            'Coordinating Services for Deaf Students',
+            'Captioned Media 101',
+            'Introduction to Interpreting Services',
+            'Speech-to-Text 101'
         ];
     }
 
