@@ -5,7 +5,7 @@ Tags: canvas, lms, course, sync, education
 Requires at least: 5.0
 Tested up to: 6.4
 Requires PHP: 7.4
-Stable tag: 3.1.9
+Stable tag: 3.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -46,6 +46,12 @@ The token needs read access to courses and basic user information.
 3. Logging and status monitoring
 
 == Changelog ==
+
+= 3.2.0 =
+* MAJOR FIX: Course status checking now uses tracking table data and properly detects deleted/trashed courses
+* MAJOR FIX: Enhanced Canvas API endpoint to include more course states (available, completed) and better pagination
+* Fixed cleanup deleted courses functionality by checking actual WordPress post status vs tracking table
+* Improved course listing accuracy by consulting tracking table for sync status
 
 = 3.1.9 =
 * Fixed GitHub updater initialization and plugin row meta links for "Check for updates" functionality

@@ -88,10 +88,35 @@ function ccs_get_courses_handler() {
             // Validate course against catalog instead of hard-coded exclusions
             // This will be done in bulk after getting all courses
             
-            // Check if course already exists
+            // Check course status using database manager for accurate tracking
+            $status = 'available';
             $exists_check = array('exists' => false);
+            
             if ($canvas_course_sync->importer) {
                 $exists_check = $canvas_course_sync->importer->course_exists($course['id'], $course['name']);
+                
+                // Check tracking table for more accurate status
+                global $wpdb;
+                $tracking_table = $wpdb->prefix . 'ccs_course_tracking';
+                $tracking_record = $wpdb->get_row($wpdb->prepare(
+                    "SELECT * FROM $tracking_table WHERE canvas_course_id = %d",
+                    intval($course['id'])
+                ));
+                
+                if ($tracking_record) {
+                    // Use status from tracking table
+                    $status = $tracking_record->sync_status;
+                    
+                    // Double-check if the WordPress post actually exists
+                    if ($status === 'synced') {
+                        $post = get_post($tracking_record->wordpress_post_id);
+                        if (!$post || $post->post_status === 'trash') {
+                            $status = 'available'; // Override if post is actually deleted/trashed
+                        }
+                    }
+                } elseif ($exists_check['exists']) {
+                    $status = 'synced';
+                }
             }
             
             // Check if course is manually omitted
@@ -101,7 +126,7 @@ function ccs_get_courses_handler() {
                 'id' => $course['id'],
                 'name' => $course['name'],
                 'course_code' => $course['course_code'] ?? '',
-                'status' => $exists_check['exists'] ? 'synced' : 'available',
+                'status' => $status,
                 'is_omitted' => $is_omitted
             );
         }

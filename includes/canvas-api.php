@@ -153,7 +153,8 @@ class CCS_Canvas_API {
         error_log('CCS_Canvas_API: Starting get_courses() with per_page=' . $per_page . ', max_pages=' . $max_pages);
         
         do {
-            $endpoint = "courses?enrollment_type=teacher&include[]=syllabus_body&include[]=public_description&include[]=total_students&per_page={$per_page}&page={$page}";
+            // Try different endpoint parameters for better results
+            $endpoint = "courses?enrollment_type=teacher&include[]=syllabus_body&include[]=public_description&include[]=total_students&include[]=term&per_page={$per_page}&page={$page}&state[]=available&state[]=completed";
             error_log('CCS_Canvas_API: Requesting page ' . $page . ' with endpoint: ' . $endpoint);
             
             $result = $this->make_request($endpoint);
