@@ -231,22 +231,7 @@ class CCS_Content_Handler {
             }
         }
         
-        // If no specific module page found, check course-level descriptions
-        if (empty($module_description)) {
-            error_log('CCS_Content_Handler: No module page found, checking course descriptions...');
-            
-            // Priority order: public_description, syllabus_body, description
-            if (!empty($course_details['public_description'])) {
-                $module_description = $course_details['public_description'];
-                error_log('CCS_Content_Handler: Using public_description');
-            } elseif (!empty($course_details['syllabus_body'])) {
-                $module_description = $course_details['syllabus_body'];
-                error_log('CCS_Content_Handler: Using syllabus_body');
-            } elseif (!empty($course_details['description'])) {
-                $module_description = $course_details['description'];
-                error_log('CCS_Content_Handler: Using description field');
-            }
-        }
+        // Skip course-level descriptions to avoid duplication with about section
         
         // If still no description, look in module content
         if (empty($module_description) && !empty($modules)) {
