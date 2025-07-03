@@ -215,25 +215,60 @@ class CCS_Database_Manager {
                 }
             }
             
-            // Add to tracking table
+            // Check if course already exists in tracking table
             $tracking_table = $wpdb->prefix . 'ccs_course_tracking';
-            $tracking_result = $wpdb->insert(
-                $tracking_table,
-                array(
-                    'canvas_course_id' => intval($course_data['canvas_id']),
-                    'wordpress_post_id' => $post_id,
-                    'course_title' => sanitize_text_field($course_data['title']),
-                    'course_slug' => sanitize_title($course_data['slug'] ?? ''),
-                    'sync_status' => 'synced'
-                ),
-                array('%d', '%d', '%s', '%s', '%s')
-            );
+            $existing_tracking = $wpdb->get_row($wpdb->prepare(
+                "SELECT * FROM $tracking_table WHERE canvas_course_id = %d",
+                intval($course_data['canvas_id'])
+            ));
             
-            if ($tracking_result === false) {
-                throw new Exception('Failed to insert into tracking table: ' . $wpdb->last_error);
+            if ($existing_tracking) {
+                // Update existing tracking record instead of inserting new one
+                error_log('CCS_Database_Manager: Updating existing tracking record for Canvas ID: ' . $course_data['canvas_id']);
+                
+                $tracking_result = $wpdb->update(
+                    $tracking_table,
+                    array(
+                        'wordpress_post_id' => $post_id,
+                        'course_title' => sanitize_text_field($course_data['title']),
+                        'course_slug' => sanitize_title($course_data['slug'] ?? ''),
+                        'sync_status' => 'synced',
+                        'updated_at' => current_time('mysql')
+                    ),
+                    array('canvas_course_id' => intval($course_data['canvas_id'])),
+                    array('%d', '%s', '%s', '%s', '%s'),
+                    array('%d')
+                );
+                
+                if ($tracking_result === false) {
+                    throw new Exception('Failed to update tracking table: ' . $wpdb->last_error);
+                }
+                
+                error_log('CCS_Database_Manager: Updated tracking table record ID: ' . $existing_tracking->id);
+                $tracking_id = $existing_tracking->id;
+            } else {
+                // Insert new tracking record
+                error_log('CCS_Database_Manager: Inserting new tracking record for Canvas ID: ' . $course_data['canvas_id']);
+                
+                $tracking_result = $wpdb->insert(
+                    $tracking_table,
+                    array(
+                        'canvas_course_id' => intval($course_data['canvas_id']),
+                        'wordpress_post_id' => $post_id,
+                        'course_title' => sanitize_text_field($course_data['title']),
+                        'course_slug' => sanitize_title($course_data['slug'] ?? ''),
+                        'sync_status' => 'synced'
+                    ),
+                    array('%d', '%d', '%s', '%s', '%s')
+                );
+                
+                if ($tracking_result === false) {
+                    throw new Exception('Failed to insert into tracking table: ' . $wpdb->last_error);
+                }
+                
+                error_log('CCS_Database_Manager: Added to tracking table with ID: ' . $wpdb->insert_id);
+                $tracking_id = $wpdb->insert_id;
             }
-            
-            error_log('CCS_Database_Manager: Added to tracking table with ID: ' . $wpdb->insert_id);
             
             // Commit transaction
             $wpdb->query('COMMIT');
@@ -242,7 +277,7 @@ class CCS_Database_Manager {
             return array(
                 'success' => true,
                 'post_id' => $post_id,
-                'tracking_id' => $wpdb->insert_id
+                'tracking_id' => $tracking_id
             );
             
         } catch (Exception $e) {
