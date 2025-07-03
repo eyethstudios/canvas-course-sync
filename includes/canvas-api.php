@@ -147,7 +147,7 @@ class CCS_Canvas_API {
         $max_pages = CCS_MAX_API_PAGES; // Safety limit
         
         do {
-            $endpoint = "courses?enrollment_type=teacher&include[]=syllabus_body&include[]=public_description&include[]=total_students&per_page={$per_page}&page={$page}";
+            $endpoint = "courses?enrollment_type=teacher&enrollment_type=ta&enrollment_type=designer&include[]=syllabus_body&include[]=public_description&include[]=total_students&per_page={$per_page}&page={$page}";
             $courses = $this->make_request($endpoint);
             
             if (is_wp_error($courses)) {

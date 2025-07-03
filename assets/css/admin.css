@@ -1,6 +1,39 @@
 
 /* Canvas Course Sync Admin Styles */
 
+/* Course filter styling */
+.ccs-course-filters {
+    background: #f9f9f9;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-bottom: 10px;
+}
+
+.ccs-course-filters label {
+    font-weight: normal;
+    cursor: pointer;
+}
+
+.ccs-course-filters input[type="radio"] {
+    margin-right: 5px;
+}
+
+/* Row styling for different course statuses */
+.course-new {
+    background-color: #f0f8ff;
+}
+
+.course-synced {
+    background-color: #f0fff0;
+}
+
+.course-omitted {
+    background-color: #fff8f0;
+}
+
+/* Original styles */
+
 .ccs-admin-container {
     max-width: 1200px;
     margin: 20px 0;

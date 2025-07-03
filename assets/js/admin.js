@@ -205,7 +205,18 @@
             
             let html = '<div class="ccs-courses-header">';
             html += '<strong>Found ' + courses.length + ' course(s)</strong>';
-            html += '</div>';
+            html += '<div class="ccs-course-filters" style="margin-top: 10px;">';
+            html += '<label style="margin-right: 15px;"><input type="radio" name="course-filter" value="all" checked> Show All (' + courses.length + ')</label>';
+            
+            // Count courses by status
+            const newCourses = courses.filter(c => c.status === 'available' && !c.is_omitted);
+            const syncedCourses = courses.filter(c => c.status === 'synced');
+            const omittedCourses = courses.filter(c => c.is_omitted);
+            
+            html += '<label style="margin-right: 15px;"><input type="radio" name="course-filter" value="new"> New Courses (' + newCourses.length + ')</label>';
+            html += '<label style="margin-right: 15px;"><input type="radio" name="course-filter" value="synced"> Already Synced (' + syncedCourses.length + ')</label>';
+            html += '<label><input type="radio" name="course-filter" value="omitted"> Omitted (' + omittedCourses.length + ')</label>';
+            html += '</div></div>';
             
             html += '<table class="wp-list-table widefat fixed striped">';
             html += '<thead><tr>';
@@ -213,7 +224,7 @@
             html += '<th>Course Name</th>';
             html += '<th>Canvas ID</th>';
             html += '<th>Status</th>';
-            html += '</tr></thead><tbody>';
+            html += '</tr></thead><tbody id="ccs-course-table-body">';
             
             courses.forEach(function(course) {
                 const courseId = course.id || 0;
@@ -222,16 +233,21 @@
                 
                 let statusText = 'Available';
                 let statusClass = 'notice-info';
+                let rowClass = 'course-available';
                 
                 if (isOmitted) {
                     statusText = 'Omitted';
                     statusClass = 'notice-warning';
+                    rowClass = 'course-omitted';
                 } else if (course.status === 'synced') {
                     statusText = 'Synced';
                     statusClass = 'notice-success';
+                    rowClass = 'course-synced';
+                } else {
+                    rowClass = 'course-new';
                 }
                 
-                html += '<tr>';
+                html += '<tr class="' + rowClass + '" data-status="' + (isOmitted ? 'omitted' : course.status) + '">';
                 html += '<td><input type="checkbox" class="ccs-course-checkbox" value="' + courseId + '"></td>';
                 html += '<td><strong>' + CourseManager.escapeHtml(courseName) + '</strong></td>';
                 html += '<td>' + courseId + '</td>';
@@ -244,7 +260,30 @@
             
             // Bind select all checkbox
             $('#ccs-select-all-checkbox').on('change', function() {
-                $('.ccs-course-checkbox').prop('checked', $(this).prop('checked'));
+                $('.ccs-course-checkbox:visible').prop('checked', $(this).prop('checked'));
+            });
+            
+            // Bind filter functionality
+            $('input[name="course-filter"]').on('change', function() {
+                const filterValue = $(this).val();
+                const $tableBody = $('#ccs-course-table-body');
+                const $rows = $tableBody.find('tr');
+                
+                if (filterValue === 'all') {
+                    $rows.show();
+                } else if (filterValue === 'new') {
+                    $rows.hide();
+                    $rows.filter('.course-new, .course-available').show();
+                } else if (filterValue === 'synced') {
+                    $rows.hide();
+                    $rows.filter('.course-synced').show();
+                } else if (filterValue === 'omitted') {
+                    $rows.hide();
+                    $rows.filter('.course-omitted').show();
+                }
+                
+                // Update select all checkbox to only affect visible courses
+                $('#ccs-select-all-checkbox').prop('checked', false);
             });
         },
         
