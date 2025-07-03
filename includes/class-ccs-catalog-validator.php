@@ -63,7 +63,9 @@ class CCS_Catalog_Validator {
         $response = wp_remote_get($this->catalog_url, array(
             'timeout' => 30,
             'headers' => array(
-                'User-Agent' => 'Canvas Course Sync Plugin'
+                'User-Agent' => 'Canvas Course Sync Plugin',
+                'Cache-Control' => 'no-cache, no-store, must-revalidate',
+                'Pragma' => 'no-cache'
             )
         ));
 
@@ -88,7 +90,17 @@ class CCS_Catalog_Validator {
         
         $this->log_info('Fetched ' . count($courses) . ' courses from user-configured catalog: ' . $this->catalog_url);
         return $this->catalog_courses;
-    } // FIX: Added missing closing brace
+    }
+    
+    /**
+     * Force refresh of catalog courses (clears cache)
+     */
+    public function force_catalog_refresh() {
+        $cache_key = 'ccs_catalog_courses_' . md5($this->catalog_url);
+        delete_transient($cache_key);
+        $this->catalog_courses = null;
+        $this->log_info('Forced catalog refresh - cache cleared for: ' . $this->catalog_url);
+    }
 
     /**
      * Parse HTML content to extract course titles

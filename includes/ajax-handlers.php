@@ -131,12 +131,15 @@ function ccs_get_courses_handler() {
             );
         }
         
-        // Now validate all courses against catalog
+        // Now validate all courses against catalog - force fresh catalog check
         if (class_exists('CCS_Catalog_Validator')) {
             $validator = new CCS_Catalog_Validator();
             
+            // Force fresh catalog fetch to ensure we have the latest courses
+            $validator->force_catalog_refresh();
+            
             // Debug: Log before validation
-            error_log('CCS Debug: Starting catalog validation for ' . count($processed_courses) . ' courses');
+            error_log('CCS Debug: Starting catalog validation for ' . count($processed_courses) . ' courses with fresh catalog data');
             
             $validation_results = $validator->validate_against_catalog($processed_courses);
             
