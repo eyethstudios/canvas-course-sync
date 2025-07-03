@@ -177,6 +177,19 @@
                     
                     if (response.success && response.data) {
                         const courses = response.data.courses || response.data;
+                        const validationReport = response.data.validation_report || '';
+                        const autoOmittedCount = response.data.auto_omitted_count || 0;
+                        
+                        // Show validation report if there is one
+                        if (validationReport) {
+                            $list.prepend(validationReport);
+                        }
+                        
+                        // Show info about catalog filtering
+                        if (autoOmittedCount > 0) {
+                            console.log(`CCS: ${autoOmittedCount} courses auto-omitted due to catalog validation`);
+                        }
+                        
                         CourseManager.renderCourses(courses, $list);
                         $wrapper.show();
                     } else {

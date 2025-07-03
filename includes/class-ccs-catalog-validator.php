@@ -146,18 +146,7 @@ class CCS_Catalog_Validator {
             'Assistive Technology in Training and Workplace Settings',
             'Deaf Awareness for Vocational Rehabilitation Professionals',
             'Effective Mentoring for Deaf People',
-            'Introduction to Deaf Rehabilitation',
-            'Partnering with Deaf Youth: Strength-Based Transition Planning for VR Professionals',
-            'Pre-Employment Transition Services (Pre-ETS) and Deaf Youth',
-            'Data-Driven Decision Making: What Does it Matter?',
-            'Deaf 101',
-            'Finding Data About Deaf People',
-            'Summer Programs for Deaf Youth: Stories and Strategies',
-            'Attitudes as Barriers for Deaf People',
-            'Building Relationships with Deaf Communities',
-            'Discovering System Barriers and Exploring the WHY',
-            'Transforming Systems to Improve Experiences for Deaf People',
-            'Legal Frameworks and Responsibilities for Accessibility'
+            'Introduction to Deaf Rehabilitation'
         ];
     }
 

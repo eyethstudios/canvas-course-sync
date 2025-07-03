@@ -134,7 +134,14 @@ function ccs_get_courses_handler() {
         // Now validate all courses against catalog
         if (class_exists('CCS_Catalog_Validator')) {
             $validator = new CCS_Catalog_Validator();
+            
+            // Debug: Log before validation
+            error_log('CCS Debug: Starting catalog validation for ' . count($processed_courses) . ' courses');
+            
             $validation_results = $validator->validate_against_catalog($processed_courses);
+            
+            // Debug: Log validation results
+            error_log('CCS Debug: Validation results - Validated: ' . count($validation_results['validated']) . ', Omitted: ' . count($validation_results['omitted']) . ', Auto-omitted: ' . count($validation_results['auto_omitted_ids']));
             
             // Update processed courses with validation results
             $validated_courses = $validation_results['validated'];
@@ -150,6 +157,9 @@ function ccs_get_courses_handler() {
                 // Add detailed report
                 $validation_report .= $validator->generate_validation_report($validation_results);
             }
+            
+            // Debug: Log final result
+            error_log('CCS Debug: Sending ' . count($validated_courses) . ' validated courses to frontend');
             
             wp_send_json_success(array(
                 'courses' => $validated_courses,
