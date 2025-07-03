@@ -53,19 +53,29 @@ class CCS_Content_Handler {
      */
     public function prepare_course_content($course_details) {
         if (empty($course_details) || empty($course_details['id'])) {
+            error_log('CCS_Content_Handler: Missing course details or ID');
             return '';
         }
 
         $course_id = $course_details['id'];
+        $course_name = $course_details['name'] ?? 'Unknown Course';
+        error_log('CCS_Content_Handler: Preparing content for course: ' . $course_name . ' (ID: ' . $course_id . ')');
+        
         $content = '';
 
         // Get modules first to extract real content
         $modules = array();
         if ($this->api) {
+            error_log('CCS_Content_Handler: Fetching modules for course ' . $course_id);
             $modules_result = $this->api->get_course_modules($course_id);
             if (!is_wp_error($modules_result)) {
                 $modules = $modules_result;
+                error_log('CCS_Content_Handler: Retrieved ' . count($modules) . ' modules');
+            } else {
+                error_log('CCS_Content_Handler: Failed to get modules: ' . $modules_result->get_error_message());
             }
+        } else {
+            error_log('CCS_Content_Handler: API instance not available');
         }
 
         // Module Description Section (from actual Canvas content)
@@ -80,6 +90,8 @@ class CCS_Content_Handler {
         // Continuing Education Credit Section
         $content .= $this->build_ce_credit_information($course_details);
 
+        error_log('CCS_Content_Handler: Generated content length: ' . strlen($content));
+        
         return $content;
     }
 
@@ -88,14 +100,39 @@ class CCS_Content_Handler {
      */
     private function build_module_description($course_details, $modules = array()) {
         $content = '';
+        $course_name = $course_details['name'] ?? 'Unknown Course';
+        
+        error_log('CCS_Content_Handler: Building module description for ' . $course_name . ' with ' . count($modules) . ' modules');
         
         $content .= "<div class='module-description'>\n";
         $content .= "<h2>Module Description</h2>\n";
         
-        // First try to get description from modules
+        // First try to get description from course syllabus or public description
         $module_description = '';
-        if (!empty($modules)) {
+        
+        // Priority order: public_description, syllabus_body, description
+        if (!empty($course_details['public_description'])) {
+            $module_description = $course_details['public_description'];
+            error_log('CCS_Content_Handler: Using public_description');
+        } elseif (!empty($course_details['syllabus_body'])) {
+            $module_description = $course_details['syllabus_body'];
+            error_log('CCS_Content_Handler: Using syllabus_body');
+        } elseif (!empty($course_details['description'])) {
+            $module_description = $course_details['description'];
+            error_log('CCS_Content_Handler: Using description field');
+        }
+        
+        // If no course description, try to get from modules
+        if (empty($module_description) && !empty($modules)) {
+            error_log('CCS_Content_Handler: No course description found, checking modules...');
             foreach ($modules as $module) {
+                // Check module description first
+                if (!empty($module['description'])) {
+                    $module_description = $module['description'];
+                    error_log('CCS_Content_Handler: Using module description from: ' . ($module['name'] ?? 'unnamed module'));
+                    break;
+                }
+                
                 // Look for modules with description or introduction content
                 if (!empty($module['items'])) {
                     foreach ($module['items'] as $item) {
@@ -104,39 +141,34 @@ class CCS_Content_Handler {
                              stripos($item['title'], 'introduction') !== false ||
                              stripos($item['title'], 'overview') !== false)) {
                             
+                            error_log('CCS_Content_Handler: Found relevant page: ' . $item['title']);
+                            
                             // Get the page content
                             if ($this->api && !empty($item['page_url'])) {
                                 $page_url = str_replace('/api/v1/', '', $item['page_url']);
                                 $page_result = $this->api->make_request($page_url);
                                 if (!is_wp_error($page_result) && !empty($page_result['data']['body'])) {
                                     $module_description = $page_result['data']['body'];
+                                    error_log('CCS_Content_Handler: Retrieved page content, length: ' . strlen($module_description));
                                     break 2; // Break out of both loops
+                                } else {
+                                    error_log('CCS_Content_Handler: Failed to get page content');
                                 }
                             }
                         }
                     }
                 }
-                
-                // Also check module description
-                if (empty($module_description) && !empty($module['description'])) {
-                    $module_description = $module['description'];
-                    break;
-                }
             }
         }
         
-        // Use module description if found, otherwise use course descriptions
-        if ($module_description) {
-            $content .= wp_kses_post($module_description) . "\n";
-        } elseif (!empty($course_details['public_description'])) {
-            $content .= wp_kses_post($course_details['public_description']) . "\n";
-        } elseif (!empty($course_details['syllabus_body'])) {
-            $content .= wp_kses_post($course_details['syllabus_body']) . "\n";
-        } elseif (!empty($course_details['description'])) {
-            $content .= wp_kses_post($course_details['description']) . "\n";
+        // Use module description if found, otherwise use fallback
+        if (!empty($module_description)) {
+            $clean_description = wp_kses_post($module_description);
+            $content .= $clean_description . "\n";
+            error_log('CCS_Content_Handler: Added description content, length: ' . strlen($clean_description));
         } else {
             // Fallback generic description only if no Canvas content found
-            $course_name = $course_details['name'] ?? 'this course';
+            error_log('CCS_Content_Handler: No specific content found, using fallback for: ' . $course_name);
             $content .= "<p>This module provides comprehensive training and information related to " . esc_html($course_name) . ". Participants will gain practical knowledge and skills that can be applied in professional settings.</p>\n";
         }
         
