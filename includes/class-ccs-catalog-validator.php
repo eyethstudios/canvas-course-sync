@@ -163,6 +163,7 @@ class CCS_Catalog_Validator {
      */
     private function get_default_catalog() {
         return [
+            // Page 1 courses
             'Assistive Technology in Training and Workplace Settings',
             'Deaf Awareness for Vocational Rehabilitation Professionals',
             'Effective Mentoring for Deaf People',
@@ -182,7 +183,39 @@ class CCS_Catalog_Validator {
             'Coordinating Services for Deaf Students',
             'Captioned Media 101',
             'Introduction to Interpreting Services',
-            'Speech-to-Text 101'
+            'Speech-to-Text 101',
+            
+            // Page 2 courses
+            'Assistive Listening Devices and Systems',
+            'Introduction to Remote Services',
+            'Testing Experiences for Deaf Students',
+            'Designing Accessible Online Experiences for Deaf People',
+            'Supporting Accessible Learning Environments and Instruction for Deaf Students',
+            'Using UDL Principles for Teaching Deaf Students Online',
+            'OnDemand Webinar: Commencement for All: Making Graduation Accessible',
+            'OnDemand Webinar: What are Assistive Listening Systems?',
+            'OnDemand Webinar: Preparing Access Services for Deaf College Students: Tips & Resources',
+            'Note Taker Training',
+            'Advanced Practices: Evaluating & Managing Services Using Data',
+            'Collecting Data from the Community',
+            'FAC Improving Campus Access',
+            'FAC Planning & Hosting Community Conversations',
+            'OnDemand Webinar: Automated Craptioning: Wh@t Dead Dey Say?',
+            'OnDemand Webinar Breaking Barriers: Navigating the Grievance Process',
+            'OnDemand Webinar: Centralized Systems that Promote #DeafSucess at Colleges',
+            'OnDemand Webinar: Deaf People Leading the Way',
+            'On Demand Webinar: Does Auto Captioning Effectively Accommodate Deaf People?',
+            'OnDemand Webinar Exploring Assistive Technology Options for Deaf Students',
+            
+            // Page 3 courses
+            'OnDemand Webinar: For Deaf People, By Deaf People: Centering Deaf People in Systems Change',
+            'OnDemand Webinar: HIPAA and Access',
+            'OnDemand Webinar: Mentoring Deaf Youth Leads to #Deaf Success',
+            'OnDemand Webinar: Pathways To and Through Health Science Education',
+            'OnDemand Webinar Preventing Retraumatization: Establishing Responsive Mental Health Support for Deaf Students',
+            'OnDemand Webinar: Re-Framing the Interactive Process to Achieve Effective Communication Access',
+            'OnDemand Webinar: Using Data to Further Dialogue for Change',
+            'Work-Based Learning Programs'
         ];
     }
 
