@@ -230,61 +230,64 @@ class CCS_Content_Handler {
             }
         }
         
-        // If no specific module description found, look for any content from course details or modules
+        // Enhanced search for module-specific content across all Canvas content
         if (empty($module_description)) {
-            error_log('CCS_Content_Handler: No module-specific pages found, checking course content...');
+            error_log('CCS_Content_Handler: No module-specific pages found, conducting comprehensive search...');
             
-            // Try using course-level content as fallback, but only if different from about section
-            if (!empty($course_details['syllabus_body'])) {
-                $module_description = $course_details['syllabus_body'];
-                error_log('CCS_Content_Handler: Using syllabus_body for module description');
-            } elseif (!empty($course_details['public_description'])) {
-                $module_description = $course_details['public_description'];
-                error_log('CCS_Content_Handler: Using public_description for module description');
+            // Search all pages for any content that could be module description
+            if (!empty($pages)) {
+                foreach ($pages as $page) {
+                    $page_title = strtolower($page['title'] ?? '');
+                    
+                    // Broader search criteria for content pages
+                    if (!empty($page['body']) && strlen($page['body']) > 100) {
+                        error_log('CCS_Content_Handler: Found page with substantial content: ' . $page['title'] . ' (length: ' . strlen($page['body']) . ')');
+                        $module_description = $page['body'];
+                        break;
+                    } elseif ($this->api && !empty($page['url'])) {
+                        // Fetch page content for pages without body included
+                        $page_content = $this->api->get_page_content($course_details['id'], $page['url']);
+                        if (!is_wp_error($page_content) && !empty($page_content['body']) && strlen($page_content['body']) > 100) {
+                            error_log('CCS_Content_Handler: Retrieved substantial page content from: ' . $page['title']);
+                            $module_description = $page_content['body'];
+                            break;
+                        }
+                    }
+                }
             }
             
-            // Look in module content for any description
+            // If still no content, check course-level descriptions but prioritize syllabus_body
+            if (empty($module_description)) {
+                if (!empty($course_details['syllabus_body']) && strlen($course_details['syllabus_body']) > 100) {
+                    $module_description = $course_details['syllabus_body'];
+                    error_log('CCS_Content_Handler: Using syllabus_body for module description');
+                } elseif (!empty($course_details['public_description']) && strlen($course_details['public_description']) > 100) {
+                    $module_description = $course_details['public_description'];
+                    error_log('CCS_Content_Handler: Using public_description for module description');
+                }
+            }
+            
+            // Check modules for any content
             if (empty($module_description) && !empty($modules)) {
-                error_log('CCS_Content_Handler: Checking modules for any content...');
                 foreach ($modules as $module) {
-                    // Check module description first
-                    if (!empty($module['description'])) {
+                    if (!empty($module['description']) && strlen($module['description']) > 50) {
                         $module_description = $module['description'];
                         error_log('CCS_Content_Handler: Using module description from: ' . ($module['name'] ?? 'unnamed module'));
                         break;
-                    }
-                    
-                    // Look for any module pages with content
-                    if (!empty($module['items'])) {
-                        foreach ($module['items'] as $item) {
-                            if ($item['type'] === 'Page') {
-                                error_log('CCS_Content_Handler: Found page: ' . $item['title']);
-                                
-                                // Get any page content 
-                                if ($this->api && !empty($item['page_url'])) {
-                                    $page_content = $this->api->get_page_content($course_details['id'], $item['page_url']);
-                                    if (!is_wp_error($page_content) && !empty($page_content['body'])) {
-                                        $module_description = $page_content['body'];
-                                        error_log('CCS_Content_Handler: Retrieved page content, length: ' . strlen($module_description));
-                                        break 2; // Break out of both loops
-                                    }
-                                }
-                            }
-                        }
                     }
                 }
             }
         }
         
-        // Use module description if found, otherwise skip section entirely
+        // Use module description if found
         if (!empty($module_description)) {
             $clean_description = wp_kses_post($module_description);
             $content .= $clean_description . "\n";
             error_log('CCS_Content_Handler: Added description content, length: ' . strlen($clean_description));
         } else {
-            // Skip generic fallback - just add a note that content is being loaded
-            error_log('CCS_Content_Handler: No specific content found, skipping generic fallback');
-            $content .= "<p><em>Module content is being loaded from Canvas...</em></p>\n";
+            // Show that content is being processed rather than generic content
+            error_log('CCS_Content_Handler: No specific content found, indicating content processing');
+            $content .= "<p><em>Module content is being loaded from Canvas. Please check back shortly for detailed course information.</em></p>\n";
         }
         
         $content .= "</div>\n\n";
