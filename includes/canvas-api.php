@@ -227,7 +227,8 @@ class CCS_Canvas_API {
      * Get course details from Canvas
      */
     public function get_course_details($course_id) {
-        $endpoint = "courses/{$course_id}?include[]=syllabus_body&include[]=public_description&include[]=course_image";
+        // Get comprehensive course details including all available content
+        $endpoint = "courses/{$course_id}?include[]=syllabus_body&include[]=public_description&include[]=course_image&include[]=total_students&include[]=term&include[]=settings&include[]=permissions";
         
         $result = $this->make_request($endpoint);
         
@@ -239,6 +240,7 @@ class CCS_Canvas_API {
         
         if ($this->logger) {
             $this->logger->log('Retrieved course details for course ID: ' . $course_id);
+            $this->logger->log('Course details keys: ' . implode(', ', array_keys($course_details)));
         }
         
         return $course_details;
@@ -266,6 +268,53 @@ class CCS_Canvas_API {
         }
         
         return $modules;
+    }
+    
+    /**
+     * Get course pages from Canvas
+     */
+    public function get_course_pages($course_id) {
+        $endpoint = "courses/{$course_id}/pages?per_page=100";
+        
+        $result = $this->make_request($endpoint);
+        
+        if (is_wp_error($result)) {
+            if ($this->logger) {
+                $this->logger->log('Failed to get pages for course ' . $course_id . ': ' . $result->get_error_message(), 'warning');
+            }
+            return $result;
+        }
+        
+        $pages = $result['data'];
+        
+        if ($this->logger) {
+            $this->logger->log('Retrieved ' . count($pages) . ' pages for course ID: ' . $course_id);
+        }
+        
+        return $pages;
+    }
+    
+    /**
+     * Get specific page content from Canvas
+     */
+    public function get_page_content($course_id, $page_url) {
+        // Clean up the page URL to get just the endpoint part
+        $page_url = str_replace('/api/v1/', '', $page_url);
+        
+        $result = $this->make_request($page_url);
+        
+        if (is_wp_error($result)) {
+            if ($this->logger) {
+                $this->logger->log('Failed to get page content from: ' . $page_url . ' - ' . $result->get_error_message(), 'warning');
+            }
+            return $result;
+        }
+        
+        if ($this->logger) {
+            $this->logger->log('Retrieved page content from: ' . $page_url);
+        }
+        
+        return $result['data'];
     }
     
     /**
