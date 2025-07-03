@@ -127,17 +127,24 @@ class CCS_Importer {
                 $exists_check = $this->db_manager->course_exists($course_id);
                 
                 if ($exists_check['exists']) {
-                    error_log('CCS_Importer: DUPLICATE FOUND - Course already exists: ' . $exists_check['type']);
-                    error_log('CCS_Importer: Existing data: ' . print_r($exists_check['data'], true));
-                    $results['skipped']++;
-                    $results['details'][] = array(
-                        'course_id' => $course_id,
-                        'status' => 'skipped',
-                        'reason' => 'Already exists (' . $exists_check['type'] . ')',
-                        'existing_post_id' => $exists_check['post_id']
-                    );
-                    if ($this->logger) $this->logger->log('Course already exists (' . $exists_check['type'] . '): ' . $course_id . ' - Post ID: ' . $exists_check['post_id']);
-                    continue;
+                    // Check if the existing post is actually available
+                    $existing_post = get_post($exists_check['post_id']);
+                    if ($existing_post && $existing_post->post_status !== 'trash') {
+                        error_log('CCS_Importer: DUPLICATE FOUND - Course already exists and is active: ' . $exists_check['type']);
+                        error_log('CCS_Importer: Existing data: ' . print_r($exists_check['data'], true));
+                        $results['skipped']++;
+                        $results['details'][] = array(
+                            'course_id' => $course_id,
+                            'status' => 'skipped',
+                            'reason' => 'Already exists (' . $exists_check['type'] . ')',
+                            'existing_post_id' => $exists_check['post_id']
+                        );
+                        if ($this->logger) $this->logger->log('Course already exists (' . $exists_check['type'] . '): ' . $course_id . ' - Post ID: ' . $exists_check['post_id']);
+                        continue;
+                    } else {
+                        error_log('CCS_Importer: Course tracking exists but post is deleted/trashed - will re-import with fresh content');
+                        // Continue with import process to recreate the course with fresh Canvas content
+                    }
                 }
                 
                 error_log('CCS_Importer: No existing course found, fetching course details...');
