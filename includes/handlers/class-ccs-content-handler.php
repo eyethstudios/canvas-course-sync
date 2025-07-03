@@ -167,15 +167,14 @@ class CCS_Content_Handler {
             }
         }
         
-        // Use course description if found, otherwise use fallback
+        // Only add description if found in Canvas content, no fallback to avoid repetition
         if (!empty($course_description)) {
             $clean_description = wp_kses_post($course_description);
             $content .= $clean_description . "\n";
             error_log('CCS_Content_Handler: Added about content, length: ' . strlen($clean_description));
         } else {
-            // Fallback generic description only if no Canvas content found
-            error_log('CCS_Content_Handler: No about content found, using fallback for: ' . $course_name);
-            $content .= "<p>This comprehensive course on " . esc_html($course_name) . " provides essential knowledge and practical skills for professionals working in this field. Participants will gain insights into best practices, current standards, and effective strategies.</p>\n";
+            error_log('CCS_Content_Handler: No about content found, skipping section to avoid repetition');
+            // Skip adding generic content to avoid duplication with module description
         }
         
         $content .= "</div>\n\n";
@@ -231,38 +230,44 @@ class CCS_Content_Handler {
             }
         }
         
-        // Skip course-level descriptions to avoid duplication with about section
-        
-        // If still no description, look in module content
-        if (empty($module_description) && !empty($modules)) {
-            error_log('CCS_Content_Handler: No course description found, checking modules...');
-            foreach ($modules as $module) {
-                // Check module description first
-                if (!empty($module['description'])) {
-                    $module_description = $module['description'];
-                    error_log('CCS_Content_Handler: Using module description from: ' . ($module['name'] ?? 'unnamed module'));
-                    break;
-                }
-                
-                // Look for modules with description or introduction content
-                if (!empty($module['items'])) {
-                    foreach ($module['items'] as $item) {
-                        if ($item['type'] === 'Page' && 
-                            (stripos($item['title'], 'description') !== false || 
-                             stripos($item['title'], 'introduction') !== false ||
-                             stripos($item['title'], 'overview') !== false)) {
-                            
-                            error_log('CCS_Content_Handler: Found relevant page: ' . $item['title']);
-                            
-                            // Get the page content using the API's get_page_content method
-                            if ($this->api && !empty($item['page_url'])) {
-                                $page_content = $this->api->get_page_content($course_details['id'], $item['page_url']);
-                                if (!is_wp_error($page_content) && !empty($page_content['body'])) {
-                                    $module_description = $page_content['body'];
-                                    error_log('CCS_Content_Handler: Retrieved page content, length: ' . strlen($module_description));
-                                    break 2; // Break out of both loops
-                                } else {
-                                    error_log('CCS_Content_Handler: Failed to get page content');
+        // If no specific module description found, look for any content from course details or modules
+        if (empty($module_description)) {
+            error_log('CCS_Content_Handler: No module-specific pages found, checking course content...');
+            
+            // Try using course-level content as fallback, but only if different from about section
+            if (!empty($course_details['syllabus_body'])) {
+                $module_description = $course_details['syllabus_body'];
+                error_log('CCS_Content_Handler: Using syllabus_body for module description');
+            } elseif (!empty($course_details['public_description'])) {
+                $module_description = $course_details['public_description'];
+                error_log('CCS_Content_Handler: Using public_description for module description');
+            }
+            
+            // Look in module content for any description
+            if (empty($module_description) && !empty($modules)) {
+                error_log('CCS_Content_Handler: Checking modules for any content...');
+                foreach ($modules as $module) {
+                    // Check module description first
+                    if (!empty($module['description'])) {
+                        $module_description = $module['description'];
+                        error_log('CCS_Content_Handler: Using module description from: ' . ($module['name'] ?? 'unnamed module'));
+                        break;
+                    }
+                    
+                    // Look for any module pages with content
+                    if (!empty($module['items'])) {
+                        foreach ($module['items'] as $item) {
+                            if ($item['type'] === 'Page') {
+                                error_log('CCS_Content_Handler: Found page: ' . $item['title']);
+                                
+                                // Get any page content 
+                                if ($this->api && !empty($item['page_url'])) {
+                                    $page_content = $this->api->get_page_content($course_details['id'], $item['page_url']);
+                                    if (!is_wp_error($page_content) && !empty($page_content['body'])) {
+                                        $module_description = $page_content['body'];
+                                        error_log('CCS_Content_Handler: Retrieved page content, length: ' . strlen($module_description));
+                                        break 2; // Break out of both loops
+                                    }
                                 }
                             }
                         }
@@ -271,15 +276,15 @@ class CCS_Content_Handler {
             }
         }
         
-        // Use module description if found, otherwise use fallback
+        // Use module description if found, otherwise skip section entirely
         if (!empty($module_description)) {
             $clean_description = wp_kses_post($module_description);
             $content .= $clean_description . "\n";
             error_log('CCS_Content_Handler: Added description content, length: ' . strlen($clean_description));
         } else {
-            // Fallback generic description only if no Canvas content found
-            error_log('CCS_Content_Handler: No specific content found, using fallback for: ' . $course_name);
-            $content .= "<p>This module provides comprehensive training and information related to " . esc_html($course_name) . ". Participants will gain practical knowledge and skills that can be applied in professional settings.</p>\n";
+            // Skip generic fallback - just add a note that content is being loaded
+            error_log('CCS_Content_Handler: No specific content found, skipping generic fallback');
+            $content .= "<p><em>Module content is being loaded from Canvas...</em></p>\n";
         }
         
         $content .= "</div>\n\n";
@@ -420,14 +425,10 @@ class CCS_Content_Handler {
             }
         }
 
-        // Fallback to generic learning objectives if none found
+        // If no specific objectives found, show a loading message instead of generic content
         if (!$objectives_found) {
-            error_log('CCS_Content_Handler: No specific objectives found, using generic ones');
-            $course_name = $course_details['name'] ?? 'the subject matter';
-            $content .= "<li>Demonstrate comprehensive knowledge of " . esc_html($course_name) . " and its practical applications</li>\n";
-            $content .= "<li>Identify key strategies and best practices related to the course content</li>\n";
-            $content .= "<li>Apply learned concepts in professional and practical settings</li>\n";
-            $content .= "<li>Evaluate and implement solutions based on course material</li>\n";
+            error_log('CCS_Content_Handler: No specific objectives found, showing loading message');
+            $content .= "<li><em>Learning objectives are being loaded from Canvas...</em></li>\n";
         }
 
         $content .= "</ul>\n</div>\n\n";
