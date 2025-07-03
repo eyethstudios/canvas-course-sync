@@ -250,7 +250,7 @@ class CCS_Canvas_API {
      * Get course modules from Canvas
      */
     public function get_course_modules($course_id) {
-        $endpoint = "courses/{$course_id}/modules?include[]=items&per_page=100";
+        $endpoint = "courses/{$course_id}/modules?include[]=items&include[]=content_details&per_page=100";
         
         $result = $this->make_request($endpoint);
         
@@ -274,7 +274,7 @@ class CCS_Canvas_API {
      * Get course pages from Canvas
      */
     public function get_course_pages($course_id) {
-        $endpoint = "courses/{$course_id}/pages?per_page=100";
+        $endpoint = "courses/{$course_id}/pages?include[]=body&per_page=100";
         
         $result = $this->make_request($endpoint);
         
