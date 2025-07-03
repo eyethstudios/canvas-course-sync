@@ -5,7 +5,7 @@ Tags: canvas, lms, course, sync, education
 Requires at least: 5.0
 Tested up to: 6.4
 Requires PHP: 7.4
-Stable tag: 3.2.1
+Stable tag: 3.2.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -47,7 +47,13 @@ The token needs read access to courses and basic user information.
 
 == Changelog ==
 
-= 3.2.0 =
+= 3.2.2 =
+* Enhanced catalog validation to fetch fresh catalog data on every course retrieval
+* Updated to use complete 48-course catalog from National Deaf Center instead of partial list
+* Improved cache-busting for catalog updates and real-time course validation
+* Confirmed GitHub repository configuration for automatic plugin updates
+
+= 3.2.1 =
 * MAJOR FIX: Course status checking now uses tracking table data and properly detects deleted/trashed courses
 * MAJOR FIX: Enhanced Canvas API endpoint to include more course states (available, completed) and better pagination
 * Fixed cleanup deleted courses functionality by checking actual WordPress post status vs tracking table
