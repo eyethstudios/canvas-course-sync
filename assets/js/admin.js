@@ -354,10 +354,12 @@
                         $('#ccs-skipped').text(data.skipped || 0);
                         $('#ccs-errors').text(data.errors || 0);
                         
-                        UI.showSuccess('Sync completed successfully');
+                        UI.showSuccess('Successfully synced ' + (data.imported || 0) + ' course(s)');
                         
-                        // Refresh page after 3 seconds
-                        setTimeout(() => location.reload(), 3000);
+                        // Refresh course list instead of reloading page
+                        setTimeout(() => {
+                            $('#ccs-get-courses').trigger('click');
+                        }, 1000);
                     } else {
                         const errorMsg = response.data || 'Sync failed';
                         $('#ccs-sync-message').html('<div class="notice notice-error"><p>' + errorMsg + '</p></div>');
