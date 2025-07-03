@@ -5,7 +5,7 @@ Tags: canvas, lms, course, sync, education
 Requires at least: 5.0
 Tested up to: 6.4
 Requires PHP: 7.4
-Stable tag: 3.0.9
+Stable tag: 3.1.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -46,6 +46,12 @@ The token needs read access to courses and basic user information.
 3. Logging and status monitoring
 
 == Changelog ==
+
+= 3.1.0 =
+* Fixed Canvas API endpoint for better course retrieval with multiple enrollment types
+* Fixed "Check for updates" link visibility in plugins page
+* Enhanced debugging for GitHub updater functionality
+* Improved course content structure with Module Description, Learning Objectives, and Badge Information
 
 = 3.0.0 =
 * Major security improvements with proper AJAX nonce sanitization

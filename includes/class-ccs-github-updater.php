@@ -28,6 +28,9 @@ class CCS_GitHub_Updater {
         $this->plugin_slug = plugin_basename($plugin_file);
         $this->plugin_basename = dirname($this->plugin_slug);
         
+        // Debug output to check plugin identification
+        error_log('CCS Debug: GitHub Updater initialized - Plugin Slug: ' . $this->plugin_slug);
+        
         $this->init_hooks();
     }
     
@@ -57,7 +60,10 @@ class CCS_GitHub_Updater {
      * Add plugin row meta
      */
     public function plugin_row_meta($links, $file) {
+        error_log('CCS Debug: plugin_row_meta called - File: ' . $file . ' | Expected: ' . $this->plugin_slug);
+        
         if ($file === $this->plugin_slug) {
+            error_log('CCS Debug: Adding plugin row meta links');
             $links[] = '<a href="https://github.com/' . $this->github_repo . '" target="_blank">' . __('View on GitHub', 'canvas-course-sync') . '</a>';
             $links[] = '<a href="javascript:void(0);" onclick="ccsCheckForUpdates(); return false;" style="color: #2271b1;">' . __('Check for updates', 'canvas-course-sync') . '</a>';
         }
