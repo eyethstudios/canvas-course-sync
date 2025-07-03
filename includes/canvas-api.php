@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
 
 // Define API constants
 if (!defined('CCS_MAX_API_PAGES')) {
-    define('CCS_MAX_API_PAGES', 10);
+    define('CCS_MAX_API_PAGES', 50); // Increased from 10 to handle more courses
 }
 
 if (!defined('CCS_API_TIMEOUT')) {
@@ -150,18 +150,27 @@ class CCS_Canvas_API {
         $page = 1;
         $max_pages = CCS_MAX_API_PAGES; // Safety limit
         
+        error_log('CCS_Canvas_API: Starting get_courses() with per_page=' . $per_page . ', max_pages=' . $max_pages);
+        
         do {
             $endpoint = "courses?enrollment_type=teacher&include[]=syllabus_body&include[]=public_description&include[]=total_students&per_page={$per_page}&page={$page}";
+            error_log('CCS_Canvas_API: Requesting page ' . $page . ' with endpoint: ' . $endpoint);
+            
             $result = $this->make_request($endpoint);
             
             if (is_wp_error($result)) {
+                error_log('CCS_Canvas_API: ERROR on page ' . $page . ': ' . $result->get_error_message());
                 return $result;
             }
             
             $courses = $result['data'];
             $headers = $result['headers'];
             
+            error_log('CCS_Canvas_API: Page ' . $page . ' returned ' . (is_array($courses) ? count($courses) : 0) . ' courses');
+            error_log('CCS_Canvas_API: Link header content: ' . (isset($headers['link']) ? print_r($headers['link'], true) : 'No link header'));
+            
             if (empty($courses) || !is_array($courses)) {
+                error_log('CCS_Canvas_API: Breaking - no courses returned on page ' . $page);
                 break;
             }
             
@@ -179,11 +188,18 @@ class CCS_Canvas_API {
                     $link_header = implode(', ', $link_header);
                 }
                 $has_next_page = strpos($link_header, 'rel="next"') !== false;
+                error_log('CCS_Canvas_API: Link header after processing: ' . $link_header);
+                error_log('CCS_Canvas_API: Has next page: ' . ($has_next_page ? 'YES' : 'NO'));
+            } else {
+                error_log('CCS_Canvas_API: No link header found on page ' . $page);
             }
             
             $page++;
+            error_log('CCS_Canvas_API: Moving to page ' . $page . ', has_next_page=' . ($has_next_page ? 'true' : 'false') . ', within max_pages=' . ($page <= $max_pages ? 'true' : 'false'));
             
         } while ($has_next_page && $page <= $max_pages);
+        
+        error_log('CCS_Canvas_API: Final result: ' . count($all_courses) . ' total courses retrieved across ' . ($page - 1) . ' pages');
         
         if ($this->logger) {
             $this->logger->log('Retrieved ' . count($all_courses) . ' total courses from Canvas API across ' . ($page - 1) . ' pages');
