@@ -83,12 +83,28 @@ class CCS_Database_Manager {
         
         if ($existing_tracking) {
             error_log('CCS_Database_Manager: Course found in tracking table: ' . print_r($existing_tracking, true));
-            return array(
-                'exists' => true,
-                'type' => 'tracking_table',
-                'post_id' => $existing_tracking->wordpress_post_id,
-                'data' => $existing_tracking
-            );
+            
+            // Check if the sync status is 'synced' AND the WordPress post still exists
+            if ($existing_tracking->sync_status === 'synced') {
+                $post = get_post($existing_tracking->wordpress_post_id);
+                if ($post && $post->post_status !== 'trash') {
+                    error_log('CCS_Database_Manager: Course verified as existing - Post exists and is not trashed');
+                    return array(
+                        'exists' => true,
+                        'type' => 'tracking_table',
+                        'post_id' => $existing_tracking->wordpress_post_id,
+                        'data' => $existing_tracking
+                    );
+                } else {
+                    error_log('CCS_Database_Manager: Course in tracking table but WordPress post is deleted/trashed - treating as non-existent');
+                    // Post is deleted or trashed, course doesn't actually exist
+                    return array('exists' => false);
+                }
+            } else {
+                error_log('CCS_Database_Manager: Course in tracking table but sync status is: ' . $existing_tracking->sync_status . ' - treating as non-existent');
+                // Sync status is not 'synced', so course doesn't exist
+                return array('exists' => false);
+            }
         }
         
         // Check WordPress posts meta
