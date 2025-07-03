@@ -96,17 +96,26 @@ class CCS_Scheduler {
 
             $this->logger->log('Found ' . count($canvas_courses) . ' courses from Canvas API');
 
-            // Validate courses against catalog instead of hard-coded exclusions
-            if (class_exists('CCS_Catalog_Validator')) {
-                $validator = new CCS_Catalog_Validator();
-                $validation_results = $validator->validate_against_catalog($canvas_courses);
-                $filtered_courses = $validation_results['validated'];
+            // Check if catalog validation is enabled
+            $catalog_validation_enabled = get_option('ccs_catalog_validation_enabled', 1);
+            
+            if ($catalog_validation_enabled) {
+                // Validate courses against catalog
+                if (class_exists('CCS_Catalog_Validator')) {
+                    $validator = new CCS_Catalog_Validator();
+                    $validation_results = $validator->validate_against_catalog($canvas_courses);
+                    $filtered_courses = $validation_results['validated'];
+                    $this->logger->log('Catalog validation enabled: ' . count($filtered_courses) . ' courses validated from catalog');
+                } else {
+                    // Fallback - use all courses if validator not available
+                    $filtered_courses = $canvas_courses;
+                    $this->logger->log('Catalog validator not available, using all courses as fallback');
+                }
             } else {
-                // Fallback - use all courses if validator not available
+                // Catalog validation disabled - use all courses
                 $filtered_courses = $canvas_courses;
+                $this->logger->log('Catalog validation disabled: using all ' . count($filtered_courses) . ' courses');
             }
-
-            $this->logger->log('After catalog validation: ' . count($filtered_courses) . ' courses remain');
 
             // Find new courses (not already in WordPress)
             $new_courses = $this->find_new_courses($filtered_courses);

@@ -131,72 +131,87 @@ function ccs_get_courses_handler() {
             );
         }
         
-        // Now validate all courses against catalog - force fresh catalog check
-        if (class_exists('CCS_Catalog_Validator')) {
-            $validator = new CCS_Catalog_Validator();
-            
-            // Force fresh catalog fetch to ensure we have the latest courses
-            $validator->force_catalog_refresh();
-            
-            // Debug: Log before validation
-            error_log('CCS Debug: Starting catalog validation for ' . count($processed_courses) . ' courses with fresh catalog data');
-            
-            // Get approved courses for debugging
-            $approved_courses = $validator->get_approved_courses();
-            error_log('CCS Debug: Catalog contains ' . count($approved_courses) . ' approved courses');
-            error_log('CCS Debug: First 5 approved courses: ' . implode(', ', array_slice($approved_courses, 0, 5)));
-            
-            // Log the first few Canvas courses being validated
-            error_log('CCS Debug: First 5 Canvas courses to validate: ' . implode(', ', array_slice(array_column($processed_courses, 'name'), 0, 5)));
-            
-            $validation_results = $validator->validate_against_catalog($processed_courses);
-            
-            // Debug: Log validation results
-            error_log('CCS Debug: Validation results - Validated: ' . count($validation_results['validated']) . ', Omitted: ' . count($validation_results['omitted']) . ', Auto-omitted: ' . count($validation_results['auto_omitted_ids']));
-            
-            // Log some specific validation results
-            if (!empty($validation_results['validated'])) {
-                $validated_names = array_slice(array_column($validation_results['validated'], 'name'), 0, 3);
-                error_log('CCS Debug: Sample validated courses: ' . implode(', ', $validated_names));
-            }
-            
-            if (!empty($validation_results['omitted'])) {
-                $omitted_names = array_slice(array_column($validation_results['omitted'], 'name'), 0, 3);
-                error_log('CCS Debug: Sample omitted courses: ' . implode(', ', $omitted_names));
-            }
-            
-            // Update processed courses with validation results
-            $validated_courses = $validation_results['validated'];
-            $auto_omitted_count = count($validation_results['auto_omitted_ids']);
-            
-            // Create validation report
-            $validation_report = '';
-            if ($auto_omitted_count > 0) {
-                $validation_report = '<div class="notice notice-info"><p>';
-                $validation_report .= sprintf(__('Note: %d courses were automatically omitted because they were not found in the course catalog.', 'canvas-course-sync'), $auto_omitted_count);
-                $validation_report .= '</p></div>';
+        // Check if catalog validation is enabled
+        $catalog_validation_enabled = get_option('ccs_catalog_validation_enabled', 1);
+        
+        if ($catalog_validation_enabled) {
+            // Run catalog validation as before
+            if (class_exists('CCS_Catalog_Validator')) {
+                $validator = new CCS_Catalog_Validator();
                 
-                // Add detailed report
-                $validation_report .= $validator->generate_validation_report($validation_results);
+                // Force fresh catalog fetch to ensure we have the latest courses
+                $validator->force_catalog_refresh();
+                
+                // Debug: Log before validation
+                error_log('CCS Debug: Starting catalog validation for ' . count($processed_courses) . ' courses with fresh catalog data');
+                
+                // Get approved courses for debugging
+                $approved_courses = $validator->get_approved_courses();
+                error_log('CCS Debug: Catalog contains ' . count($approved_courses) . ' approved courses');
+                error_log('CCS Debug: First 5 approved courses: ' . implode(', ', array_slice($approved_courses, 0, 5)));
+                
+                // Log the first few Canvas courses being validated
+                error_log('CCS Debug: First 5 Canvas courses to validate: ' . implode(', ', array_slice(array_column($processed_courses, 'name'), 0, 5)));
+                
+                $validation_results = $validator->validate_against_catalog($processed_courses);
+                
+                // Debug: Log validation results
+                error_log('CCS Debug: Validation results - Validated: ' . count($validation_results['validated']) . ', Omitted: ' . count($validation_results['omitted']) . ', Auto-omitted: ' . count($validation_results['auto_omitted_ids']));
+                
+                // Log some specific validation results
+                if (!empty($validation_results['validated'])) {
+                    $validated_names = array_slice(array_column($validation_results['validated'], 'name'), 0, 3);
+                    error_log('CCS Debug: Sample validated courses: ' . implode(', ', $validated_names));
+                }
+                
+                if (!empty($validation_results['omitted'])) {
+                    $omitted_names = array_slice(array_column($validation_results['omitted'], 'name'), 0, 3);
+                    error_log('CCS Debug: Sample omitted courses: ' . implode(', ', $omitted_names));
+                }
+                
+                // Update processed courses with validation results
+                $validated_courses = $validation_results['validated'];
+                $auto_omitted_count = count($validation_results['auto_omitted_ids']);
+                
+                // Create validation report
+                $validation_report = '';
+                if ($auto_omitted_count > 0) {
+                    $validation_report = '<div class="notice notice-info"><p>';
+                    $validation_report .= sprintf(__('Note: %d courses were automatically omitted because they were not found in the course catalog.', 'canvas-course-sync'), $auto_omitted_count);
+                    $validation_report .= '</p></div>';
+                    
+                    // Add detailed report
+                    $validation_report .= $validator->generate_validation_report($validation_results);
+                }
+                
+                // Debug: Log final result
+                error_log('CCS Debug: Sending ' . count($validated_courses) . ' validated courses to frontend');
+                
+                wp_send_json_success(array(
+                    'courses' => $validated_courses,
+                    'total' => count($validated_courses),
+                    'auto_omitted_count' => $auto_omitted_count,
+                    'validation_report' => $validation_report
+                ));
+            } else {
+                error_log('CCS Debug: CCS_Catalog_Validator class not found, falling back to all courses');
+                // Fallback if validator not available
+                wp_send_json_success(array(
+                    'courses' => $processed_courses,
+                    'total' => count($processed_courses),
+                    'auto_omitted_count' => 0,
+                    'validation_report' => ''
+                ));
             }
-            
-            // Debug: Log final result
-            error_log('CCS Debug: Sending ' . count($validated_courses) . ' validated courses to frontend');
-            
-            wp_send_json_success(array(
-                'courses' => $validated_courses,
-                'total' => count($validated_courses),
-                'auto_omitted_count' => $auto_omitted_count,
-                'validation_report' => $validation_report
-            ));
         } else {
-            error_log('CCS Debug: CCS_Catalog_Validator class not found, falling back to all courses');
-            // Fallback if validator not available
+            // Catalog validation disabled - return all processed courses
+            error_log('CCS Debug: Catalog validation disabled - returning all ' . count($processed_courses) . ' processed courses');
+            
             wp_send_json_success(array(
                 'courses' => $processed_courses,
                 'total' => count($processed_courses),
                 'auto_omitted_count' => 0,
-                'validation_report' => ''
+                'validation_report' => '<div class="notice notice-info"><p>' . __('Catalog validation is disabled. All Canvas courses are available for sync.', 'canvas-course-sync') . '</p></div>'
             ));
         }
         
