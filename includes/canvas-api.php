@@ -118,7 +118,11 @@ class CCS_Canvas_API {
             return new WP_Error('invalid_json', $error_message);
         }
         
-        return $decoded;
+        // Return both data and headers for pagination
+        return array(
+            'data' => $decoded,
+            'headers' => wp_remote_retrieve_headers($response)
+        );
     }
     
     /**
@@ -148,23 +152,41 @@ class CCS_Canvas_API {
         
         do {
             $endpoint = "courses?enrollment_type=teacher&include[]=syllabus_body&include[]=public_description&include[]=total_students&per_page={$per_page}&page={$page}";
-            $courses = $this->make_request($endpoint);
+            $result = $this->make_request($endpoint);
             
-            if (is_wp_error($courses)) {
-                return $courses;
+            if (is_wp_error($result)) {
+                return $result;
             }
+            
+            $courses = $result['data'];
+            $headers = $result['headers'];
             
             if (empty($courses) || !is_array($courses)) {
                 break;
             }
             
             $all_courses = array_merge($all_courses, $courses);
+            
+            if ($this->logger) {
+                $this->logger->log('Retrieved page ' . $page . ' with ' . count($courses) . ' courses (total so far: ' . count($all_courses) . ')');
+            }
+            
+            // Check if there's a next page using Link header
+            $has_next_page = false;
+            if (isset($headers['link'])) {
+                $link_header = $headers['link'];
+                if (is_array($link_header)) {
+                    $link_header = implode(', ', $link_header);
+                }
+                $has_next_page = strpos($link_header, 'rel="next"') !== false;
+            }
+            
             $page++;
             
-        } while (count($courses) == $per_page && $page <= $max_pages);
+        } while ($has_next_page && $page <= $max_pages);
         
         if ($this->logger) {
-            $this->logger->log('Retrieved ' . count($all_courses) . ' courses from Canvas API');
+            $this->logger->log('Retrieved ' . count($all_courses) . ' total courses from Canvas API across ' . ($page - 1) . ' pages');
         }
         
         return $all_courses;
@@ -176,11 +198,13 @@ class CCS_Canvas_API {
     public function get_course_details($course_id) {
         $endpoint = "courses/{$course_id}?include[]=syllabus_body&include[]=public_description&include[]=course_image";
         
-        $course_details = $this->make_request($endpoint);
+        $result = $this->make_request($endpoint);
         
-        if (is_wp_error($course_details)) {
-            return $course_details;
+        if (is_wp_error($result)) {
+            return $result;
         }
+        
+        $course_details = $result['data'];
         
         if ($this->logger) {
             $this->logger->log('Retrieved course details for course ID: ' . $course_id);
@@ -195,14 +219,16 @@ class CCS_Canvas_API {
     public function get_course_modules($course_id) {
         $endpoint = "courses/{$course_id}/modules?include[]=items&per_page=100";
         
-        $modules = $this->make_request($endpoint);
+        $result = $this->make_request($endpoint);
         
-        if (is_wp_error($modules)) {
+        if (is_wp_error($result)) {
             if ($this->logger) {
-                $this->logger->log('Failed to get modules for course ' . $course_id . ': ' . $modules->get_error_message(), 'warning');
+                $this->logger->log('Failed to get modules for course ' . $course_id . ': ' . $result->get_error_message(), 'warning');
             }
-            return $modules;
+            return $result;
         }
+        
+        $modules = $result['data'];
         
         if ($this->logger) {
             $this->logger->log('Retrieved ' . count($modules) . ' modules for course ID: ' . $course_id);

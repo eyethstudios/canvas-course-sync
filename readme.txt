@@ -5,7 +5,7 @@ Tags: canvas, lms, course, sync, education
 Requires at least: 5.0
 Tested up to: 6.4
 Requires PHP: 7.4
-Stable tag: 3.1.1
+Stable tag: 3.1.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -46,6 +46,10 @@ The token needs read access to courses and basic user information.
 3. Logging and status monitoring
 
 == Changelog ==
+
+= 3.1.2 =
+* Fixed pagination to properly retrieve all courses using Canvas API Link headers
+* Enhanced logging to show pagination progress
 
 = 3.1.1 =
 * Fixed Canvas API 500 error by simplifying enrollment_type parameter
