@@ -303,36 +303,41 @@ class CCS_Catalog_Validator {
         
         $course_name = trim($course_name);
         
+        // Log the course being validated
+        error_log("CCS_Catalog_Validator: Validating course: '{$course_name}'");
+        
         // Exact match first
         if (in_array($course_name, $approved_courses)) {
+            error_log("CCS_Catalog_Validator: APPROVED - Exact match found for: '{$course_name}'");
             return true;
         }
 
-        // Fuzzy matching for slight variations - more strict criteria
+        // More strict validation - only allow courses that are very similar
         foreach ($approved_courses as $approved_course) {
-            // Only check similarity for meaningful matches (85% similarity)
+            // Check similarity (90% match for better precision)
             $similarity = 0;
             similar_text(strtolower($course_name), strtolower($approved_course), $similarity);
-            if ($similarity >= 85) {
+            if ($similarity >= 90) {
+                error_log("CCS_Catalog_Validator: APPROVED - High similarity ({$similarity}%) between '{$course_name}' and '{$approved_course}'");
                 return true;
             }
             
-            // Check if the course names are substantially similar (at least 70% of the shorter string length)
+            // Very strict substring matching - only if strings are very similar in length
             $course_len = strlen($course_name);
             $approved_len = strlen($approved_course);
             $min_len = min($course_len, $approved_len);
+            $max_len = max($course_len, $approved_len);
             
-            // Only allow substring matching if the match is substantial (at least 70% of the shorter string)
-            if ($min_len > 10) { // Only for reasonably long course names
-                if (stripos($course_name, $approved_course) !== false && $approved_len >= ($course_len * 0.7)) {
-                    return true;
-                }
-                if (stripos($approved_course, $course_name) !== false && $course_len >= ($approved_len * 0.7)) {
+            // Only allow if length difference is small (within 20%)
+            if ($min_len > 15 && ($min_len / $max_len) >= 0.8) {
+                if (stripos($course_name, $approved_course) !== false || stripos($approved_course, $course_name) !== false) {
+                    error_log("CCS_Catalog_Validator: APPROVED - Strict substring match between '{$course_name}' and '{$approved_course}'");
                     return true;
                 }
             }
         }
 
+        error_log("CCS_Catalog_Validator: REJECTED - No match found for: '{$course_name}'");
         return false;
     }
 

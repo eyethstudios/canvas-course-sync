@@ -141,10 +141,29 @@ function ccs_get_courses_handler() {
             // Debug: Log before validation
             error_log('CCS Debug: Starting catalog validation for ' . count($processed_courses) . ' courses with fresh catalog data');
             
+            // Get approved courses for debugging
+            $approved_courses = $validator->get_approved_courses();
+            error_log('CCS Debug: Catalog contains ' . count($approved_courses) . ' approved courses');
+            error_log('CCS Debug: First 5 approved courses: ' . implode(', ', array_slice($approved_courses, 0, 5)));
+            
+            // Log the first few Canvas courses being validated
+            error_log('CCS Debug: First 5 Canvas courses to validate: ' . implode(', ', array_slice(array_column($processed_courses, 'name'), 0, 5)));
+            
             $validation_results = $validator->validate_against_catalog($processed_courses);
             
             // Debug: Log validation results
             error_log('CCS Debug: Validation results - Validated: ' . count($validation_results['validated']) . ', Omitted: ' . count($validation_results['omitted']) . ', Auto-omitted: ' . count($validation_results['auto_omitted_ids']));
+            
+            // Log some specific validation results
+            if (!empty($validation_results['validated'])) {
+                $validated_names = array_slice(array_column($validation_results['validated'], 'name'), 0, 3);
+                error_log('CCS Debug: Sample validated courses: ' . implode(', ', $validated_names));
+            }
+            
+            if (!empty($validation_results['omitted'])) {
+                $omitted_names = array_slice(array_column($validation_results['omitted'], 'name'), 0, 3);
+                error_log('CCS Debug: Sample omitted courses: ' . implode(', ', $omitted_names));
+            }
             
             // Update processed courses with validation results
             $validated_courses = $validation_results['validated'];
@@ -171,6 +190,7 @@ function ccs_get_courses_handler() {
                 'validation_report' => $validation_report
             ));
         } else {
+            error_log('CCS Debug: CCS_Catalog_Validator class not found, falling back to all courses');
             // Fallback if validator not available
             wp_send_json_success(array(
                 'courses' => $processed_courses,
