@@ -60,14 +60,33 @@ class CCS_GitHub_Updater {
      * Add plugin row meta
      */
     public function plugin_row_meta($links, $file) {
-        error_log('CCS Debug: plugin_row_meta called - File: ' . $file . ' | Expected: ' . $this->plugin_slug);
+        error_log('CCS Debug: plugin_row_meta called');
+        error_log('CCS Debug: Comparing - File param: ' . $file);
+        error_log('CCS Debug: Expected plugin slug: ' . $this->plugin_slug);
+        error_log('CCS Debug: Files match: ' . ($file === $this->plugin_slug ? 'YES' : 'NO'));
         
         if ($file === $this->plugin_slug) {
             error_log('CCS Debug: Adding plugin row meta links');
             $links[] = '<a href="https://github.com/' . $this->github_repo . '" target="_blank">' . __('View on GitHub', 'canvas-course-sync') . '</a>';
             $links[] = '<a href="javascript:void(0);" onclick="ccsCheckForUpdates(); return false;" style="color: #2271b1;">' . __('Check for updates', 'canvas-course-sync') . '</a>';
+            error_log('CCS Debug: Links added. Total links: ' . count($links));
         }
         return $links;
+    }
+    
+    /**
+     * Debug plugin information
+     */
+    public function debug_plugin_info() {
+        if (current_user_can('manage_options') && isset($_GET['page']) && $_GET['page'] === 'plugins.php') {
+            error_log('CCS Debug: On plugins page');
+            $all_plugins = get_plugins();
+            foreach ($all_plugins as $plugin_path => $plugin_data) {
+                if (strpos($plugin_path, 'canvas-course-sync') !== false) {
+                    error_log('CCS Debug: Found CCS plugin in list: ' . $plugin_path);
+                }
+            }
+        }
     }
     
     /**
