@@ -3,7 +3,7 @@
  * Plugin Name: Canvas Course Sync
  * Plugin URI: https://github.com/eyethstudios/canvas-course-sync
  * Description: Sync course information from Canvas LMS to WordPress
- * Version: 3.0.4
+ * Version: 3.0.5
  * Author: Eyeth Studios
  * Author URI: http://eyethstudios.com
  * License: GPL v2 or later
@@ -28,7 +28,7 @@ if (!defined('ABSPATH')) {
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 // Define plugin constants
-define('CCS_VERSION', '3.0.4');
+define('CCS_VERSION', '3.0.5');
 define('CCS_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('CCS_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('CCS_PLUGIN_BASENAME', plugin_basename(__FILE__));
@@ -98,15 +98,18 @@ class Canvas_Course_Sync {
         add_action('wp_loaded', array($this, 'wp_loaded'));
         add_filter('plugin_action_links_' . plugin_basename(__FILE__), array($this, 'add_plugin_action_links'));
         
-        // Initialize GitHub updater
-        add_action('init', array($this, 'init_github_updater'));
+        // Initialize GitHub updater early so AJAX handlers are registered
+        if (is_admin()) {
+            add_action('plugins_loaded', array($this, 'init_github_updater'), 5);
+        }
     }
 
     /**
      * Initialize GitHub updater
      */
     public function init_github_updater() {
-        if (is_admin()) {
+        // Make sure the class exists before instantiating
+        if (class_exists('CCS_GitHub_Updater')) {
             $this->github_updater = new CCS_GitHub_Updater(CCS_PLUGIN_FILE, CCS_GITHUB_REPO, CCS_VERSION);
         }
     }
@@ -525,14 +528,6 @@ function ccs_deactivate_plugin() {
     do_action('ccs_plugin_deactivated');
 }
 
-/**
- * Get the main Canvas Course Sync instance
- *
- * @return Canvas_Course_Sync The main plugin instance
- */
-function canvas_course_sync() {
-    return Canvas_Course_Sync::get_instance();
-}
 
 // Initialize plugin
 canvas_course_sync();
