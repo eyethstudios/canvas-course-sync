@@ -59,11 +59,20 @@ class CCS_Content_Handler {
         $course_id = $course_details['id'];
         $content = '';
 
-        // Module Description Section (primary content)
-        $content .= $this->build_module_description($course_details);
+        // Get modules first to extract real content
+        $modules = array();
+        if ($this->api) {
+            $modules_result = $this->api->get_course_modules($course_id);
+            if (!is_wp_error($modules_result)) {
+                $modules = $modules_result;
+            }
+        }
 
-        // Learning Objectives Section (specific learning outcomes)
-        $content .= $this->build_learning_objectives($course_id, $course_details);
+        // Module Description Section (from actual Canvas content)
+        $content .= $this->build_module_description($course_details, $modules);
+
+        // Learning Objectives Section (from Canvas modules)
+        $content .= $this->build_learning_objectives($course_id, $course_details, $modules);
 
         // Badge Information Section
         $content .= $this->build_badge_information($course_details);
@@ -75,28 +84,58 @@ class CCS_Content_Handler {
     }
 
     /**
-     * Build module description section
+     * Build module description section from Canvas content
      */
-    private function build_module_description($course_details) {
+    private function build_module_description($course_details, $modules = array()) {
         $content = '';
         
         $content .= "<div class='module-description'>\n";
         $content .= "<h2>Module Description</h2>\n";
         
-        // Use public description or syllabus as primary description
-        $description = '';
-        if (!empty($course_details['public_description'])) {
-            $description = $course_details['public_description'];
-        } elseif (!empty($course_details['syllabus_body'])) {
-            $description = $course_details['syllabus_body'];
-        } elseif (!empty($course_details['description'])) {
-            $description = $course_details['description'];
+        // First try to get description from modules
+        $module_description = '';
+        if (!empty($modules)) {
+            foreach ($modules as $module) {
+                // Look for modules with description or introduction content
+                if (!empty($module['items'])) {
+                    foreach ($module['items'] as $item) {
+                        if ($item['type'] === 'Page' && 
+                            (stripos($item['title'], 'description') !== false || 
+                             stripos($item['title'], 'introduction') !== false ||
+                             stripos($item['title'], 'overview') !== false)) {
+                            
+                            // Get the page content
+                            if ($this->api && !empty($item['page_url'])) {
+                                $page_url = str_replace('/api/v1/', '', $item['page_url']);
+                                $page_result = $this->api->make_request($page_url);
+                                if (!is_wp_error($page_result) && !empty($page_result['data']['body'])) {
+                                    $module_description = $page_result['data']['body'];
+                                    break 2; // Break out of both loops
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Also check module description
+                if (empty($module_description) && !empty($module['description'])) {
+                    $module_description = $module['description'];
+                    break;
+                }
+            }
         }
         
-        if ($description) {
-            $content .= wp_kses_post($description) . "\n";
+        // Use module description if found, otherwise use course descriptions
+        if ($module_description) {
+            $content .= wp_kses_post($module_description) . "\n";
+        } elseif (!empty($course_details['public_description'])) {
+            $content .= wp_kses_post($course_details['public_description']) . "\n";
+        } elseif (!empty($course_details['syllabus_body'])) {
+            $content .= wp_kses_post($course_details['syllabus_body']) . "\n";
+        } elseif (!empty($course_details['description'])) {
+            $content .= wp_kses_post($course_details['description']) . "\n";
         } else {
-            // Fallback generic description
+            // Fallback generic description only if no Canvas content found
             $course_name = $course_details['name'] ?? 'this course';
             $content .= "<p>This module provides comprehensive training and information related to " . esc_html($course_name) . ". Participants will gain practical knowledge and skills that can be applied in professional settings.</p>\n";
         }
@@ -106,9 +145,9 @@ class CCS_Content_Handler {
     }
 
     /**
-     * Build learning objectives section
+     * Build learning objectives section from Canvas modules
      */
-    private function build_learning_objectives($course_id, $course_details) {
+    private function build_learning_objectives($course_id, $course_details, $modules = array()) {
         $content = '';
         
         $content .= "<div class='learning-objectives'>\n";
@@ -116,13 +155,53 @@ class CCS_Content_Handler {
         $content .= "<p><strong>Participants will be able to:</strong></p>\n";
         $content .= "<ul>\n";
 
-        // Try to get objectives from Canvas API first
         $objectives_found = false;
-        if ($this->api) {
-            $outcomes = $this->api->make_request("courses/{$course_id}/outcome_groups");
+        
+        // First try to get objectives from module content
+        if (!empty($modules)) {
+            foreach ($modules as $module) {
+                if (!empty($module['items'])) {
+                    foreach ($module['items'] as $item) {
+                        if ($item['type'] === 'Page' && 
+                            (stripos($item['title'], 'objective') !== false || 
+                             stripos($item['title'], 'outcome') !== false ||
+                             stripos($item['title'], 'goal') !== false)) {
+                            
+                            // Get the page content
+                            if ($this->api && !empty($item['page_url'])) {
+                                $page_url = str_replace('/api/v1/', '', $item['page_url']);
+                                $page_result = $this->api->make_request($page_url);
+                                if (!is_wp_error($page_result) && !empty($page_result['data']['body'])) {
+                                    $objectives_content = $page_result['data']['body'];
+                                    
+                                    // Extract list items from HTML content
+                                    if (preg_match_all('/<li[^>]*>(.*?)<\/li>/is', $objectives_content, $matches)) {
+                                        foreach ($matches[1] as $objective) {
+                                            $clean_objective = wp_strip_all_tags($objective);
+                                            if (!empty(trim($clean_objective))) {
+                                                $content .= "<li>" . esc_html(trim($clean_objective)) . "</li>\n";
+                                                $objectives_found = true;
+                                            }
+                                        }
+                                    }
+                                    
+                                    if ($objectives_found) {
+                                        break 2; // Break out of both loops
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Try Canvas outcome groups API if no objectives found in modules
+        if (!$objectives_found && $this->api) {
+            $outcomes_result = $this->api->make_request("courses/{$course_id}/outcome_groups");
             
-            if (!is_wp_error($outcomes) && !empty($outcomes)) {
-                foreach ($outcomes as $outcome_group) {
+            if (!is_wp_error($outcomes_result) && !empty($outcomes_result['data'])) {
+                foreach ($outcomes_result['data'] as $outcome_group) {
                     if (!empty($outcome_group['outcomes'])) {
                         foreach ($outcome_group['outcomes'] as $outcome) {
                             if (!empty($outcome['description'])) {
