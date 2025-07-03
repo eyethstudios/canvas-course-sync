@@ -3,7 +3,7 @@
  * Plugin Name: Canvas Course Sync
  * Plugin URI: https://github.com/eyethstudios/canvas-course-sync
  * Description: Sync course information from Canvas LMS to WordPress
- * Version: 3.1.8
+ * Version: 3.1.9
  * Author: Eyeth Studios
  * Author URI: http://eyethstudios.com
  * License: GPL v2 or later
@@ -28,7 +28,7 @@ if (!defined('ABSPATH')) {
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 // Define plugin constants
-define('CCS_VERSION', '3.1.8');
+define('CCS_VERSION', '3.1.9');
 define('CCS_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('CCS_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('CCS_PLUGIN_BASENAME', plugin_basename(__FILE__));
@@ -100,7 +100,9 @@ class Canvas_Course_Sync {
         
         // Initialize GitHub updater early so AJAX handlers are registered
         if (is_admin()) {
-            add_action('plugins_loaded', array($this, 'init_github_updater'), 5);
+            // Load GitHub updater class early
+            require_once CCS_PLUGIN_DIR . 'includes/class-ccs-github-updater.php';
+            add_action('plugins_loaded', array($this, 'init_github_updater'), 15); // After load_plugin
         }
     }
 
@@ -108,9 +110,15 @@ class Canvas_Course_Sync {
      * Initialize GitHub updater
      */
     public function init_github_updater() {
+        error_log('CCS Debug: init_github_updater() called');
+        
         // Make sure the class exists before instantiating
         if (class_exists('CCS_GitHub_Updater')) {
+            error_log('CCS Debug: CCS_GitHub_Updater class found, creating instance');
             $this->github_updater = new CCS_GitHub_Updater(CCS_PLUGIN_FILE, CCS_GITHUB_REPO, CCS_VERSION);
+            error_log('CCS Debug: GitHub updater instance created successfully');
+        } else {
+            error_log('CCS Debug: CCS_GitHub_Updater class NOT found');
         }
     }
 

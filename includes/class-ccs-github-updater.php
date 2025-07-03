@@ -60,17 +60,43 @@ class CCS_GitHub_Updater {
      * Add plugin row meta
      */
     public function plugin_row_meta($links, $file) {
-        error_log('CCS Debug: plugin_row_meta called');
-        error_log('CCS Debug: Comparing - File param: ' . $file);
-        error_log('CCS Debug: Expected plugin slug: ' . $this->plugin_slug);
-        error_log('CCS Debug: Files match: ' . ($file === $this->plugin_slug ? 'YES' : 'NO'));
+        error_log('CCS Debug: plugin_row_meta called for file: ' . $file);
+        error_log('CCS Debug: Our plugin slug: ' . $this->plugin_slug);
+        error_log('CCS Debug: Plugin basename: ' . $this->plugin_basename);
+        error_log('CCS Debug: Current screen: ' . (is_admin() ? get_current_screen()->id ?? 'unknown' : 'not admin'));
         
         if ($file === $this->plugin_slug) {
-            error_log('CCS Debug: Adding plugin row meta links');
+            error_log('CCS Debug: File matches! Adding plugin row meta links');
+            
+            // Add GitHub link
             $links[] = '<a href="https://github.com/' . $this->github_repo . '" target="_blank">' . __('View on GitHub', 'canvas-course-sync') . '</a>';
-            $links[] = '<a href="javascript:void(0);" onclick="ccsCheckForUpdates(); return false;" style="color: #2271b1;">' . __('Check for updates', 'canvas-course-sync') . '</a>';
-            error_log('CCS Debug: Links added. Total links: ' . count($links));
+            
+            // Add check for updates link with inline JavaScript as fallback
+            $check_updates_js = "
+                if (typeof ccsCheckForUpdates === 'function') {
+                    ccsCheckForUpdates();
+                } else {
+                    jQuery.post(ajaxurl, {
+                        action: 'ccs_check_updates',
+                        nonce: '" . wp_create_nonce('ccs_check_updates') . "'
+                    }, function(response) {
+                        if (response.success) {
+                            alert('Update check completed: ' + response.data.message);
+                        } else {
+                            alert('Update check failed: ' + (response.data || 'Unknown error'));
+                        }
+                    });
+                }
+                return false;
+            ";
+            
+            $links[] = '<a href="javascript:void(0);" onclick="' . $check_updates_js . '" style="color: #2271b1;">' . __('Check for updates', 'canvas-course-sync') . '</a>';
+            
+            error_log('CCS Debug: Added ' . count($links) . ' total links');
+        } else {
+            error_log('CCS Debug: File does not match, skipping');
         }
+        
         return $links;
     }
     

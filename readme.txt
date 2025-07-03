@@ -5,7 +5,7 @@ Tags: canvas, lms, course, sync, education
 Requires at least: 5.0
 Tested up to: 6.4
 Requires PHP: 7.4
-Stable tag: 3.1.8
+Stable tag: 3.1.9
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -46,6 +46,11 @@ The token needs read access to courses and basic user information.
 3. Logging and status monitoring
 
 == Changelog ==
+
+= 3.1.9 =
+* Fixed GitHub updater initialization and plugin row meta links for "Check for updates" functionality
+* Enhanced GitHub updater with inline JavaScript fallback and comprehensive debugging
+* Improved loading order to ensure GitHub updater class is available when needed
 
 = 3.1.8 =
 * Fixed cleanup deleted courses functionality with enhanced debugging and improved logic
