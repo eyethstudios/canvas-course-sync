@@ -299,15 +299,30 @@ class CCS_GitHub_Updater {
         if ($response_code === 200 && !empty($response_body)) {
             $data = json_decode($response_body, true);
             
+            error_log('CCS Debug: GitHub API successful response');
+            error_log('CCS Debug: Raw tag_name from GitHub: ' . ($data['tag_name'] ?? 'NOT_FOUND'));
+            
             if (isset($data['tag_name']) && !empty($data['tag_name'])) {
                 $clean_version = $this->normalize_version($data['tag_name']);
+                
+                error_log('CCS Debug: Normalized GitHub version: ' . $clean_version);
                 
                 if (!empty($clean_version)) {
                     error_log('CCS Debug: Setting cached version: ' . $clean_version);
                     set_transient($cache_key, $clean_version, 30 * MINUTE_IN_SECONDS);
                     return $clean_version;
+                } else {
+                    error_log('CCS Debug: Clean version is empty after normalization');
+                }
+            } else {
+                error_log('CCS Debug: tag_name not found in GitHub response');
+                if (isset($data['message'])) {
+                    error_log('CCS Debug: GitHub API message: ' . $data['message']);
                 }
             }
+        } else {
+            error_log('CCS Debug: GitHub API failed - Response code: ' . $response_code);
+            error_log('CCS Debug: Response body: ' . substr($response_body, 0, 500));
         }
         
         error_log('CCS Debug: Failed to get GitHub version, using current version');
@@ -396,20 +411,33 @@ class CCS_GitHub_Updater {
         $remote_version = $this->get_remote_version(true);
         
         error_log('CCS Debug: Manual update check - Current: ' . $current_version . ', Remote: ' . $remote_version);
+        error_log('CCS Debug: Current version normalized: ' . $this->normalize_version($current_version));
+        error_log('CCS Debug: Remote version normalized: ' . $this->normalize_version($remote_version));
+        error_log('CCS Debug: Version comparison result: ' . ($this->is_update_available($current_version, $remote_version) ? 'UPDATE AVAILABLE' : 'UP TO DATE'));
         
         if ($this->is_update_available($current_version, $remote_version)) {
             wp_send_json_success(array(
                 'message' => sprintf(__('Update available! Version %s is ready. Please refresh this page to see the update.', 'canvas-course-sync'), $remote_version),
                 'update_available' => true,
                 'current_version' => $current_version,
-                'remote_version' => $remote_version
+                'remote_version' => $remote_version,
+                'debug_info' => array(
+                    'current_normalized' => $this->normalize_version($current_version),
+                    'remote_normalized' => $this->normalize_version($remote_version),
+                    'comparison' => version_compare($this->normalize_version($current_version), $this->normalize_version($remote_version), '<')
+                )
             ));
         } else {
             wp_send_json_success(array(
                 'message' => sprintf(__('Plugin is up to date! Current: %s, Latest: %s', 'canvas-course-sync'), $current_version, $remote_version),
                 'update_available' => false,
                 'current_version' => $current_version,
-                'remote_version' => $remote_version
+                'remote_version' => $remote_version,
+                'debug_info' => array(
+                    'current_normalized' => $this->normalize_version($current_version),
+                    'remote_normalized' => $this->normalize_version($remote_version),
+                    'comparison' => version_compare($this->normalize_version($current_version), $this->normalize_version($remote_version), '<')
+                )
             ));
         }
     }

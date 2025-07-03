@@ -190,6 +190,11 @@
                             console.log(`CCS: ${autoOmittedCount} courses auto-omitted due to catalog validation`);
                         }
                         
+                        // Enhanced debug logging for update check responses
+                        if (response.data.debug_info) {
+                            console.log('CCS Update Debug:', response.data.debug_info);
+                        }
+                        
                         CourseManager.renderCourses(courses, $list);
                         $wrapper.show();
                     } else {
