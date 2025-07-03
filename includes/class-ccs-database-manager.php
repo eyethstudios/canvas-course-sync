@@ -280,6 +280,8 @@ class CCS_Database_Manager {
             'details' => array()
         );
         
+        error_log('CCS_Database_Manager: Starting cleanup of deleted courses');
+        
         if ($this->logger) {
             $this->logger->log('Starting cleanup of deleted courses');
         }
@@ -291,12 +293,28 @@ class CCS_Database_Manager {
         ");
         
         $results['checked'] = count($synced_courses);
+        error_log('CCS_Database_Manager: Found ' . count($synced_courses) . ' courses with synced status to check');
         
         foreach ($synced_courses as $tracked_course) {
+            error_log('CCS_Database_Manager: Checking course: ' . $tracked_course->course_title . ' (Post ID: ' . $tracked_course->wordpress_post_id . ')');
+            
             // Check if the WordPress post still exists and is not trashed
             $post = get_post($tracked_course->wordpress_post_id);
             
-            if (!$post || $post->post_status === 'trash') {
+            if (!$post) {
+                error_log('CCS_Database_Manager: Post does not exist - Post ID: ' . $tracked_course->wordpress_post_id);
+                $status = 'deleted';
+                $should_update = true;
+            } elseif ($post->post_status === 'trash') {
+                error_log('CCS_Database_Manager: Post is trashed - Post ID: ' . $tracked_course->wordpress_post_id);
+                $status = 'trashed';
+                $should_update = true;
+            } else {
+                error_log('CCS_Database_Manager: Post exists and is not trashed - Post ID: ' . $tracked_course->wordpress_post_id . ' (Status: ' . $post->post_status . ')');
+                $should_update = false;
+            }
+            
+            if ($should_update) {
                 // Post is deleted or trashed, update sync status to 'available'
                 $update_result = $wpdb->update(
                     $tracking_table,
@@ -306,9 +324,10 @@ class CCS_Database_Manager {
                     array('%d')
                 );
                 
+                error_log('CCS_Database_Manager: Update result for tracking ID ' . $tracked_course->id . ': ' . ($update_result !== false ? 'SUCCESS' : 'FAILED'));
+                
                 if ($update_result !== false) {
                     $updated_count++;
-                    $status = !$post ? 'deleted' : 'trashed';
                     
                     $results['details'][] = array(
                         'canvas_id' => $tracked_course->canvas_course_id,
@@ -320,11 +339,15 @@ class CCS_Database_Manager {
                     if ($this->logger) {
                         $this->logger->log("Updated course sync status to 'available': {$tracked_course->course_title} (Canvas ID: {$tracked_course->canvas_course_id}) - Post was {$status}");
                     }
+                } else {
+                    error_log('CCS_Database_Manager: Failed to update tracking table for course: ' . $tracked_course->course_title . ' - Error: ' . $wpdb->last_error);
                 }
             }
         }
         
         $results['updated'] = $updated_count;
+        
+        error_log('CCS_Database_Manager: Cleanup completed: ' . $updated_count . ' courses updated from synced to available');
         
         if ($this->logger) {
             $this->logger->log("Cleanup completed: {$updated_count} courses updated from 'synced' to 'available'");

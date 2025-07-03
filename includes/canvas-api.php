@@ -145,7 +145,7 @@ class CCS_Canvas_API {
     /**
      * Get courses from Canvas
      */
-    public function get_courses($per_page = 100) {
+    public function get_courses($per_page = 50) {
         $all_courses = array();
         $page = 1;
         $max_pages = CCS_MAX_API_PAGES; // Safety limit
@@ -167,7 +167,7 @@ class CCS_Canvas_API {
             $headers = $result['headers'];
             
             error_log('CCS_Canvas_API: Page ' . $page . ' returned ' . (is_array($courses) ? count($courses) : 0) . ' courses');
-            error_log('CCS_Canvas_API: Link header content: ' . (isset($headers['link']) ? print_r($headers['link'], true) : 'No link header'));
+            error_log('CCS_Canvas_API: Response headers: ' . print_r($headers, true));
             
             if (empty($courses) || !is_array($courses)) {
                 error_log('CCS_Canvas_API: Breaking - no courses returned on page ' . $page);
@@ -180,18 +180,32 @@ class CCS_Canvas_API {
                 $this->logger->log('Retrieved page ' . $page . ' with ' . count($courses) . ' courses (total so far: ' . count($all_courses) . ')');
             }
             
-            // Check if there's a next page using Link header
+            // Check if there's a next page - improved logic
             $has_next_page = false;
+            
+            // First, check if we got a full page (indicating there might be more)
+            if (count($courses) == $per_page) {
+                error_log('CCS_Canvas_API: Got full page (' . $per_page . ' courses), likely more pages available');
+                $has_next_page = true;
+            }
+            
+            // Also check Link header if available
             if (isset($headers['link'])) {
                 $link_header = $headers['link'];
                 if (is_array($link_header)) {
                     $link_header = implode(', ', $link_header);
                 }
-                $has_next_page = strpos($link_header, 'rel="next"') !== false;
-                error_log('CCS_Canvas_API: Link header after processing: ' . $link_header);
-                error_log('CCS_Canvas_API: Has next page: ' . ($has_next_page ? 'YES' : 'NO'));
+                $link_has_next = strpos($link_header, 'rel="next"') !== false;
+                error_log('CCS_Canvas_API: Link header: ' . $link_header);
+                error_log('CCS_Canvas_API: Link header indicates next page: ' . ($link_has_next ? 'YES' : 'NO'));
+                
+                // Use Link header result if it suggests no more pages
+                if (!$link_has_next) {
+                    $has_next_page = false;
+                    error_log('CCS_Canvas_API: Link header says no more pages, stopping');
+                }
             } else {
-                error_log('CCS_Canvas_API: No link header found on page ' . $page);
+                error_log('CCS_Canvas_API: No link header found');
             }
             
             $page++;
