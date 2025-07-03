@@ -385,6 +385,42 @@ function ccs_restore_omitted_handler() {
 add_action('wp_ajax_ccs_restore_omitted', 'ccs_restore_omitted_handler');
 
 /**
+ * Cleanup deleted courses - update sync status from 'synced' to 'available'
+ */
+function ccs_cleanup_deleted_courses_handler() {
+    // Verify nonce
+    if (!wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ccs_cleanup_deleted')) {
+        wp_die('Security check failed');
+    }
+    
+    // Check permissions
+    if (!current_user_can('manage_options')) {
+        wp_die('Insufficient permissions');
+    }
+    
+    // Get database manager instance
+    $logger = class_exists('CCS_Logger') ? new CCS_Logger() : null;
+    $db_manager = new CCS_Database_Manager($logger);
+    
+    // Run cleanup
+    $results = $db_manager->cleanup_deleted_courses();
+    
+    $message = sprintf(
+        __('Cleanup completed: %d of %d tracked courses updated to "available" status', 'canvas-course-sync'),
+        $results['updated'],
+        $results['checked']
+    );
+    
+    wp_send_json_success(array(
+        'message' => $message,
+        'checked' => $results['checked'],
+        'updated' => $results['updated'],
+        'details' => $results['details']
+    ));
+}
+add_action('wp_ajax_ccs_cleanup_deleted', 'ccs_cleanup_deleted_courses_handler');
+
+/**
  * Toggle auto-sync setting
  */
 function ccs_toggle_auto_sync_handler() {

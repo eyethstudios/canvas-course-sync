@@ -3,7 +3,7 @@
  * Plugin Name: Canvas Course Sync
  * Plugin URI: https://github.com/eyethstudios/canvas-course-sync
  * Description: Sync course information from Canvas LMS to WordPress
- * Version: 3.1.5
+ * Version: 3.1.6
  * Author: Eyeth Studios
  * Author URI: http://eyethstudios.com
  * License: GPL v2 or later
@@ -28,7 +28,7 @@ if (!defined('ABSPATH')) {
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 // Define plugin constants
-define('CCS_VERSION', '3.1.5');
+define('CCS_VERSION', '3.1.6');
 define('CCS_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('CCS_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('CCS_PLUGIN_BASENAME', plugin_basename(__FILE__));
@@ -459,7 +459,8 @@ class Canvas_Course_Sync {
                 'restoreOmitted' => wp_create_nonce('ccs_restore_omitted'),
                 'logError' => wp_create_nonce('ccs_log_js_error'),
                 'toggleAutoSync' => wp_create_nonce('ccs_toggle_auto_sync'),
-                'checkUpdates' => wp_create_nonce('ccs_check_updates')
+                'checkUpdates' => wp_create_nonce('ccs_check_updates'),
+                'cleanupDeleted' => wp_create_nonce('ccs_cleanup_deleted')
             ),
             'messages' => array(
                 'confirmSync' => __('Are you sure you want to sync the selected courses?', 'canvas-course-sync'),

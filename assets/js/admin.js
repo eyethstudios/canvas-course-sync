@@ -147,6 +147,7 @@
             $(document).on('click', '#ccs-deselect-all', CourseManager.deselectAll);
             $(document).on('click', '#ccs-omit-selected', CourseManager.omitSelected);
             $(document).on('click', '#ccs-restore-omitted', CourseManager.restoreOmitted);
+            $(document).on('click', '#ccs-cleanup-deleted', CourseManager.cleanupDeleted);
         },
         
         getCourses: function(e) {
@@ -448,6 +449,53 @@
                 error: function(xhr, status, error) {
                     ErrorHandler.log(error, 'Restore Omitted');
                     ErrorHandler.showUser('Network error while restoring courses');
+                },
+                complete: function() {
+                    UI.hideLoading($button, originalText);
+                }
+            });
+        },
+        
+        cleanupDeleted: function(e) {
+            e.preventDefault();
+            
+            if (!confirm('Check for deleted/trashed WordPress courses and update their sync status to "available"?')) {
+                return;
+            }
+            
+            const $button = $(this);
+            const originalText = $button.text();
+            
+            UI.showLoading($button, 'Cleaning up...');
+            
+            $.ajax({
+                url: ccsAjax.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'ccs_cleanup_deleted',
+                    nonce: ccsAjax.nonces.cleanupDeleted
+                },
+                success: function(response) {
+                    if (response.success) {
+                        const data = response.data;
+                        let message = data.message;
+                        
+                        if (data.details && data.details.length > 0) {
+                            message += '\n\nUpdated courses:';
+                            data.details.forEach(function(course) {
+                                message += '\n- ' + course.course_title + ' (Canvas ID: ' + course.canvas_id + ')';
+                            });
+                        }
+                        
+                        UI.showSuccess(message);
+                        $('#ccs-get-courses').trigger('click'); // Refresh course list
+                    } else {
+                        ErrorHandler.showUser(response.data || 'Failed to cleanup deleted courses');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    ErrorHandler.log(error, 'Cleanup Deleted');
+                    ErrorHandler.showUser('Network error while cleaning up deleted courses');
                 },
                 complete: function() {
                     UI.hideLoading($button, originalText);

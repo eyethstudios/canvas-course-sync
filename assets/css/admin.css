@@ -289,6 +289,17 @@ input:checked + .ccs-toggle-slider:before {
     border-color: #1e7e34;
 }
 
+.ccs-cleanup-btn {
+    background-color: #6c757d;
+    border-color: #6c757d;
+    color: white;
+}
+
+.ccs-cleanup-btn:hover {
+    background-color: #5a6268;
+    border-color: #545b62;
+}
+
 /* Panel Styles */
 .ccs-panel {
     background: #fff;

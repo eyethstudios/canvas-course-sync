@@ -263,4 +263,73 @@ class CCS_Database_Manager {
         
         return $stats ? (array)$stats : array('total_synced' => 0, 'active_synced' => 0, 'synced_today' => 0);
     }
+    
+    /**
+     * Check for deleted WordPress courses and update their sync status
+     * 
+     * @return array Results of the cleanup operation
+     */
+    public function cleanup_deleted_courses() {
+        global $wpdb;
+        
+        $tracking_table = $wpdb->prefix . 'ccs_course_tracking';
+        $updated_count = 0;
+        $results = array(
+            'checked' => 0,
+            'updated' => 0,
+            'details' => array()
+        );
+        
+        if ($this->logger) {
+            $this->logger->log('Starting cleanup of deleted courses');
+        }
+        
+        // Get all tracked courses with 'synced' status
+        $synced_courses = $wpdb->get_results("
+            SELECT * FROM $tracking_table 
+            WHERE sync_status = 'synced'
+        ");
+        
+        $results['checked'] = count($synced_courses);
+        
+        foreach ($synced_courses as $tracked_course) {
+            // Check if the WordPress post still exists and is not trashed
+            $post = get_post($tracked_course->wordpress_post_id);
+            
+            if (!$post || $post->post_status === 'trash') {
+                // Post is deleted or trashed, update sync status to 'available'
+                $update_result = $wpdb->update(
+                    $tracking_table,
+                    array('sync_status' => 'available'),
+                    array('id' => $tracked_course->id),
+                    array('%s'),
+                    array('%d')
+                );
+                
+                if ($update_result !== false) {
+                    $updated_count++;
+                    $status = !$post ? 'deleted' : 'trashed';
+                    
+                    $results['details'][] = array(
+                        'canvas_id' => $tracked_course->canvas_course_id,
+                        'course_title' => $tracked_course->course_title,
+                        'post_id' => $tracked_course->wordpress_post_id,
+                        'status' => $status
+                    );
+                    
+                    if ($this->logger) {
+                        $this->logger->log("Updated course sync status to 'available': {$tracked_course->course_title} (Canvas ID: {$tracked_course->canvas_course_id}) - Post was {$status}");
+                    }
+                }
+            }
+        }
+        
+        $results['updated'] = $updated_count;
+        
+        if ($this->logger) {
+            $this->logger->log("Cleanup completed: {$updated_count} courses updated from 'synced' to 'available'");
+        }
+        
+        return $results;
+    }
 }

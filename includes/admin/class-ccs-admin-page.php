@@ -185,6 +185,9 @@ class CCS_Admin_Page {
                                     <button id="ccs-restore-omitted" class="button ccs-restore-btn">
                                         <?php _e('Restore All Omitted Courses', 'canvas-course-sync'); ?>
                                     </button>
+                                    <button id="ccs-cleanup-deleted" class="button ccs-cleanup-btn">
+                                        <?php _e('Cleanup Deleted Courses', 'canvas-course-sync'); ?>
+                                    </button>
                                 </div>
                             </div>
                             
