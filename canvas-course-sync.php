@@ -3,7 +3,7 @@
  * Plugin Name: Canvas Course Sync
  * Plugin URI: https://github.com/eyethstudios/canvas-course-sync
  * Description: Sync course information from Canvas LMS to WordPress
- * Version: 3.0.3
+ * Version: 3.0.4
  * Author: Eyeth Studios
  * Author URI: http://eyethstudios.com
  * License: GPL v2 or later
@@ -28,7 +28,7 @@ if (!defined('ABSPATH')) {
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 // Define plugin constants
-define('CCS_VERSION', '3.0.3');
+define('CCS_VERSION', '3.0.4');
 define('CCS_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('CCS_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('CCS_PLUGIN_BASENAME', plugin_basename(__FILE__));
@@ -523,6 +523,15 @@ function ccs_deactivate_plugin() {
     
     // Log deactivation
     do_action('ccs_plugin_deactivated');
+}
+
+/**
+ * Get the main Canvas Course Sync instance
+ *
+ * @return Canvas_Course_Sync The main plugin instance
+ */
+function canvas_course_sync() {
+    return Canvas_Course_Sync::get_instance();
 }
 
 // Initialize plugin
