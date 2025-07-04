@@ -314,6 +314,10 @@ class CCS_Content_Handler {
             $objectives = $this->get_catalog_backup_objectives($course_details['name'] ?? '');
             if (!empty($objectives)) {
                 error_log('CCS_Content_Handler: Using catalog backup objectives for: ' . ($course_details['name'] ?? 'Unknown'));
+            }
+        }
+        
+        return $objectives;
     }
     
     /**
