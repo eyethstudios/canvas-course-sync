@@ -144,7 +144,15 @@ class CCS_Content_Handler {
             error_log('CCS_Content_Handler: Using description field for module description (length: ' . strlen($description) . ')');
         }
         
-        // If no description from course fields, search ALL pages thoroughly
+        // If no Canvas description, try catalog backup first
+        if (empty($description)) {
+            $description = $this->get_catalog_backup_description($course_details['name'] ?? '');
+            if (!empty($description)) {
+                error_log('CCS_Content_Handler: Using catalog backup description for: ' . ($course_details['name'] ?? 'Unknown'));
+            }
+        }
+        
+        // If still no description, search ALL pages thoroughly
         if (empty($description) && !empty($pages) && $this->api) {
             error_log('CCS_Content_Handler: No course description found, searching ALL pages thoroughly...');
             
@@ -292,6 +300,14 @@ class CCS_Content_Handler {
             }
         }
         
+        // If still no objectives, try catalog backup
+        if (empty($objectives)) {
+            $objectives = $this->get_catalog_backup_objectives($course_details['name'] ?? '');
+            if (!empty($objectives)) {
+                error_log('CCS_Content_Handler: Using catalog backup objectives for: ' . ($course_details['name'] ?? 'Unknown'));
+            }
+        }
+        
         // Add objectives to content
         if (!empty($objectives)) {
             foreach ($objectives as $objective) {
@@ -426,6 +442,33 @@ class CCS_Content_Handler {
         
         error_log('CCS_Content_Handler: Extracted ' . count($objectives) . ' objectives from content');
         return array_values($objectives);
+    }
+
+    /**
+     * Check if content is primarily about badges or completion
+     */
+    private function is_badge_or_completion_content($content) {
+        $clean_text = strtolower(strip_tags($content));
+        
+        // Count badge/completion related words
+        $badge_words = array('badge', 'badgr', 'completion', 'certificate', 'credly', 'earned');
+        $badge_count = 0;
+        foreach ($badge_words as $word) {
+            $badge_count += substr_count($clean_text, $word);
+        }
+        
+        // If more than 5 badge-related words in content, it's likely badge content
+        if ($badge_count > 5) {
+            return true;
+        }
+        
+        // Check if badge content is the majority of the text
+        $total_words = str_word_count($clean_text);
+        if ($total_words > 0 && ($badge_count / $total_words) > 0.1) {
+            return true;
+        }
+        
+        return false;
     }
 
     /**
@@ -678,5 +721,78 @@ class CCS_Content_Handler {
         $content .= "</div>\n\n";
         
         return $content;
+    }
+    
+    /**
+     * Get catalog backup description for a course
+     */
+    private function get_catalog_backup_description($course_name) {
+        $catalog_data = $this->get_catalog_backup_data();
+        
+        $course_key = $this->normalize_course_name($course_name);
+        
+        if (isset($catalog_data[$course_key]) && !empty($catalog_data[$course_key]['description'])) {
+            return '<p>' . $catalog_data[$course_key]['description'] . '</p>';
+        }
+        
+        return '';
+    }
+    
+    /**
+     * Get catalog backup objectives for a course
+     */
+    private function get_catalog_backup_objectives($course_name) {
+        $catalog_data = $this->get_catalog_backup_data();
+        
+        $course_key = $this->normalize_course_name($course_name);
+        
+        if (isset($catalog_data[$course_key]) && !empty($catalog_data[$course_key]['objectives'])) {
+            return $catalog_data[$course_key]['objectives'];
+        }
+        
+        return array();
+    }
+    
+    /**
+     * Get catalog backup data
+     */
+    private function get_catalog_backup_data() {
+        return array(
+            'assistive_technology_in_training_and_workplace_settings' => array(
+                'description' => 'This module provides a detailed look at assistive technology used in training and workplace settings to support deaf people. Topics include interpreting services, assistive listening devices (ALDs), hearing aids, cochlear implants (CIs), visual alarms, speech-to-text (STT) technology, and other relevant technologies. Participants will learn about the benefits of these technologies and how they can enhance accessibility and productivity in the workplace.',
+                'objectives' => array(
+                    'Demonstrate knowledge of assistive technologies, their relevance to supporting deaf trainees and employees, and how to apply this understanding to create accessible workplaces.',
+                    'Identify actionable strategies for implementing assistive technologies and creating environments where deaf trainees and employees feel valued and supported.',
+                    'Develop strategies for training programs and provide ongoing support to ensure the continued effectiveness of assistive technologies in training and workplace settings.',
+                    'Create, implement, and evaluate training and workplace policies that promote accessibility and support continuous improvement.'
+                )
+            ),
+            'deaf_awareness_for_vocational_rehabilitation_professionals' => array(
+                'description' => 'This module aims to increase awareness of deaf people\'s lived experiences and interactions with vocational rehabilitation services. Vocational rehabilitation (VR) professionals can use this information to reflect on existing systemic barriers and how they impact the effectiveness of vocational rehabilitation services. Using the resources provided, participants can implement person-centered and culturally responsive practices that improve overall experiences with vocational rehabilitation services for deaf people.',
+                'objectives' => array(
+                    'Describe how centering the lived experiences of deaf people contributes to effective VR services.',
+                    'Identify system barriers that impact access to education and employment opportunities.',
+                    'Reflect on existing practices and identify opportunities to include culturally responsive and person-centered approaches that prioritize the needs of deaf people.',
+                    'Apply knowledge of deaf communities to improve the impact and effectiveness of vocational rehabilitation services received by deaf people.'
+                )
+            ),
+            'effective_mentoring_for_deaf_people' => array(
+                'description' => 'This module explores the benefits of mentoring opportunities for deaf youth, anticipated challenges, and key considerations for effective mentoring. It is designed to provide information and resources to professionals planning mentoring programs and deaf mentors to help build or strengthen mentoring programs. Participants may also consider sharing information from the course with families of deaf youth.',
+                'objectives' => array(
+                    'State the significant benefits of mentorship',
+                    'Identify essential components and characteristics of effective mentoring experiences',
+                    'Describe common challenges and barriers that hinder the establishment of mentoring programs for deaf youth',
+                    'Describe actionable strategies to enhance and strengthen existing mentoring programs',
+                    'Articulate the importance of culturally responsive practices in mentoring'
+                )
+            )
+        );
+    }
+    
+    /**
+     * Normalize course name for catalog lookup
+     */
+    private function normalize_course_name($course_name) {
+        return strtolower(preg_replace('/[^a-zA-Z0-9]/', '_', trim($course_name)));
     }
 }
