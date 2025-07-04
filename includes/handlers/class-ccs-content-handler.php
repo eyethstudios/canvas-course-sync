@@ -474,24 +474,50 @@ class CCS_Content_Handler {
     /**
      * Build badge information section
      */
+    /**
+     * Build badge information section
+     */
     private function build_badge_information($course_details) {
         $content = '';
         
         $content .= "<div class='badge-information'>\n";
-        $content .= "<h2>Badge Information</h2>\n";
+        $content .= "<p><strong>Badge information:</strong> Module content category - ";
         
-        // Determine badge category based on course name and content
-        $badge_category = $this->determine_badge_category($course_details);
+        // Get badge category based on course name from catalog data
+        $course_name = $course_details['name'] ?? '';
+        $badge_info = $this->get_badge_info_from_catalog($course_name);
         
-        $content .= "<p><strong>Module content category:</strong> " . esc_html($badge_category) . "</p>\n";
-        
-        // Create badge display section similar to catalog
-        $course_name = $course_details['name'] ?? 'Course';
-        $content .= "<div class='badge-display' style='margin-top: 20px; padding: 15px; background-color: #f5f5f5; border-radius: 5px;'>\n";
-        $content .= "<p style='text-align: center; font-weight: bold;'>" . esc_html($course_name) . "</p>\n";
-        $content .= "<p style='text-align: center;'>Issued by: National Deaf Center</p>\n";
-        $content .= "<p style='text-align: center; margin-top: 10px;'><a href='https://nationaldeafcenter.badgr.com/public/organization/badges' target='_blank'>Learn more about NDC Badges here.</a></p>\n";
-        $content .= "</div>\n";
+        if ($badge_info) {
+            $content .= "<strong>" . esc_html($badge_info['category']) . "</strong></p>\n\n";
+            
+            // Add badge image with proper styling to match catalog
+            $badge_image_url = plugins_url('src/assets/' . $badge_info['image_file'], dirname(dirname(__DIR__)));
+            $content .= "<div class='badge-image' style='text-align: center; margin: 20px 0;'>\n";
+            $content .= "<img src='" . esc_url($badge_image_url) . "' alt='Badge for " . esc_attr($badge_info['category']) . "' style='width: 150px; height: 150px; border-radius: 50%; border: 3px solid #2c5aa0;' />\n";
+            $content .= "</div>\n\n";
+            
+            // Add badge earning information
+            if (!empty($badge_info['badge_name'])) {
+                $content .= "<p style='text-align: center;'>Earn Your <em><a href='" . esc_url($badge_info['badge_url']) . "' target='_blank'>" . esc_html($badge_info['badge_name']) . "</a></em> badge</p>\n\n";
+            } else {
+                $content .= "<p style='text-align: center;'>" . esc_html($course_name) . "</p>\n\n";
+            }
+            
+            $content .= "<p>Learn more about <a href='https://nationaldeafcenter.badgr.com/public/organization/badges' target='_blank'>NDC Badges here</a>.</p>\n";
+        } else {
+            // Default badge information with fallback to category determination
+            $badge_category = $this->determine_badge_category($course_details);
+            $content .= "<strong>" . esc_html($badge_category) . "</strong></p>\n\n";
+            
+            // Add default badge image
+            $badge_image_url = plugins_url('src/assets/ndc-badge.svg', dirname(dirname(__DIR__)));
+            $content .= "<div class='badge-image' style='text-align: center; margin: 20px 0;'>\n";
+            $content .= "<img src='" . esc_url($badge_image_url) . "' alt='NDC Badge' style='width: 150px; height: 150px;' />\n";
+            $content .= "</div>\n\n";
+            
+            $content .= "<p style='text-align: center;'>" . esc_html($course_name) . "</p>\n\n";
+            $content .= "<p>Learn more about <a href='https://nationaldeafcenter.badgr.com/public/organization/badges' target='_blank'>NDC Badges here</a>.</p>\n";
+        }
         
         $content .= "</div>\n\n";
         
@@ -794,6 +820,55 @@ class CCS_Content_Handler {
         );
     }
     
+    /**
+     * Get badge information from catalog data for specific courses
+     */
+    private function get_badge_info_from_catalog($course_name) {
+        $badge_catalog = array(
+            'assistive_technology_in_training_and_workplace_settings' => array(
+                'category' => 'Accessibility Practices',
+                'badge_name' => 'Assistive Technology',
+                'badge_url' => 'https://nationaldeafcenter.badgr.com/public/badges/assistive-technology',
+                'image_file' => 'ndc-badge.svg'
+            ),
+            'effective_mentoring_for_deaf_people' => array(
+                'category' => 'Systems Knowledge',
+                'badge_name' => 'Mentoring',
+                'badge_url' => 'https://nationaldeafcenter.badgr.com/public/badges/DFCchTXQSXC1iJuGi1urWg',
+                'image_file' => 'mentoring-badge.png'
+            ),
+            'deaf_awareness_for_vocational_rehabilitation_professionals' => array(
+                'category' => 'Vocational Rehabilitation',
+                'badge_name' => 'Deaf Awareness',
+                'badge_url' => 'https://nationaldeafcenter.badgr.com/public/badges/deaf-awareness',
+                'image_file' => 'ndc-badge.svg'
+            ),
+            'introduction_to_deaf_rehabilitation' => array(
+                'category' => 'Vocational Rehabilitation',
+                'badge_name' => 'Deaf Rehabilitation',
+                'badge_url' => 'https://nationaldeafcenter.badgr.com/public/badges/deaf-rehabilitation',
+                'image_file' => 'ndc-badge.svg'
+            )
+        );
+        
+        $course_key = $this->normalize_course_name($course_name);
+        
+        if (isset($badge_catalog[$course_key])) {
+            return $badge_catalog[$course_key];
+        }
+        
+        // Try partial matching for similar course names
+        foreach ($badge_catalog as $key => $badge_info) {
+            if (stripos($course_name, str_replace('_', ' ', $key)) !== false || 
+                stripos(str_replace('_', ' ', $key), $course_name) !== false) {
+                error_log('CCS_Content_Handler: Found partial badge match for: ' . $course_name . ' -> ' . $key);
+                return $badge_info;
+            }
+        }
+        
+        return null;
+    }
+
     /**
      * Normalize course name for catalog lookup
      */
