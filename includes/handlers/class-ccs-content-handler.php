@@ -1192,18 +1192,42 @@ class CCS_Content_Handler {
         
         $html = wp_remote_retrieve_body($response);
         
-        // Extract badge image and URL from the course page
-        if (preg_match('/<img[^>]*src="([^"]*badge[^"]*)"[^>]*>/i', $html, $matches)) {
-            $badge_image_url = $matches[1];
-            
-            // Extract badge title/category from context
-            $badge_category = $this->extract_badge_category_from_html($html);
+        // Extract badge image from the course page - look for badge-specific patterns
+        $badge_image_url = null;
+        $badge_title = 'Professional Development';
+        
+        // Look for badge images in various formats
+        $badge_patterns = array(
+            // Canvas/Badgr badge patterns
+            '/<img[^>]*src="([^"]*(?:badgr|badge)[^"]*)"[^>]*>/i',
+            '/<img[^>]*src="([^"]*nationaldeafcenter[^"]*badge[^"]*)"[^>]*>/i',
+            // Generic badge image patterns
+            '/<img[^>]*alt="[^"]*badge[^"]*"[^>]*src="([^"]*)"[^>]*>/i',
+            '/<img[^>]*class="[^"]*badge[^"]*"[^>]*src="([^"]*)"[^>]*>/i'
+        );
+        
+        foreach ($badge_patterns as $pattern) {
+            if (preg_match($pattern, $html, $matches)) {
+                $badge_image_url = $matches[1];
+                break;
+            }
+        }
+        
+        // Extract badge title/category from the page
+        if (preg_match('/<title>([^<]+)<\/title>/i', $html, $matches)) {
+            $page_title = $matches[1];
+            $badge_title = $this->extract_badge_category_from_title($page_title);
+        }
+        
+        // If we found a badge image, download it to use locally
+        if ($badge_image_url) {
+            $local_badge_file = $this->download_badge_image($badge_image_url, $course_name);
             
             return array(
-                'category' => $badge_category,
-                'badge_name' => $badge_category,
-                'badge_url' => $course_url, // Use course URL as badge URL
-                'image_file' => 'ndc-badge.svg', // Default to NDC badge file
+                'category' => $badge_title,
+                'badge_name' => $badge_title,
+                'badge_url' => $course_url,
+                'image_file' => $local_badge_file,
                 'remote_image_url' => $badge_image_url
             );
         }
@@ -1212,12 +1236,63 @@ class CCS_Content_Handler {
     }
     
     /**
+     * Download badge image and save locally
+     */
+    private function download_badge_image($image_url, $course_name) {
+        // Create safe filename
+        $safe_name = sanitize_file_name(strtolower(str_replace(' ', '-', $course_name)));
+        $filename = $safe_name . '-badge.png';
+        $local_path = 'src/assets/' . $filename;
+        
+        // Check if already downloaded
+        if (file_exists(plugin_dir_path(dirname(dirname(__DIR__))) . $local_path)) {
+            return $filename;
+        }
+        
+        // Download the image
+        $response = wp_remote_get($image_url, array('timeout' => 30));
+        
+        if (!is_wp_error($response)) {
+            $image_data = wp_remote_retrieve_body($response);
+            $full_path = plugin_dir_path(dirname(dirname(__DIR__))) . $local_path;
+            
+            // Ensure directory exists
+            wp_mkdir_p(dirname($full_path));
+            
+            // Save the file
+            if (file_put_contents($full_path, $image_data)) {
+                error_log("CCS_Content_Handler: Downloaded badge image for {$course_name}: {$filename}");
+                return $filename;
+            }
+        }
+        
+        error_log("CCS_Content_Handler: Failed to download badge image for {$course_name}");
+        return 'ndc-badge.svg'; // Fallback to default
+    }
+    
+    /**
      * Get catalog course links mapping
      */
     private function get_catalog_course_links() {
-        // This would ideally come from the memory file we created
-        // For now, return a basic structure - in production this should read from the catalog links
-        return array();
+        return array(
+            'Assistive Technology in Training and Workplace Settings' => 'https://learn.nationaldeafcenter.org/courses/assistive-technology-in-training-and-workplace-settings',
+            'Deaf Awareness for Vocational Rehabilitation Professionals' => 'https://learn.nationaldeafcenter.org/courses/deaf-awareness-for-vocational-rehabilitation-professionals',
+            'Effective Mentoring for Deaf People' => 'https://learn.nationaldeafcenter.org/courses/effective-mentoring-for-deaf-people',
+            'Introduction to Deaf Rehabilitation' => 'https://learn.nationaldeafcenter.org/courses/introduction-to-deaf-rehabilitation',
+            'Partnering with Deaf Youth: Strength-Based Transition Planning for VR Professionals' => 'https://learn.nationaldeafcenter.org/courses/partnering-with-deaf-youth-strength-based-transition-planning-for-vr-professionals',
+            'Pre-Employment Transition Services (Pre-ETS) and Deaf Youth' => 'https://learn.nationaldeafcenter.org/courses/pre-employment-transition-services-pre-ets-and-deaf-youth',
+            'Data-Driven Decision Making: What Does it Matter?' => 'https://learn.nationaldeafcenter.org/courses/data-driven-decision-making-what-does-it-matter',
+            'Deaf 101' => 'https://learn.nationaldeafcenter.org/courses/new-deaf-101',
+            'Finding Data About Deaf People' => 'https://learn.nationaldeafcenter.org/courses/finding-data-about-deaf-people',
+            'Summer Programs for Deaf Youth: Stories and Strategies' => 'https://learn.nationaldeafcenter.org/courses/summer-programs-for-deaf-youth-stories-and-strategies',
+            'Attitudes as Barriers for Deaf People' => 'https://learn.nationaldeafcenter.org/courses/new-attitudes-and-biases-as-barriers-for-deaf-people',
+            'Building Relationships with Deaf Communities' => 'https://learn.nationaldeafcenter.org/courses/building-relationships-with-deaf-communities',
+            'Discovering System Barriers and Exploring the WHY' => 'https://learn.nationaldeafcenter.org/courses/new-discovering-system-barriers-and-exploring-the-why',
+            'Transforming Systems to Improve Experiences for Deaf People' => 'https://learn.nationaldeafcenter.org/courses/transforming-systems-to-achieve-equity-for-deaf-people',
+            'Legal Frameworks and Responsibilities for Accessibility' => 'https://learn.nationaldeafcenter.org/courses/new-legal-frameworks-and-responsibilities-for-accessibility',
+            'Work-Based Learning Programs' => 'https://learn.nationaldeafcenter.org/courses/work-based-learning-programs'
+            // Add more as needed - this is just a subset for demonstration
+        );
         $lower_name = strtolower($course_name);
         
         // Category mapping based on keywords
@@ -1377,17 +1452,22 @@ class CCS_Content_Handler {
     }
     
     /**
-     * Extract badge category from HTML content
+     * Extract badge category from page title
      */
-    private function extract_badge_category_from_html($html) {
-        // Look for badge category indicators in the HTML
-        if (preg_match('/badge[^>]*title="([^"]+)"/i', $html, $matches)) {
-            return $matches[1];
-        }
+    private function extract_badge_category_from_title($page_title) {
+        // Clean up the title and extract meaningful category
+        $title = trim(str_replace('National Deaf Center', '', $page_title));
         
-        if (preg_match('/category[^>]*>([^<]+)</i', $html, $matches)) {
-            return trim($matches[1]);
-        }
+        // Category keywords mapping
+        if (stripos($title, 'assistive technology') !== false) return 'Assistive Technology';
+        if (stripos($title, 'mentoring') !== false) return 'Mentoring';
+        if (stripos($title, 'deaf awareness') !== false) return 'Deaf Awareness';
+        if (stripos($title, 'rehabilitation') !== false) return 'Vocational Rehabilitation';
+        if (stripos($title, 'transition') !== false) return 'Transition Services';
+        if (stripos($title, 'data') !== false) return 'Data and Evaluation';
+        if (stripos($title, 'system') !== false) return 'Systems Change';
+        if (stripos($title, 'legal') !== false) return 'Legal and Compliance';
+        if (stripos($title, 'webinar') !== false) return 'Webinar';
         
         return 'Professional Development';
     }
