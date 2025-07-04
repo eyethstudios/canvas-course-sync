@@ -1157,15 +1157,67 @@ class CCS_Content_Handler {
             }
         }
         
-        // Fallback for new courses - categorize by keywords
-        error_log('CCS_Content_Handler: No specific badge found for: ' . $course_name . ', using fallback categorization');
-        return $this->categorize_new_course($course_name);
+        // Fallback - fetch badge from course page in catalog
+        error_log('CCS_Content_Handler: No cached badge found for: ' . $course_name . ', fetching from catalog page');
+        return $this->fetch_badge_from_catalog_page($course_name);
     }
 
     /**
-     * Categorize new courses based on keywords
+     * Fetch badge information from the actual catalog course page
      */
-    private function categorize_new_course($course_name) {
+    private function fetch_badge_from_catalog_page($course_name) {
+        // Get course URL from our catalog links
+        $course_links = $this->get_catalog_course_links();
+        $course_url = null;
+        
+        foreach ($course_links as $title => $url) {
+            if (stripos($title, $course_name) !== false || stripos($course_name, $title) !== false) {
+                $course_url = $url;
+                break;
+            }
+        }
+        
+        if (!$course_url) {
+            error_log("CCS_Content_Handler: No catalog URL found for course: {$course_name}");
+            return $this->get_default_fallback_badge();
+        }
+        
+        // Fetch course page and extract badge information
+        $response = wp_remote_get($course_url, array('timeout' => 15));
+        
+        if (is_wp_error($response)) {
+            error_log("CCS_Content_Handler: Failed to fetch course page: " . $response->get_error_message());
+            return $this->get_default_fallback_badge();
+        }
+        
+        $html = wp_remote_retrieve_body($response);
+        
+        // Extract badge image and URL from the course page
+        if (preg_match('/<img[^>]*src="([^"]*badge[^"]*)"[^>]*>/i', $html, $matches)) {
+            $badge_image_url = $matches[1];
+            
+            // Extract badge title/category from context
+            $badge_category = $this->extract_badge_category_from_html($html);
+            
+            return array(
+                'category' => $badge_category,
+                'badge_name' => $badge_category,
+                'badge_url' => $course_url, // Use course URL as badge URL
+                'image_file' => 'ndc-badge.svg', // Default to NDC badge file
+                'remote_image_url' => $badge_image_url
+            );
+        }
+        
+        return $this->get_default_fallback_badge();
+    }
+    
+    /**
+     * Get catalog course links mapping
+     */
+    private function get_catalog_course_links() {
+        // This would ideally come from the memory file we created
+        // For now, return a basic structure - in production this should read from the catalog links
+        return array();
         $lower_name = strtolower($course_name);
         
         // Category mapping based on keywords
@@ -1322,9 +1374,31 @@ class CCS_Content_Handler {
             )
         );
         
-        return $category_badges[$category] ?? array(
+    }
+    
+    /**
+     * Extract badge category from HTML content
+     */
+    private function extract_badge_category_from_html($html) {
+        // Look for badge category indicators in the HTML
+        if (preg_match('/badge[^>]*title="([^"]+)"/i', $html, $matches)) {
+            return $matches[1];
+        }
+        
+        if (preg_match('/category[^>]*>([^<]+)</i', $html, $matches)) {
+            return trim($matches[1]);
+        }
+        
+        return 'Professional Development';
+    }
+    
+    /**
+     * Get default fallback badge
+     */
+    private function get_default_fallback_badge() {
+        return array(
             'category' => 'Professional Development',
-            'badge_name' => 'Professional Development',
+            'badge_name' => 'Professional Development', 
             'badge_url' => 'https://nationaldeafcenter.badgr.com/public/badges/professional-development',
             'image_file' => 'ndc-badge.svg'
         );
