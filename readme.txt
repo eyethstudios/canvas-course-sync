@@ -5,7 +5,7 @@ Tags: canvas, lms, course, sync, education
 Requires at least: 5.0
 Tested up to: 6.4
 Requires PHP: 7.4
-Stable tag: 3.5.1
+Stable tag: 3.5.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -46,6 +46,12 @@ The token needs read access to courses and basic user information.
 3. Logging and status monitoring
 
 == Changelog ==
+
+= 3.5.2 =
+* Enhanced badge information and images to sync properly from National Deaf Center catalog
+* Fixed plugin auto-deactivation issue after updates - plugin now stays activated
+* Improved course content extraction from catalog pages using proper markdown parsing
+* Added Summer Programs badge mapping for proper badge display
 
 = 3.5.1 =
 * Fixed badge image URL generation to use proper WordPress plugin constants

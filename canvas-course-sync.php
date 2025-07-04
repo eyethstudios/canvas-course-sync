@@ -3,7 +3,7 @@
  * Plugin Name: Canvas Course Sync
  * Plugin URI: https://github.com/eyethstudios/canvas-course-sync
  * Description: Sync course information from Canvas LMS to WordPress
- * Version: 3.5.1
+ * Version: 3.5.2
  * Author: Eyeth Studios
  * Author URI: http://eyethstudios.com
  * License: GPL v2 or later
@@ -28,7 +28,7 @@ if (!defined('ABSPATH')) {
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 // Define plugin constants
-define('CCS_VERSION', '3.5.1');
+define('CCS_VERSION', '3.5.2');
 define('CCS_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('CCS_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('CCS_PLUGIN_BASENAME', plugin_basename(__FILE__));
@@ -529,6 +529,9 @@ function ccs_activate_plugin() {
     // Flush rewrite rules
     flush_rewrite_rules();
     
+    // Set flag to indicate this plugin should stay active after updates
+    update_option('ccs_should_stay_active', 1);
+    
     // Log activation
     do_action('ccs_plugin_activated');
 }
@@ -537,12 +540,48 @@ function ccs_activate_plugin() {
  * Plugin deactivation hook
  */
 function ccs_deactivate_plugin() {
+    // Only clear the stay active flag if this is a manual deactivation
+    // Check if this is called during an update process
+    if (!defined('WP_ADMIN') || !current_user_can('manage_options')) {
+        // This might be an automated deactivation during update
+        // Don't clear the flag
+    } else {
+        // Manual deactivation - clear the flag
+        delete_option('ccs_should_stay_active');
+    }
+    
     // Flush rewrite rules
     flush_rewrite_rules();
     
     // Log deactivation
     do_action('ccs_plugin_deactivated');
 }
+
+/**
+ * Check if plugin should be reactivated after update
+ */
+function ccs_maybe_reactivate_after_update() {
+    // Only run this in admin and if user has permissions
+    if (!is_admin() || !current_user_can('manage_options')) {
+        return;
+    }
+    
+    // Check if we should stay active and the plugin is currently inactive
+    if (get_option('ccs_should_stay_active') && !is_plugin_active(CCS_PLUGIN_BASENAME)) {
+        // Reactivate the plugin
+        activate_plugin(CCS_PLUGIN_BASENAME);
+        
+        // Add admin notice about reactivation
+        add_action('admin_notices', function() {
+            echo '<div class="notice notice-success is-dismissible">';
+            echo '<p><strong>Canvas Course Sync:</strong> Plugin was automatically reactivated after update.</p>';
+            echo '</div>';
+        });
+    }
+}
+
+// Hook to check for reactivation on admin_init
+add_action('admin_init', 'ccs_maybe_reactivate_after_update');
 
 
 // Initialize plugin

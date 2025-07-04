@@ -1068,6 +1068,13 @@ class CCS_Content_Handler {
                 'badge_url' => 'https://nationaldeafcenter.badgr.com/public/badges/deaf-rehabilitation',
                 'image_file' => 'vocational-rehabilitation-badge.png'
             ),
+            // Summer Programs
+            'summer_programs_for_deaf_youth_stories_and_strategies' => array(
+                'category' => 'Community Engagement',
+                'badge_name' => 'Summer Programs',
+                'badge_url' => 'https://nationaldeafcenter.badgr.com/public/badges/summer-programs',
+                'image_file' => 'summer-programs-badge.png'
+            ),
             
             // Transition Services
             'partnering_with_deaf_youth_strength_based_transition_planning_for_vr_professionals' => array(
@@ -1706,6 +1713,14 @@ class CCS_Content_Handler {
      * Normalize course name for catalog lookup
      */
     private function normalize_course_name($course_name) {
-        return strtolower(preg_replace('/[^a-zA-Z0-9]/', '_', trim($course_name)));
+        // Normalize the course name for consistent matching
+        $normalized = strtolower(preg_replace('/[^a-zA-Z0-9]/', '_', trim($course_name)));
+        // Remove multiple consecutive underscores
+        $normalized = preg_replace('/_+/', '_', $normalized);
+        // Remove leading/trailing underscores
+        $normalized = trim($normalized, '_');
+        
+        error_log("CCS_Content_Handler: Normalized course name '{$course_name}' to '{$normalized}'");
+        return $normalized;
     }
 }
