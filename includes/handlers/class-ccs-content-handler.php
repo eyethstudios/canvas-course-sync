@@ -317,7 +317,34 @@ class CCS_Content_Handler {
             }
         }
         
-        return $objectives;
+        // Add objectives to content
+        if (!empty($objectives)) {
+            foreach ($objectives as $objective) {
+                $content .= "<li>" . esc_html($objective) . "</li>\n";
+            }
+            error_log('CCS_Content_Handler: Added ' . count($objectives) . ' learning objectives to content');
+        } else {
+            // Log warning about missing objectives
+            error_log('CCS_Content_Handler: WARNING - No learning objectives found for course: ' . ($course_details['name'] ?? 'Unknown'));
+            
+            // Provide course-specific default objectives
+            $course_name = strtolower($course_details['name'] ?? '');
+            if (strpos($course_name, 'assistive technology') !== false) {
+                $content .= "<li>Demonstrate knowledge of assistive technologies and their relevance to supporting deaf individuals</li>\n";
+                $content .= "<li>Identify actionable strategies for implementing assistive technologies in training and workplace settings</li>\n";
+                $content .= "<li>Develop strategies for creating accessible environments where deaf individuals feel valued and supported</li>\n";
+                $content .= "<li>Create and evaluate policies that promote accessibility and support continuous improvement</li>\n";
+            } else {
+                $content .= "<li>Understand the key concepts and principles covered in this course</li>\n";
+                $content .= "<li>Apply learned skills in practical scenarios</li>\n";
+                $content .= "<li>Demonstrate proficiency in the course subject matter</li>\n";
+            }
+        }
+        
+        $content .= "</ul>\n";
+        $content .= "</div>\n\n";
+        
+        return $content;
     }
     
     /**
@@ -469,34 +496,28 @@ class CCS_Content_Handler {
      */
     private function extract_objectives_from_canvas($course_id, $course_details, $modules, $pages) {
         $objectives = array();
-        }
         
-        // Add objectives to content
-        if (!empty($objectives)) {
-            foreach ($objectives as $objective) {
-                $content .= "<li>" . esc_html($objective) . "</li>\n";
-            }
-            error_log('CCS_Content_Handler: Added ' . count($objectives) . ' learning objectives to content');
-        } else {
-            // Log warning about missing objectives
-            error_log('CCS_Content_Handler: WARNING - No learning objectives found for course: ' . ($course_details['name'] ?? 'Unknown'));
-            
-            // Provide course-specific default objectives
-            $course_name = strtolower($course_details['name'] ?? '');
-            if (strpos($course_name, 'assistive technology') !== false) {
-                $content .= "<li>Demonstrate knowledge of assistive technologies and their relevance to supporting deaf individuals</li>\n";
-                $content .= "<li>Identify actionable strategies for implementing assistive technologies in training and workplace settings</li>\n";
-                $content .= "<li>Develop strategies for creating accessible environments where deaf individuals feel valued and supported</li>\n";
-                $content .= "<li>Create and evaluate policies that promote accessibility and support continuous improvement</li>\n";
-            } else {
-                $content .= "<li>Understand the key concepts and principles covered in this course</li>\n";
-                $content .= "<li>Apply learned skills in practical scenarios</li>\n";
-                $content .= "<li>Demonstrate proficiency in the course subject matter</li>\n";
+        // Search through modules and pages for learning objectives
+        if (!empty($modules)) {
+            foreach ($modules as $module) {
+                if (!empty($module['items'])) {
+                    foreach ($module['items'] as $item) {
+                        if ($item['type'] === 'Page' && $this->api && !empty($item['url'])) {
+                            $page_content = $this->api->get_page_content($course_id, $item['url']);
+                            if (!is_wp_error($page_content) && !empty($page_content['body'])) {
+                                $page_objectives = $this->extract_objectives_from_content($page_content['body']);
+                                if (!empty($page_objectives)) {
+                                    $objectives = array_merge($objectives, $page_objectives);
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
         
-        $content .= "</ul>\n";
-        $content .= "</div>\n\n";
+        return $objectives;
+    }
         
         return $content;
     }
