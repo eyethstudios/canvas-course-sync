@@ -190,20 +190,23 @@ class CCS_Admin_Page {
                                     </button>
                                 </div>
                                 
-                                <div class="ccs-button-group">
-                                    <button id="ccs-sync-selected" class="button button-primary">
-                                        <?php _e('Sync Selected Courses', 'canvas-course-sync'); ?>
-                                    </button>
-                                    <button id="ccs-omit-selected" class="button ccs-omit-btn">
-                                        <?php _e('Omit Selected from Auto-Sync', 'canvas-course-sync'); ?>
-                                    </button>
-                                    <button id="ccs-restore-omitted" class="button ccs-restore-btn">
-                                        <?php _e('Restore All Omitted Courses', 'canvas-course-sync'); ?>
-                                    </button>
-                                    <button id="ccs-cleanup-deleted" class="button ccs-cleanup-btn">
-                                        <?php _e('Cleanup Deleted Courses', 'canvas-course-sync'); ?>
-                                    </button>
-                                </div>
+                    <div class="ccs-button-group">
+                        <button id="ccs-sync-selected" class="button button-primary">
+                            <?php _e('Sync Selected Courses', 'canvas-course-sync'); ?>
+                        </button>
+                        <button id="ccs-omit-selected" class="button ccs-omit-btn">
+                            <?php _e('Omit Selected from Auto-Sync', 'canvas-course-sync'); ?>
+                        </button>
+                        <button id="ccs-restore-omitted" class="button ccs-restore-btn">
+                            <?php _e('Restore All Omitted Courses', 'canvas-course-sync'); ?>
+                        </button>
+                        <button id="ccs-cleanup-deleted" class="button ccs-cleanup-btn">
+                            <?php _e('Cleanup Deleted Courses', 'canvas-course-sync'); ?>
+                        </button>
+                        <button id="ccs-refresh-catalog" class="button button-secondary">
+                            <?php _e('Refresh Course Catalog', 'canvas-course-sync'); ?>
+                        </button>
+                    </div>
                             </div>
                             
                             <!-- Progress and results sections -->

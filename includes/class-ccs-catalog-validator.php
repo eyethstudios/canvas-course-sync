@@ -314,10 +314,10 @@ class CCS_Catalog_Validator {
 
         // More strict validation - only allow courses that are very similar
         foreach ($approved_courses as $approved_course) {
-            // Check similarity (90% match for better precision)
+            // Check similarity (95% match for better precision)
             $similarity = 0;
             similar_text(strtolower($course_name), strtolower($approved_course), $similarity);
-            if ($similarity >= 98) {
+            if ($similarity >= 95) {
                 error_log("CCS_Catalog_Validator: APPROVED - High similarity ({$similarity}%) between '{$course_name}' and '{$approved_course}'");
                 return true;
             }
@@ -328,8 +328,8 @@ class CCS_Catalog_Validator {
             $min_len = min($course_len, $approved_len);
             $max_len = max($course_len, $approved_len);
             
-            // Only allow if length difference is small (within 20%)
-            if ($min_len > 15 && ($min_len / $max_len) >= 0.8) {
+            // Only allow if length difference is small (within 15%)
+            if ($min_len > 15 && ($min_len / $max_len) >= 0.85) {
                 if (stripos($course_name, $approved_course) !== false || stripos($approved_course, $course_name) !== false) {
                     error_log("CCS_Catalog_Validator: APPROVED - Strict substring match between '{$course_name}' and '{$approved_course}'");
                     return true;
@@ -337,8 +337,38 @@ class CCS_Catalog_Validator {
             }
         }
 
+        // Log non-matching courses for manual review
+        $this->log_new_course_for_review($course_name);
         error_log("CCS_Catalog_Validator: REJECTED - No match found for: '{$course_name}'");
         return false;
+    }
+    
+    /**
+     * Log new courses that don't match for manual review
+     */
+    private function log_new_course_for_review($course_name) {
+        $new_courses = get_option('ccs_new_courses_for_review', []);
+        
+        if (!in_array($course_name, $new_courses)) {
+            $new_courses[] = $course_name;
+            update_option('ccs_new_courses_for_review', $new_courses);
+            $this->log_info("New course detected for review: {$course_name}");
+        }
+    }
+    
+    /**
+     * Get courses pending review
+     */
+    public function get_courses_pending_review() {
+        return get_option('ccs_new_courses_for_review', []);
+    }
+    
+    /**
+     * Clear courses pending review
+     */
+    public function clear_courses_pending_review() {
+        delete_option('ccs_new_courses_for_review');
+        $this->log_info('Cleared courses pending review list');
     }
 
     /**

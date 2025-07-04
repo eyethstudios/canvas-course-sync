@@ -517,6 +517,42 @@ function ccs_toggle_auto_sync_handler() {
 add_action('wp_ajax_ccs_toggle_auto_sync', 'ccs_toggle_auto_sync_handler');
 
 /**
+ * Refresh course catalog cache
+ */
+function ccs_refresh_catalog_handler() {
+    // Verify nonce
+    if (!wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ccs_refresh_catalog')) {
+        wp_die('Security check failed');
+    }
+    
+    // Check permissions
+    if (!current_user_can('manage_options')) {
+        wp_die('Insufficient permissions');
+    }
+    
+    // Initialize catalog validator
+    if (!class_exists('CCS_Catalog_Validator')) {
+        require_once plugin_dir_path(__FILE__) . 'class-ccs-catalog-validator.php';
+    }
+    
+    $validator = new CCS_Catalog_Validator();
+    
+    // Force refresh the catalog
+    $validator->force_catalog_refresh();
+    
+    // Get updated course count
+    $approved_courses = $validator->get_approved_courses();
+    $course_count = count($approved_courses);
+    
+    wp_send_json_success(array(
+        'message' => 'Course catalog refreshed successfully!',
+        'course_count' => $course_count,
+        'courses' => $approved_courses
+    ));
+}
+add_action('wp_ajax_ccs_refresh_catalog', 'ccs_refresh_catalog_handler');
+
+/**
  * Log JavaScript errors
  * REMOVED - This handler is now in includes/admin/class-ccs-error-handler.php to avoid conflicts
  */

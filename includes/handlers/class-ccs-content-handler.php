@@ -1157,9 +1157,179 @@ class CCS_Content_Handler {
             }
         }
         
-        return null;
+        // Fallback for new courses - categorize by keywords
+        error_log('CCS_Content_Handler: No specific badge found for: ' . $course_name . ', using fallback categorization');
+        return $this->categorize_new_course($course_name);
     }
 
+    /**
+     * Categorize new courses based on keywords
+     */
+    private function categorize_new_course($course_name) {
+        $lower_name = strtolower($course_name);
+        
+        // Category mapping based on keywords
+        $keyword_categories = array(
+            'assistive_technology' => array('assistive', 'technology', 'at', 'devices', 'systems'),
+            'deaf_awareness' => array('deaf 101', 'awareness', 'introduction', 'basics'),
+            'mentoring' => array('mentoring', 'mentor', 'guidance', 'support'),
+            'vocational_rehabilitation' => array('vocational', 'rehabilitation', 'vr', 'employment', 'career'),
+            'transition_services' => array('transition', 'youth', 'pre-ets', 'employment', 'planning'),
+            'data_evaluation' => array('data', 'evaluation', 'assessment', 'analysis', 'research'),
+            'systems_change' => array('systems', 'change', 'transform', 'barriers', 'equity'),
+            'legal_compliance' => array('legal', 'compliance', 'ada', 'rights', 'law', 'frameworks'),
+            'communication_access' => array('communication', 'access', 'interpreting', 'captioning', 'speech'),
+            'accessible_education' => array('accessible', 'education', 'learning', 'instruction', 'udl'),
+            'remote_services' => array('remote', 'online', 'virtual', 'distance'),
+            'campus_access' => array('campus', 'college', 'university', 'student', 'academic'),
+            'health_wellness' => array('health', 'wellness', 'mental', 'medical', 'healthcare'),
+            'summer_programs' => array('summer', 'camp', 'program', 'activities'),
+            'leadership' => array('leadership', 'leading', 'advocacy', 'community'),
+            'community_engagement' => array('community', 'engagement', 'relationships', 'building'),
+            'work_based_learning' => array('work-based', 'workplace', 'job', 'training', 'skills'),
+            'webinar' => array('webinar', 'ondemand', 'on demand', 'presentation')
+        );
+        
+        foreach ($keyword_categories as $category => $keywords) {
+            foreach ($keywords as $keyword) {
+                if (stripos($lower_name, $keyword) !== false) {
+                    return $this->get_default_badge_for_category($category);
+                }
+            }
+        }
+        
+        // Ultimate fallback - general course badge
+        return array(
+            'category' => 'Professional Development',
+            'badge_name' => 'Professional Development',
+            'badge_url' => 'https://nationaldeafcenter.badgr.com/public/badges/professional-development',
+            'image_file' => 'ndc-badge.svg'
+        );
+    }
+    
+    /**
+     * Get default badge info for a category
+     */
+    private function get_default_badge_for_category($category) {
+        $category_badges = array(
+            'assistive_technology' => array(
+                'category' => 'Assistive Technology',
+                'badge_name' => 'Assistive Technology',
+                'badge_url' => 'https://nationaldeafcenter.badgr.com/public/badges/assistive-technology',
+                'image_file' => 'assistive-technology-badge.png'
+            ),
+            'deaf_awareness' => array(
+                'category' => 'Deaf Awareness',
+                'badge_name' => 'Deaf Awareness',
+                'badge_url' => 'https://nationaldeafcenter.badgr.com/public/badges/deaf-awareness',
+                'image_file' => 'deaf-awareness-badge.png'
+            ),
+            'mentoring' => array(
+                'category' => 'Professional Development',
+                'badge_name' => 'Mentoring',
+                'badge_url' => 'https://nationaldeafcenter.badgr.com/public/badges/mentoring',
+                'image_file' => 'mentoring-badge.png'
+            ),
+            'vocational_rehabilitation' => array(
+                'category' => 'Vocational Rehabilitation',
+                'badge_name' => 'Vocational Rehabilitation',
+                'badge_url' => 'https://nationaldeafcenter.badgr.com/public/badges/vocational-rehabilitation',
+                'image_file' => 'vocational-rehabilitation-badge.png'
+            ),
+            'transition_services' => array(
+                'category' => 'Transition Services',
+                'badge_name' => 'Transition Services',
+                'badge_url' => 'https://nationaldeafcenter.badgr.com/public/badges/transition-services',
+                'image_file' => 'transition-services-badge.png'
+            ),
+            'data_evaluation' => array(
+                'category' => 'Data and Evaluation',
+                'badge_name' => 'Data and Evaluation',
+                'badge_url' => 'https://nationaldeafcenter.badgr.com/public/badges/data-evaluation',
+                'image_file' => 'data-evaluation-badge.png'
+            ),
+            'systems_change' => array(
+                'category' => 'Systems Change',
+                'badge_name' => 'Systems Change',
+                'badge_url' => 'https://nationaldeafcenter.badgr.com/public/badges/systems-change',
+                'image_file' => 'systems-change-badge.png'
+            ),
+            'legal_compliance' => array(
+                'category' => 'Legal and Compliance',
+                'badge_name' => 'Legal and Compliance',
+                'badge_url' => 'https://nationaldeafcenter.badgr.com/public/badges/legal-compliance',
+                'image_file' => 'legal-compliance-badge.png'
+            ),
+            'communication_access' => array(
+                'category' => 'Communication Access',
+                'badge_name' => 'Communication Access',
+                'badge_url' => 'https://nationaldeafcenter.badgr.com/public/badges/communication-access',
+                'image_file' => 'communication-access-badge.png'
+            ),
+            'accessible_education' => array(
+                'category' => 'Accessible Education',
+                'badge_name' => 'Accessible Education',
+                'badge_url' => 'https://nationaldeafcenter.badgr.com/public/badges/accessible-education',
+                'image_file' => 'accessible-education-badge.png'
+            ),
+            'remote_services' => array(
+                'category' => 'Remote Services',
+                'badge_name' => 'Remote Services',
+                'badge_url' => 'https://nationaldeafcenter.badgr.com/public/badges/remote-services',
+                'image_file' => 'remote-services-badge.png'
+            ),
+            'campus_access' => array(
+                'category' => 'Campus Access',
+                'badge_name' => 'Campus Access',
+                'badge_url' => 'https://nationaldeafcenter.badgr.com/public/badges/campus-access',
+                'image_file' => 'campus-access-badge.png'
+            ),
+            'health_wellness' => array(
+                'category' => 'Health and Wellness',
+                'badge_name' => 'Health and Wellness',
+                'badge_url' => 'https://nationaldeafcenter.badgr.com/public/badges/health-wellness',
+                'image_file' => 'health-wellness-badge.png'
+            ),
+            'summer_programs' => array(
+                'category' => 'Summer Programs',
+                'badge_name' => 'Summer Programs',
+                'badge_url' => 'https://nationaldeafcenter.badgr.com/public/badges/summer-programs',
+                'image_file' => 'summer-programs-badge.png'
+            ),
+            'leadership' => array(
+                'category' => 'Leadership',
+                'badge_name' => 'Leadership',
+                'badge_url' => 'https://nationaldeafcenter.badgr.com/public/badges/leadership',
+                'image_file' => 'leadership-badge.png'
+            ),
+            'community_engagement' => array(
+                'category' => 'Community Engagement',
+                'badge_name' => 'Community Engagement',
+                'badge_url' => 'https://nationaldeafcenter.badgr.com/public/badges/community-engagement',
+                'image_file' => 'community-engagement-badge.png'
+            ),
+            'work_based_learning' => array(
+                'category' => 'Work-Based Learning',
+                'badge_name' => 'Work-Based Learning',
+                'badge_url' => 'https://nationaldeafcenter.badgr.com/public/badges/work-based-learning',
+                'image_file' => 'work-based-learning-badge.png'
+            ),
+            'webinar' => array(
+                'category' => 'Webinar',
+                'badge_name' => 'Webinar',
+                'badge_url' => 'https://nationaldeafcenter.badgr.com/public/badges/webinar',
+                'image_file' => 'webinar-badge.png'
+            )
+        );
+        
+        return $category_badges[$category] ?? array(
+            'category' => 'Professional Development',
+            'badge_name' => 'Professional Development',
+            'badge_url' => 'https://nationaldeafcenter.badgr.com/public/badges/professional-development',
+            'image_file' => 'ndc-badge.svg'
+        );
+    }
+    
     /**
      * Normalize course name for catalog lookup
      */

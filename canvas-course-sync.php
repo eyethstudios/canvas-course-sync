@@ -474,7 +474,8 @@ class Canvas_Course_Sync {
                 'logError' => wp_create_nonce('ccs_log_js_error'),
                 'toggleAutoSync' => wp_create_nonce('ccs_toggle_auto_sync'),
                 'checkUpdates' => wp_create_nonce('ccs_check_updates'),
-                'cleanupDeleted' => wp_create_nonce('ccs_cleanup_deleted')
+                'cleanupDeleted' => wp_create_nonce('ccs_cleanup_deleted'),
+                'refreshCatalog' => wp_create_nonce('ccs_refresh_catalog')
             ),
             'messages' => array(
                 'confirmSync' => __('Are you sure you want to sync the selected courses?', 'canvas-course-sync'),

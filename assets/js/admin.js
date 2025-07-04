@@ -148,6 +148,7 @@
             $(document).on('click', '#ccs-omit-selected', CourseManager.omitSelected);
             $(document).on('click', '#ccs-restore-omitted', CourseManager.restoreOmitted);
             $(document).on('click', '#ccs-cleanup-deleted', CourseManager.cleanupDeleted);
+            $(document).on('click', '#ccs-refresh-catalog', CourseManager.refreshCatalog);
         },
         
         getCourses: function(e) {
@@ -516,6 +517,55 @@
                 error: function(xhr, status, error) {
                     ErrorHandler.log(error, 'Cleanup Deleted');
                     ErrorHandler.showUser('Network error while cleaning up deleted courses');
+                },
+                complete: function() {
+                    UI.hideLoading($button, originalText);
+                }
+            });
+        },
+        
+        refreshCatalog: function(e) {
+            e.preventDefault();
+            console.log('CCS: Refreshing course catalog');
+            
+            const $button = $(this);
+            const originalText = $button.text();
+            
+            UI.showLoading($button, 'Refreshing...');
+            
+            $.ajax({
+                url: ccsAjax.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'ccs_refresh_catalog',
+                    nonce: ccsAjax.nonces.refreshCatalog
+                },
+                timeout: 30000,
+                success: function(response) {
+                    console.log('CCS: Catalog refresh response:', response);
+                    
+                    if (response.success) {
+                        const data = response.data;
+                        let message = data.message || 'Catalog refreshed successfully';
+                        
+                        if (data.course_count) {
+                            message += ' Found ' + data.course_count + ' approved courses.';
+                        }
+                        
+                        UI.showSuccess(message);
+                        
+                        // Refresh course list to reflect any new courses
+                        setTimeout(() => {
+                            $('#ccs-get-courses').trigger('click');
+                        }, 1000);
+                    } else {
+                        const errorMsg = response.data || 'Failed to refresh catalog';
+                        ErrorHandler.showUser(errorMsg);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    ErrorHandler.log(error, 'Refresh Catalog');
+                    ErrorHandler.showUser('Network error while refreshing catalog');
                 },
                 complete: function() {
                     UI.hideLoading($button, originalText);
