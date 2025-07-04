@@ -548,7 +548,7 @@ class CCS_Content_Handler {
                     if (preg_match('/^[-•*]\s*(.+)/', $line, $match) || 
                         preg_match('/^\d+\.\s*(.+)/', $line, $match)) {
                         $clean_text = trim($match[1]);
-                        if (strlen($clean_text) > 20) {
+                        if (strlen($clean_text) > 20 && strlen($clean_text) < 500) {
                             $objectives[] = $clean_text;
                         }
                     }
@@ -556,61 +556,46 @@ class CCS_Content_Handler {
             }
         }
         
-        // If no objectives section found, try to extract list items that look like objectives
+        // Fallback: Look for any unordered or ordered lists in the content  
         if (empty($objectives)) {
             if (preg_match_all('/<li[^>]*>(.*?)<\/li>/is', $html_content, $matches)) {
                 foreach ($matches[1] as $match) {
                     $clean_text = trim(wp_strip_all_tags($match));
                     
                     // Check if this looks like a learning objective
-                    if (strlen($clean_text) > 30 && 
-                        strlen($clean_text) < 500 &&
-                        stripos($clean_text, 'badge') === false &&
-                        stripos($clean_text, 'completion') === false &&
-                        stripos($clean_text, 'certificate') === false &&
-                        (stripos($clean_text, 'demonstrate') !== false ||
-                         stripos($clean_text, 'identify') !== false ||
-                         stripos($clean_text, 'develop') !== false ||
-                         stripos($clean_text, 'create') !== false ||
-                         stripos($clean_text, 'understand') !== false ||
-                         stripos($clean_text, 'apply') !== false ||
-                         stripos($clean_text, 'analyze') !== false ||
-                         stripos($clean_text, 'evaluate') !== false)) {
-                        
+                    $objective_keywords = array('learn', 'understand', 'identify', 'describe', 'explain', 'demonstrate', 'analyze', 'evaluate', 'apply', 'create', 'design', 'develop', 'implement', 'recognize', 'compare', 'contrast', 'discuss', 'examine', 'explore', 'investigate', 'assess', 'interpret');
+                    
+                    $contains_keyword = false;
+                    foreach ($objective_keywords as $keyword) {
+                        if (stripos($clean_text, $keyword) !== false) {
+                            $contains_keyword = true;
+                            break;
+                        }
+                    }
+                    
+                    if ($contains_keyword && strlen($clean_text) > 20 && strlen($clean_text) < 500) {
                         $objectives[] = $clean_text;
                     }
                 }
             }
         }
         
-        // If still no objectives, look for objective patterns in plain text
+        // Additional patterns for objectives not in lists
         if (empty($objectives)) {
-            $text = strip_tags($html_content);
             $patterns = array(
-                '/(?:participants will be able to:|students will be able to:|learners will:|upon completion.*?will)\s*(.+?)(?=\n\n|\.|$)/is',
-                '/(?:objective \d+:|learning objective:)\s*([^\.]+\.)/i',
-                '/(?:•|\*|-)\s*([A-Z][^\.]{20,400}\.)/m'
+                '/(?:by the end|after completing|upon completion)[^.!?]*[.!?]/i',
+                '/(?:you will|students will|learners will)[^.!?]*[.!?]/i',
+                '/(?:objective|goal)[^:]*:([^.!?]*[.!?])/i'
             );
             
             foreach ($patterns as $pattern) {
-                if (preg_match_all($pattern, $text, $matches)) {
-                    foreach ($matches[1] as $match) {
-                        $clean_text = trim($match);
-                        if (!empty($clean_text)) {
-                            // Split by periods or line breaks to get individual objectives
-                            $split_objectives = preg_split('/[\.]\s*(?=[A-Z])|[\n]\s*[-•*]/', $clean_text);
-                            foreach ($split_objectives as $obj) {
-                                $obj = trim($obj);
-                                if (strlen($obj) > 20 && strlen($obj) < 400) {
-                                    $objectives[] = $obj;
-                                }
-                            }
+                if (preg_match_all($pattern, $html_content, $matches)) {
+                    foreach ($matches[0] as $match) {
+                        $clean_text = trim(wp_strip_all_tags($match));
+                        if (strlen($clean_text) > 30 && strlen($clean_text) < 500) {
+                            $objectives[] = $clean_text;
                         }
                     }
-                }
-                
-                if (!empty($objectives)) {
-                    break;
                 }
             }
         }
@@ -621,7 +606,6 @@ class CCS_Content_Handler {
             return strlen(trim($obj)) > 20;
         });
         
-        error_log('CCS_Content_Handler: Extracted ' . count($objectives) . ' objectives from content');
         return array_values($objectives);
     }
 
