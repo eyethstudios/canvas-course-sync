@@ -246,7 +246,16 @@ class CCS_Content_Handler {
         $content .= "<p><strong>Participants will be able to:</strong></p>\n";
         $content .= "<ul>\n";
         
-        $objectives = array();
+        // First try to get objectives from catalog page
+        $catalog_content = $this->fetch_catalog_course_content($course_details['name'] ?? '');
+        
+        if (!empty($catalog_content['objectives'])) {
+            $objectives = $catalog_content['objectives'];
+            error_log('CCS_Content_Handler: Using catalog objectives for: ' . ($course_details['name'] ?? 'Unknown'));
+        } else {
+            // Fallback to extracting from Canvas content
+            $objectives = $this->extract_objectives_from_canvas($course_id, $course_details, $modules, $pages);
+        }
         
         // Search ALL pages for learning objectives, not just those with objective in title
         if (!empty($pages) && $this->api) {
@@ -305,7 +314,157 @@ class CCS_Content_Handler {
             $objectives = $this->get_catalog_backup_objectives($course_details['name'] ?? '');
             if (!empty($objectives)) {
                 error_log('CCS_Content_Handler: Using catalog backup objectives for: ' . ($course_details['name'] ?? 'Unknown'));
+    }
+    
+    /**
+     * Fetch comprehensive course content from catalog page
+     */
+    private function fetch_catalog_course_content($course_name) {
+        $course_links = $this->get_catalog_course_links();
+        $course_url = null;
+        
+        // Find matching course URL
+        foreach ($course_links as $title => $url) {
+            if (stripos($title, $course_name) !== false || stripos($course_name, $title) !== false) {
+                $course_url = $url;
+                break;
             }
+        }
+        
+        if (!$course_url) {
+            error_log("CCS_Content_Handler: No catalog URL found for course: {$course_name}");
+            return array();
+        }
+        
+        // Check cache first
+        $cache_key = 'ccs_catalog_content_' . md5($course_url);
+        $cached = get_transient($cache_key);
+        if ($cached !== false) {
+            return $cached;
+        }
+        
+        // Fetch course page
+        $response = wp_remote_get($course_url, array('timeout' => 30));
+        
+        if (is_wp_error($response)) {
+            error_log("CCS_Content_Handler: Failed to fetch catalog page: " . $response->get_error_message());
+            return array();
+        }
+        
+        $html = wp_remote_retrieve_body($response);
+        $content = array();
+        
+        // Extract course description
+        $content['description'] = $this->extract_description_from_catalog_html($html);
+        
+        // Extract learning objectives  
+        $content['objectives'] = $this->extract_objectives_from_catalog_html($html);
+        
+        // Extract additional course details
+        $content['details'] = $this->extract_course_details_from_catalog_html($html);
+        
+        // Cache for 2 hours
+        set_transient($cache_key, $content, 2 * HOUR_IN_SECONDS);
+        
+        error_log("CCS_Content_Handler: Fetched catalog content for: {$course_name}");
+        return $content;
+    }
+    
+    /**
+     * Extract description from catalog HTML
+     */
+    private function extract_description_from_catalog_html($html) {
+        // Look for course description in various patterns
+        $description_patterns = array(
+            // Main course description
+            '/<div[^>]*class="[^"]*description[^"]*"[^>]*>(.*?)<\/div>/is',
+            '/<p[^>]*class="[^"]*description[^"]*"[^>]*>(.*?)<\/p>/is',
+            // Course summary/overview
+            '/<div[^>]*class="[^"]*summary[^"]*"[^>]*>(.*?)<\/div>/is',
+            '/<div[^>]*class="[^"]*overview[^"]*"[^>]*>(.*?)<\/div>/is',
+            // Generic content areas
+            '/<div[^>]*class="[^"]*content[^"]*"[^>]*>(.*?)<\/div>/is'
+        );
+        
+        foreach ($description_patterns as $pattern) {
+            if (preg_match($pattern, $html, $matches)) {
+                $description = trim(wp_strip_all_tags($matches[1], true));
+                if (strlen($description) > 100) { // Ensure it's substantial content
+                    return $description;
+                }
+            }
+        }
+        
+        return '';
+    }
+    
+    /**
+     * Extract learning objectives from catalog HTML
+     */
+    private function extract_objectives_from_catalog_html($html) {
+        $objectives = array();
+        
+        // Look for objectives sections
+        $objective_patterns = array(
+            // Learning objectives section
+            '/<div[^>]*(?:learning.?objectives|objectives)[^>]*>(.*?)<\/div>/is',
+            '/<section[^>]*(?:learning.?objectives|objectives)[^>]*>(.*?)<\/section>/is',
+            // Will be able to sections
+            '/(?:participants|students|learners)?\s*will\s*be\s*able\s*to[:\s]+(.*?)(?:<\/ul>|<\/ol>|<\/div>)/is'
+        );
+        
+        foreach ($objective_patterns as $pattern) {
+            if (preg_match($pattern, $html, $matches)) {
+                $section = $matches[1];
+                
+                // Extract list items
+                if (preg_match_all('/<li[^>]*>(.*?)<\/li>/is', $section, $li_matches)) {
+                    foreach ($li_matches[1] as $objective) {
+                        $clean_objective = trim(wp_strip_all_tags($objective));
+                        if (strlen($clean_objective) > 20) {
+                            $objectives[] = $clean_objective;
+                        }
+                    }
+                }
+                
+                if (!empty($objectives)) {
+                    break;
+                }
+            }
+        }
+        
+        return $objectives;
+    }
+    
+    /**
+     * Extract additional course details from catalog HTML
+     */
+    private function extract_course_details_from_catalog_html($html) {
+        $details = array();
+        
+        // Extract course duration
+        if (preg_match('/duration[^>]*>([^<]+)/i', $html, $matches)) {
+            $details['duration'] = trim($matches[1]);
+        }
+        
+        // Extract course format (self-paced, etc.)
+        if (preg_match('/(?:format|pace)[^>]*>([^<]+)/i', $html, $matches)) {
+            $details['format'] = trim($matches[1]);
+        }
+        
+        // Extract prerequisites
+        if (preg_match('/prerequisite[^>]*>(.*?)<\/[^>]+>/is', $html, $matches)) {
+            $details['prerequisites'] = trim(wp_strip_all_tags($matches[1]));
+        }
+        
+        return $details;
+    }
+    
+    /**
+     * Extract objectives from Canvas content (fallback method)
+     */
+    private function extract_objectives_from_canvas($course_id, $course_details, $modules, $pages) {
+        $objectives = array();
         }
         
         // Add objectives to content
