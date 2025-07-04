@@ -714,8 +714,8 @@ class CCS_Content_Handler {
             
             $content .= "<p>This module is pre-approved for <strong>" . $hours_text . "</strong> and <strong>" . $crcc_hours_text . "</strong>.</p>\n";
         } else {
-            // Provide standard default based on catalog pattern
-            $content .= "<p>This module is pre-approved for <strong>1 NDC Continuing Professional Education Clock Hour</strong> and <strong>1 CRCC Clock Hour</strong>.</p>\n";
+            // Show that CE information is not specified in Canvas course
+            $content .= "<p><em>Continuing education credit information not specified in Canvas course data.</em></p>\n";
         }
         
         $content .= "</div>\n\n";
