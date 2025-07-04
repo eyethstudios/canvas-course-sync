@@ -125,26 +125,31 @@ class CCS_Content_Handler {
         // Log all available course fields for debugging
         error_log('CCS_Content_Handler: Available course fields: ' . implode(', ', array_keys($course_details)));
         
-        // First try to get description from Canvas course fields
+        // PRIORITY 1: Try to get description from catalog page first
         $description = '';
+        $catalog_content = $this->fetch_catalog_course_content($course_details['name'] ?? '');
         
-        // Priority 1: syllabus_body (most comprehensive content)
-        if (!empty($course_details['syllabus_body'])) {
+        if (!empty($catalog_content['description'])) {
+            $description = $catalog_content['description'];
+            error_log('CCS_Content_Handler: Using catalog description for module description (length: ' . strlen($description) . ')');
+        }
+        // PRIORITY 2: Try to get description from Canvas course fields
+        elseif (!empty($course_details['syllabus_body'])) {
             $description = $course_details['syllabus_body'];
             error_log('CCS_Content_Handler: Using syllabus_body for module description (length: ' . strlen($description) . ')');
         }
-        // Priority 2: public_description
+        // PRIORITY 3: public_description
         elseif (!empty($course_details['public_description'])) {
             $description = $course_details['public_description'];
             error_log('CCS_Content_Handler: Using public_description for module description (length: ' . strlen($description) . ')');
         }
-        // Priority 3: regular description
+        // PRIORITY 4: regular description
         elseif (!empty($course_details['description'])) {
             $description = $course_details['description'];
             error_log('CCS_Content_Handler: Using description field for module description (length: ' . strlen($description) . ')');
         }
         
-        // If no Canvas description, try catalog backup first
+        // PRIORITY 5: Try catalog backup for course-specific content
         if (empty($description)) {
             $description = $this->get_catalog_backup_description($course_details['name'] ?? '');
             if (!empty($description)) {
@@ -246,14 +251,15 @@ class CCS_Content_Handler {
         $content .= "<p><strong>Participants will be able to:</strong></p>\n";
         $content .= "<ul>\n";
         
-        // First try to get objectives from catalog page
+        // PRIORITY 1: First try to get objectives from catalog page
         $catalog_content = $this->fetch_catalog_course_content($course_details['name'] ?? '');
         
         if (!empty($catalog_content['objectives'])) {
             $objectives = $catalog_content['objectives'];
             error_log('CCS_Content_Handler: Using catalog objectives for: ' . ($course_details['name'] ?? 'Unknown'));
-        } else {
-            // Fallback to extracting from Canvas content
+        } 
+        // PRIORITY 2: Fallback to extracting from Canvas content
+        else {
             $objectives = $this->extract_objectives_from_canvas($course_id, $course_details, $modules, $pages);
         }
         
@@ -405,7 +411,25 @@ class CCS_Content_Handler {
      * Extract description from catalog HTML
      */
     private function extract_description_from_catalog_html($html) {
-        // Look for course description in various patterns
+        // First try to find NDC-specific markdown pattern: **Module Description:** 
+        if (preg_match('/\*\*Module Description:\*\*\s*(.*?)(?:\*\*|$)/is', $html, $matches)) {
+            $description = trim(strip_tags($matches[1]));
+            if (strlen($description) > 50) {
+                error_log('CCS_Content_Handler: Found module description using NDC markdown pattern');
+                return $description;
+            }
+        }
+        
+        // Try alternative pattern for "About This Course" section
+        if (preg_match('/## About This Course.*?\*\*Module Description:\*\*\s*(.*?)(?:\*\*|<|$)/is', $html, $matches)) {
+            $description = trim(strip_tags($matches[1]));
+            if (strlen($description) > 50) {
+                error_log('CCS_Content_Handler: Found description in About This Course section');
+                return $description;
+            }
+        }
+        
+        // Look for course description in various HTML patterns
         $description_patterns = array(
             // Main course description
             '/<div[^>]*class="[^"]*description[^"]*"[^>]*>(.*?)<\/div>/is',
@@ -426,6 +450,7 @@ class CCS_Content_Handler {
             }
         }
         
+        error_log('CCS_Content_Handler: No description found in catalog HTML');
         return '';
     }
     
@@ -435,7 +460,31 @@ class CCS_Content_Handler {
     private function extract_objectives_from_catalog_html($html) {
         $objectives = array();
         
-        // Look for objectives sections
+        // First try NDC-specific markdown pattern: **Learning Objectives:** By the end of this module, participants will be able to:
+        if (preg_match('/\*\*Learning Objectives:\*\*\s*By the end of this module, participants will be able to:\s*(.*?)(?:\*\*|```|$)/is', $html, $matches)) {
+            $objectives_text = $matches[1];
+            error_log('CCS_Content_Handler: Found learning objectives using NDC markdown pattern');
+            
+            // Extract bullet points or dash-separated items
+            $lines = preg_split('/[\r\n]+/', $objectives_text);
+            foreach ($lines as $line) {
+                $line = trim($line);
+                // Look for lines starting with - or • or numbered items
+                if (preg_match('/^[-•*]\s*(.+)/', $line, $match) || 
+                    preg_match('/^\d+\.\s*(.+)/', $line, $match)) {
+                    $clean_objective = trim($match[1]);
+                    if (strlen($clean_objective) > 20) {
+                        $objectives[] = $clean_objective;
+                    }
+                }
+            }
+            
+            if (!empty($objectives)) {
+                return $objectives;
+            }
+        }
+        
+        // Look for objectives sections in HTML
         $objective_patterns = array(
             // Learning objectives section
             '/<div[^>]*(?:learning.?objectives|objectives)[^>]*>(.*?)<\/div>/is',
@@ -462,6 +511,10 @@ class CCS_Content_Handler {
                     break;
                 }
             }
+        }
+        
+        if (empty($objectives)) {
+            error_log('CCS_Content_Handler: No learning objectives found in catalog HTML');
         }
         
         return $objectives;
