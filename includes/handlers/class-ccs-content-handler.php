@@ -654,46 +654,52 @@ class CCS_Content_Handler {
     }
 
     /**
-     * Extract CE hours from course details
+     * Get catalog CE hours for a course
      */
-    private function extract_ce_hours($course_details) {
-        // Search for CE hours in various fields
-        $search_text = '';
-        $fields = array('name', 'public_description', 'syllabus_body', 'description');
+    private function get_catalog_ce_hours($course_name) {
+        $catalog_ce_data = $this->get_catalog_ce_data();
         
-        foreach ($fields as $field) {
-            if (!empty($course_details[$field])) {
-                $search_text .= ' ' . $course_details[$field];
+        $course_key = $this->normalize_course_name($course_name);
+        
+        if (isset($catalog_ce_data[$course_key])) {
+            return $catalog_ce_data[$course_key];
+        }
+        
+        // If exact match not found, try partial matching
+        foreach ($catalog_ce_data as $key => $ce_info) {
+            if (stripos($course_name, str_replace('_', ' ', $key)) !== false || 
+                stripos(str_replace('_', ' ', $key), $course_name) !== false) {
+                error_log('CCS_Content_Handler: Found partial CE match for: ' . $course_name . ' -> ' . $key);
+                return $ce_info;
             }
         }
         
-        // Look for patterns like "1.5 CE", "2 hours", "3.0 credits", "1 hour"
-        if (preg_match('/(\d+(?:\.\d+)?)\s*(?:CE|continuing education|credit|hour|clock hour)/i', $search_text, $matches)) {
-            return $matches[1];
-        }
-        
-        // If no hours found in course fields, check Canvas pages
-        if ($this->api && !empty($course_details['id'])) {
-            $pages_result = $this->api->get_course_pages($course_details['id']);
-            if (!is_wp_error($pages_result)) {
-                foreach ($pages_result as $page) {
-                    // Check page titles and content for CE information
-                    if ($this->api && !empty($page['url'])) {
-                        $page_content = $this->api->get_page_content($course_details['id'], $page['url']);
-                        if (!is_wp_error($page_content) && !empty($page_content['body'])) {
-                            if (preg_match('/(\d+(?:\.\d+)?)\s*(?:CE|continuing education|credit|hour|clock hour)/i', $page_content['body'], $matches)) {
-                                error_log('CCS_Content_Handler: Found CE hours in page: ' . $page['title'] . ' - ' . $matches[1] . ' hours');
-                                return $matches[1];
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        
-        // No default - return null if hours not specified
-        error_log('CCS_Content_Handler: WARNING - No CE hours found for course: ' . ($course_details['name'] ?? 'Unknown'));
+        error_log('CCS_Content_Handler: WARNING - No catalog CE hours found for course: ' . $course_name);
         return null;
+    }
+    
+    /**
+     * Get catalog CE data mapping
+     */
+    private function get_catalog_ce_data() {
+        return array(
+            'assistive_technology_in_training_and_workplace_settings' => array(
+                'hours' => '1',
+                'text' => 'This module is pre-approved for 1 NDC Continuing Professional Education Clock Hour and 1 CRCC Clock Hour.'
+            ),
+            'deaf_awareness_for_vocational_rehabilitation_professionals' => array(
+                'hours' => '1.5',
+                'text' => 'This module is pre-approved for 1.5 NDC Continuing Professional Education Clock Hours and 1.5 CRCC Clock Hours.'
+            ),
+            'effective_mentoring_for_deaf_people' => array(
+                'hours' => '1',
+                'text' => 'This module is pre-approved for 1 NDC Continuing Professional Education Clock Hour and 1 CRCC Clock Hour.'
+            ),
+            'introduction_to_deaf_rehabilitation' => array(
+                'hours' => '1',
+                'text' => 'This module is pre-approved for 1 NDC Continuing Professional Education Clock Hour and 1 CRCC Clock Hour.'
+            )
+        );
     }
     
     /**
@@ -705,17 +711,16 @@ class CCS_Content_Handler {
         $content .= "<div class='continuing-education-credit'>\n";
         $content .= "<h2>Continuing Education Credit</h2>\n";
         
-        // Extract CE hours
-        $ce_hours = $this->extract_ce_hours($course_details);
+        // Get CE hours from catalog data first
+        $ce_info = $this->get_catalog_ce_hours($course_details['name'] ?? '');
         
-        if ($ce_hours) {
-            $hours_text = $ce_hours == '1' ? '1 NDC Continuing Professional Education Clock Hour' : $ce_hours . ' NDC Continuing Professional Education Clock Hours';
-            $crcc_hours_text = $ce_hours == '1' ? '1 CRCC Clock Hour' : $ce_hours . ' CRCC Clock Hours';
-            
-            $content .= "<p>This module is pre-approved for <strong>" . $hours_text . "</strong> and <strong>" . $crcc_hours_text . "</strong>.</p>\n";
+        if ($ce_info && !empty($ce_info['text'])) {
+            $content .= "<p>" . esc_html($ce_info['text']) . "</p>\n";
+            error_log('CCS_Content_Handler: Using catalog CE information for: ' . ($course_details['name'] ?? 'Unknown'));
         } else {
-            // Show that CE information is not specified in Canvas course
-            $content .= "<p><em>Continuing education credit information not specified in Canvas course data.</em></p>\n";
+            // Log warning about missing CE information
+            error_log('CCS_Content_Handler: WARNING - No catalog CE information found for course: ' . ($course_details['name'] ?? 'Unknown'));
+            $content .= "<p><em>Continuing education credit information is not available for this course.</em></p>\n";
         }
         
         $content .= "</div>\n\n";
