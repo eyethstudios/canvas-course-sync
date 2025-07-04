@@ -1,4 +1,3 @@
-
 <?php
 /**
  * Content Handler for Canvas Course Sync
@@ -96,20 +95,8 @@ class CCS_Content_Handler {
             error_log('CCS_Content_Handler: API instance not available');
         }
 
-        // About Course Section (comprehensive course description)
-        $content .= $this->build_about_course_section($course_details, $pages);
-
-        // Module Description Section (from actual Canvas content)
-        $content .= $this->build_module_description($course_details, $modules, $pages);
-
-        // Learning Objectives Section (from Canvas modules and pages)
-        $content .= $this->build_learning_objectives($course_id, $course_details, $modules, $pages);
-
-        // Badge Information Section
-        $content .= $this->build_badge_information($course_details, $pages);
-
-        // Continuing Education Credit Section
-        $content .= $this->build_ce_credit_information($course_details, $pages);
+        // Build comprehensive course content
+        $content .= $this->build_comprehensive_course_content($course_details, $modules, $pages);
 
         error_log('CCS_Content_Handler: Generated content length: ' . strlen($content));
         
@@ -117,436 +104,232 @@ class CCS_Content_Handler {
     }
 
     /**
-     * Build about course section from Canvas content
+     * Build comprehensive course content from all available sources
      */
-    private function build_about_course_section($course_details, $pages = array()) {
+    private function build_comprehensive_course_content($course_details, $modules = array(), $pages = array()) {
         $content = '';
         $course_name = $course_details['name'] ?? 'Unknown Course';
         
-        error_log('CCS_Content_Handler: Building about course section for ' . $course_name . ' with ' . count($pages) . ' pages');
-        
-        $content .= "<div class='about-course'>\n";
-        $content .= "<h2>About This Course</h2>\n";
-        
-        $course_description = '';
-        
-        // Priority order: public_description, syllabus_body, description
-        if (!empty($course_details['public_description'])) {
-            $course_description = $course_details['public_description'];
-            error_log('CCS_Content_Handler: Using public_description for about section');
-        } elseif (!empty($course_details['syllabus_body'])) {
-            $course_description = $course_details['syllabus_body'];
-            error_log('CCS_Content_Handler: Using syllabus_body for about section');
-        } elseif (!empty($course_details['description'])) {
-            $course_description = $course_details['description'];
-            error_log('CCS_Content_Handler: Using description field for about section');
+        // First, check if we have syllabus content from Canvas
+        if (!empty($course_details['syllabus_body'])) {
+            error_log('CCS_Content_Handler: Using syllabus body as primary content');
+            $content .= "<div class='course-content'>\n";
+            $content .= wp_kses_post($course_details['syllabus_body']);
+            $content .= "</div>\n\n";
+            return $content; // Return early if we have good syllabus content
         }
         
-        // Look for course overview/about pages
-        if (empty($course_description) && !empty($pages)) {
-            error_log('CCS_Content_Handler: No course description found, searching pages...');
+        // If no syllabus, check public description
+        if (!empty($course_details['public_description'])) {
+            error_log('CCS_Content_Handler: Using public description as primary content');
+            $content .= "<div class='course-content'>\n";
+            $content .= wp_kses_post($course_details['public_description']);
+            $content .= "</div>\n\n";
+            return $content; // Return early if we have good description
+        }
+        
+        // If still no content, build from modules and pages
+        $content .= "<div class='course-content'>\n";
+        
+        // Try to find the main course content page
+        $main_content = $this->find_main_course_content($course_details['id'], $pages);
+        if (!empty($main_content)) {
+            $content .= $main_content;
+        } else {
+            // Build structured content from modules
+            $content .= $this->build_structured_module_content($course_details, $modules, $pages);
+        }
+        
+        $content .= "</div>\n\n";
+        
+        return $content;
+    }
+
+    /**
+     * Find the main course content from pages
+     */
+    private function find_main_course_content($course_id, $pages = array()) {
+        if (empty($pages) || !$this->api) {
+            return '';
+        }
+        
+        // Priority pages to check (in order)
+        $priority_keywords = array(
+            'course description',
+            'course overview',
+            'about this course',
+            'module description',
+            'course content',
+            'introduction',
+            'overview',
+            'about',
+            'welcome',
+            'home'
+        );
+        
+        // First pass: look for exact matches
+        foreach ($priority_keywords as $keyword) {
             foreach ($pages as $page) {
                 $page_title = strtolower($page['title'] ?? '');
-                if (stripos($page_title, 'about') !== false || 
-                    stripos($page_title, 'overview') !== false ||
-                    stripos($page_title, 'introduction') !== false ||
-                    stripos($page_title, 'description') !== false) {
-                    
-                    error_log('CCS_Content_Handler: Found relevant about page: ' . $page['title']);
-                    
-                    // Get the page content
-                    if ($this->api && !empty($page['url'])) {
-                        $page_content = $this->api->get_page_content($course_details['id'], $page['url']);
-                        if (!is_wp_error($page_content) && !empty($page_content['body'])) {
-                            $course_description = $page_content['body'];
-                            error_log('CCS_Content_Handler: Retrieved about page content, length: ' . strlen($course_description));
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-        
-        // Only add description if found in Canvas content, no fallback to avoid repetition
-        if (!empty($course_description)) {
-            $clean_description = wp_kses_post($course_description);
-            $content .= $clean_description . "\n";
-            error_log('CCS_Content_Handler: Added about content, length: ' . strlen($clean_description));
-        } else {
-            error_log('CCS_Content_Handler: No about content found, skipping section to avoid repetition');
-            // Skip adding generic content to avoid duplication with module description
-        }
-        
-        $content .= "</div>\n\n";
-        return $content;
-    }
-
-    /**
-     * Build module description section from Canvas content
-     */
-    private function build_module_description($course_details, $modules = array(), $pages = array()) {
-        $content = '';
-        $course_name = $course_details['name'] ?? 'Unknown Course';
-        
-        error_log('CCS_Content_Handler: Building module description for ' . $course_name . ' with ' . count($modules) . ' modules and ' . count($pages) . ' pages');
-        
-        $content .= "<div class='module-description'>\n";
-        $content .= "<h2>Module Description</h2>\n";
-        
-        $module_description = '';
-        
-        // Fetch and check the specific Canvas page content that has the actual course description
-        if (!empty($pages)) {
-            error_log('CCS_Content_Handler: Searching pages for actual course description...');
-            foreach ($pages as $page) {
-                // Fetch the full page content to check for substantial description
-                if ($this->api && !empty($page['url'])) {
-                    $page_content = $this->api->get_page_content($course_details['id'], $page['url']);
-                    if (!is_wp_error($page_content) && !empty($page_content['body'])) {
-                        $page_body = $page_content['body'];
-                        $clean_text = strip_tags($page_body);
-                        
-                        // Look for actual course description content (skip badge/admin content)
-                        if (strlen($clean_text) > 200 && 
-                            stripos($clean_text, 'badge') === false &&
-                            stripos($clean_text, 'completion') === false &&
-                            stripos($clean_text, 'certificate') === false) {
-                            
-                            $module_description = $page_body;
-                            error_log('CCS_Content_Handler: Found actual course description from page: ' . $page['title'] . ' (length: ' . strlen($page_body) . ')');
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-        
-        // Fallback to Canvas course fields only if no substantial page content found
-        if (empty($module_description)) {
-            if (!empty($course_details['syllabus_body'])) {
-                $module_description = $course_details['syllabus_body'];
-                error_log('CCS_Content_Handler: Using syllabus_body as fallback');
-            } elseif (!empty($course_details['public_description'])) {
-                $module_description = $course_details['public_description'];
-                error_log('CCS_Content_Handler: Using public_description as fallback');
-            }
-        }
-        
-        
-        // Use module description if found
-        if (!empty($module_description)) {
-            $clean_description = wp_kses_post($module_description);
-            $content .= $clean_description . "\n";
-            error_log('CCS_Content_Handler: Added description content, length: ' . strlen($clean_description));
-        } else {
-            // Show that content is being processed rather than generic content
-            error_log('CCS_Content_Handler: No specific content found, indicating content processing');
-            $content .= "<p><em>Module content is being loaded from Canvas. Please check back shortly for detailed course information.</em></p>\n";
-        }
-        
-        $content .= "</div>\n\n";
-        return $content;
-    }
-
-    /**
-     * Build learning objectives section from Canvas modules and pages
-     */
-    private function build_learning_objectives($course_id, $course_details, $modules = array(), $pages = array()) {
-        $content = '';
-        
-        $content .= "<div class='learning-objectives'>\n";
-        $content .= "<h2>Learning Objectives</h2>\n";
-        $content .= "<p><strong>Participants will be able to:</strong></p>\n";
-        $content .= "<ul>\n";
-
-        $objectives_found = false;
-        
-        // Search all pages for actual learning objectives content
-        if (!empty($pages)) {
-            error_log('CCS_Content_Handler: Searching all pages for learning objectives...');
-            foreach ($pages as $page) {
-                // Fetch page content to get actual objectives
-                if ($this->api && !empty($page['url'])) {
+                if (strpos($page_title, $keyword) !== false) {
                     $page_content = $this->api->get_page_content($course_id, $page['url']);
                     if (!is_wp_error($page_content) && !empty($page_content['body'])) {
-                        $objectives_content = $page_content['body'];
+                        $body = $page_content['body'];
                         
-                        // Skip badge/completion content, look for actual learning objectives
-                        $clean_text = strip_tags($objectives_content);
-                        if (stripos($clean_text, 'badge') !== false || 
-                            stripos($clean_text, 'completion') !== false ||
-                            stripos($clean_text, 'certificate') !== false) {
-                            continue; // Skip pages that are about badges/completion
+                        // Skip if this is badge/completion content
+                        if ($this->is_badge_or_completion_content($body)) {
+                            continue;
                         }
                         
-                        // Look for actual learning objectives in list format
-                        if (preg_match_all('/<li[^>]*>(.*?)<\/li>/is', $objectives_content, $matches)) {
-                            $potential_objectives = array();
+                        error_log('CCS_Content_Handler: Found main content from page: ' . $page['title']);
+                        return wp_kses_post($body);
+                    }
+                }
+            }
+        }
+        
+        // Second pass: find the first substantial non-badge page
+        foreach ($pages as $page) {
+            if ($this->api && !empty($page['url'])) {
+                $page_content = $this->api->get_page_content($course_id, $page['url']);
+                if (!is_wp_error($page_content) && !empty($page_content['body'])) {
+                    $body = $page_content['body'];
+                    $clean_text = strip_tags($body);
+                    
+                    // Check if this is substantial content (not badge/completion)
+                    if (strlen($clean_text) > 300 && !$this->is_badge_or_completion_content($body)) {
+                        error_log('CCS_Content_Handler: Using substantial page content from: ' . $page['title']);
+                        return wp_kses_post($body);
+                    }
+                }
+            }
+        }
+        
+        return '';
+    }
+
+    /**
+     * Check if content is primarily about badges or completion
+     */
+    private function is_badge_or_completion_content($content) {
+        $clean_text = strtolower(strip_tags($content));
+        
+        // Count badge/completion related words
+        $badge_words = array('badge', 'badgr', 'completion', 'certificate', 'credly', 'earned');
+        $badge_count = 0;
+        foreach ($badge_words as $word) {
+            $badge_count += substr_count($clean_text, $word);
+        }
+        
+        // If more than 5 badge-related words in content, it's likely badge content
+        if ($badge_count > 5) {
+            return true;
+        }
+        
+        // Check if badge content is the majority of the text
+        $total_words = str_word_count($clean_text);
+        if ($total_words > 0 && ($badge_count / $total_words) > 0.1) {
+            return true;
+        }
+        
+        return false;
+    }
+
+    /**
+     * Build structured content from modules
+     */
+    private function build_structured_module_content($course_details, $modules = array(), $pages = array()) {
+        $content = '';
+        
+        // Add course description if available
+        if (!empty($course_details['description'])) {
+            $content .= "<h2>Course Description</h2>\n";
+            $content .= "<p>" . wp_kses_post($course_details['description']) . "</p>\n\n";
+        }
+        
+        // Add module information
+        if (!empty($modules)) {
+            $content .= "<h2>Course Modules</h2>\n";
+            $content .= "<div class='course-modules'>\n";
+            
+            foreach ($modules as $module) {
+                $module_name = $module['name'] ?? 'Unnamed Module';
+                $content .= "<h3>" . esc_html($module_name) . "</h3>\n";
+                
+                if (!empty($module['items'])) {
+                    $content .= "<ul>\n";
+                    foreach ($module['items'] as $item) {
+                        $item_title = $item['title'] ?? 'Untitled';
+                        $item_type = $item['type'] ?? 'Item';
+                        
+                        // Skip badge-related items
+                        if (stripos($item_title, 'badge') !== false || 
+                            stripos($item_title, 'completion') !== false) {
+                            continue;
+                        }
+                        
+                        $content .= "<li><strong>" . esc_html($item_type) . ":</strong> " . esc_html($item_title) . "</li>\n";
+                    }
+                    $content .= "</ul>\n";
+                }
+            }
+            
+            $content .= "</div>\n\n";
+        }
+        
+        // Add learning objectives if found
+        $objectives = $this->extract_learning_objectives($course_details, $modules, $pages);
+        if (!empty($objectives)) {
+            $content .= "<h2>Learning Objectives</h2>\n";
+            $content .= "<ul>\n";
+            foreach ($objectives as $objective) {
+                $content .= "<li>" . esc_html($objective) . "</li>\n";
+            }
+            $content .= "</ul>\n\n";
+        }
+        
+        // Add any additional relevant information
+        if (!empty($course_details['course_code'])) {
+            $content .= "<p><strong>Course Code:</strong> " . esc_html($course_details['course_code']) . "</p>\n";
+        }
+        
+        return $content;
+    }
+
+    /**
+     * Extract learning objectives from course content
+     */
+    private function extract_learning_objectives($course_details, $modules = array(), $pages = array()) {
+        $objectives = array();
+        
+        // Search in pages for objectives
+        if (!empty($pages) && $this->api) {
+            foreach ($pages as $page) {
+                $page_title = strtolower($page['title'] ?? '');
+                if (strpos($page_title, 'objective') !== false || 
+                    strpos($page_title, 'outcome') !== false ||
+                    strpos($page_title, 'goal') !== false) {
+                    
+                    $page_content = $this->api->get_page_content($course_details['id'], $page['url']);
+                    if (!is_wp_error($page_content) && !empty($page_content['body'])) {
+                        // Extract list items as objectives
+                        if (preg_match_all('/<li[^>]*>(.*?)<\/li>/is', $page_content['body'], $matches)) {
                             foreach ($matches[1] as $match) {
                                 $clean_text = trim(wp_strip_all_tags($match));
-                                // Look for objective-like content
-                                if (!empty($clean_text) && 
-                                    strlen($clean_text) > 15 && 
-                                    !stripos($clean_text, 'badge') &&
-                                    !stripos($clean_text, 'completion')) {
-                                    $potential_objectives[] = $clean_text;
+                                if (!empty($clean_text) && strlen($clean_text) > 20) {
+                                    $objectives[] = $clean_text;
                                 }
-                            }
-                            
-                            // Use if we found substantial objectives
-                            if (count($potential_objectives) >= 2) {
-                                foreach ($potential_objectives as $objective) {
-                                    $content .= "<li>" . esc_html($objective) . "</li>\n";
-                                    $objectives_found = true;
-                                }
-                                error_log('CCS_Content_Handler: Found ' . count($potential_objectives) . ' objectives from page: ' . $page['title']);
-                                break;
-                            }
-                        }
-                        
-                        // Look for objectives in paragraph format
-                        if (!$objectives_found) {
-                            if (preg_match_all('/(?:Upon completion|After completing|Participants will|Learners will|You will be able to|Students will|Objective)[^\.]*\.(?:[^\.]*\.){0,2}/i', $objectives_content, $matches)) {
-                                foreach ($matches[0] as $match) {
-                                    $clean_objective = trim(wp_strip_all_tags($match));
-                                    if (!empty($clean_objective) && 
-                                        strlen($clean_objective) > 20 &&
-                                        !stripos($clean_objective, 'badge') &&
-                                        !stripos($clean_objective, 'completion')) {
-                                        $content .= "<li>" . esc_html($clean_objective) . "</li>\n";
-                                        $objectives_found = true;
-                                    }
-                                }
-                            }
-                        }
-                        
-                        if ($objectives_found) {
-                            error_log('CCS_Content_Handler: Successfully extracted objectives from page: ' . $page['title']);
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-        
-        // Also check course descriptions for objectives
-        if (!$objectives_found) {
-            $search_fields = array('syllabus_body', 'public_description', 'description');
-            foreach ($search_fields as $field) {
-                if (!empty($course_details[$field])) {
-                    $content_text = $course_details[$field];
-                    
-                    // Extract list items
-                    if (preg_match_all('/<li[^>]*>(.*?)<\/li>/is', $content_text, $matches)) {
-                        foreach ($matches[1] as $match) {
-                            $clean_text = trim(wp_strip_all_tags($match));
-                            if (!empty($clean_text) && strlen($clean_text) > 15) {
-                                $content .= "<li>" . esc_html($clean_text) . "</li>\n";
-                                $objectives_found = true;
                             }
                         }
                     }
                     
-                    if ($objectives_found) {
-                        error_log('CCS_Content_Handler: Found objectives in course ' . $field);
-                        break;
+                    if (!empty($objectives)) {
+                        break; // Found objectives, stop searching
                     }
                 }
             }
         }
         
-        // If no objectives found in pages, try modules
-        if (!$objectives_found && !empty($modules)) {
-            error_log('CCS_Content_Handler: Checking modules for learning objectives...');
-            foreach ($modules as $module) {
-                if (!empty($module['items'])) {
-                    foreach ($module['items'] as $item) {
-                        if ($item['type'] === 'Page' && 
-                            (stripos($item['title'], 'objective') !== false || 
-                             stripos($item['title'], 'outcome') !== false ||
-                             stripos($item['title'], 'goal') !== false)) {
-                            
-                            error_log('CCS_Content_Handler: Found objectives page in module: ' . $item['title']);
-                            
-                            // Get the page content for learning objectives
-                            if ($this->api && !empty($item['page_url'])) {
-                                $page_content = $this->api->get_page_content($course_id, $item['page_url']);
-                                if (!is_wp_error($page_content) && !empty($page_content['body'])) {
-                                    $objectives_content = $page_content['body'];
-                                    
-                                    // Extract list items from HTML content
-                                    if (preg_match_all('/<li[^>]*>(.*?)<\/li>/is', $objectives_content, $matches)) {
-                                        foreach ($matches[1] as $objective) {
-                                            $clean_objective = wp_strip_all_tags($objective);
-                                            if (!empty(trim($clean_objective))) {
-                                                $content .= "<li>" . esc_html(trim($clean_objective)) . "</li>\n";
-                                                $objectives_found = true;
-                                            }
-                                        }
-                                    }
-                                    
-                                    if ($objectives_found) {
-                                        break 2; // Break out of both loops
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        
-        // Try Canvas outcome groups API if no objectives found in modules or pages
-        if (!$objectives_found && $this->api) {
-            error_log('CCS_Content_Handler: Checking Canvas outcome groups...');
-            $outcomes_result = $this->api->make_request("courses/{$course_id}/outcome_groups");
-            
-            if (!is_wp_error($outcomes_result) && !empty($outcomes_result['data'])) {
-                foreach ($outcomes_result['data'] as $outcome_group) {
-                    if (!empty($outcome_group['outcomes'])) {
-                        foreach ($outcome_group['outcomes'] as $outcome) {
-                            if (!empty($outcome['description'])) {
-                                $content .= "<li>" . wp_kses_post($outcome['description']) . "</li>\n";
-                                $objectives_found = true;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // If no specific objectives found, show a loading message instead of generic content
-        if (!$objectives_found) {
-            error_log('CCS_Content_Handler: No specific objectives found, showing loading message');
-            $content .= "<li><em>Learning objectives are being loaded from Canvas...</em></li>\n";
-        }
-
-        $content .= "</ul>\n</div>\n\n";
-        return $content;
-    }
-
-    /**
-     * Build badge information section
-     */
-    private function build_badge_information($course_details, $pages = array()) {
-        $content = '';
-        
-        $content .= "<div class='badge-information'>\n";
-        $content .= "<h2>Badge Information</h2>\n";
-        
-        // Determine badge category based on course content
-        $badge_category = $this->determine_badge_category($course_details);
-        
-        $content .= "<p><strong>Module content category:</strong> " . esc_html($badge_category) . "</p>\n";
-        
-        $course_name = $course_details['name'] ?? 'Course';
-        $content .= "<div class='badge-display'>\n";
-        $content .= "<p><strong>" . esc_html($course_name) . "</strong></p>\n";
-        $content .= "<p>Upon successful completion, you will receive a digital badge that validates your achievement in " . esc_html($badge_category) . ".</p>\n";
-        $content .= "<p>Learn more about <a href='https://nationaldeafcenter.badgr.com/public/organization/badges' target='_blank'>NDC Badges here</a>.</p>\n";
-        $content .= "</div>\n";
-        
-        $content .= "</div>\n\n";
-        return $content;
-    }
-
-    /**
-     * Build continuing education credit information section
-     */
-    private function build_ce_credit_information($course_details, $pages = array()) {
-        $content = '';
-        
-        $content .= "<div class='continuing-education-credit'>\n";
-        $content .= "<h2>Continuing Education Credit</h2>\n";
-        
-        // Try to extract specific CE hours from course details
-        $ce_hours = $this->extract_ce_hours($course_details);
-        
-        if ($ce_hours) {
-            $content .= "<p>This module is pre-approved for <strong>" . esc_html($ce_hours) . " NDC Continuing Professional Education Clock Hours</strong> and <strong>" . esc_html($ce_hours) . " CRCC Clock Hours</strong>.</p>\n";
-        } else {
-            // Default to 1 hour if no specific hours found
-            $content .= "<p>This module is pre-approved for <strong>1 NDC Continuing Professional Education Clock Hour</strong> and <strong>1 CRCC Clock Hour</strong>.</p>\n";
-        }
-        
-        $content .= "<div class='ce-details'>\n";
-        $content .= "<h3>Professional Recognition</h3>\n";
-        $content .= "<p>This course content has been developed to meet professional standards and may be accepted by:</p>\n";
-        $content .= "<ul>\n";
-        $content .= "<li>State licensing boards</li>\n";
-        $content .= "<li>Professional certification organizations</li>\n";
-        $content .= "<li>Employers for professional development requirements</li>\n";
-        $content .= "</ul>\n";
-        $content .= "<p><em>Note: CE credit acceptance varies by profession and jurisdiction. Please verify requirements with your specific licensing board or organization.</em></p>\n";
-        $content .= "</div>\n";
-        
-        $content .= "</div>\n\n";
-        return $content;
-    }
-
-    /**
-     * Determine badge category based on course content
-     */
-    private function determine_badge_category($course_details) {
-        $course_name = strtolower($course_details['name'] ?? '');
-        $description = strtolower($course_details['public_description'] ?? '') . ' ' . strtolower($course_details['syllabus_body'] ?? '');
-        
-        // Check for accessibility-related keywords
-        if (strpos($course_name, 'accessibility') !== false || 
-            strpos($course_name, 'assistive') !== false ||
-            strpos($description, 'accessibility') !== false ||
-            strpos($description, 'assistive technology') !== false) {
-            return 'Accessibility Practices';
-        }
-        
-        // Check for rehabilitation keywords
-        if (strpos($course_name, 'rehabilitation') !== false || 
-            strpos($course_name, 'vocational') !== false ||
-            strpos($description, 'rehabilitation') !== false ||
-            strpos($description, 'vocational') !== false) {
-            return 'Vocational Rehabilitation';
-        }
-        
-        // Check for mentoring keywords
-        if (strpos($course_name, 'mentor') !== false || 
-            strpos($description, 'mentor') !== false) {
-            return 'Professional Development';
-        }
-        
-        // Check for awareness/education keywords
-        if (strpos($course_name, 'awareness') !== false || 
-            strpos($course_name, 'deaf') !== false ||
-            strpos($description, 'deaf awareness') !== false) {
-            return 'Deaf Awareness';
-        }
-        
-        // Default category
-        return 'Professional Development';
-    }
-
-    /**
-     * Extract CE hours from course details
-     */
-    private function extract_ce_hours($course_details) {
-        // Look for CE hours in various fields
-        $search_fields = array(
-            'public_description',
-            'description', 
-            'syllabus_body',
-            'name'
-        );
-
-        foreach ($search_fields as $field) {
-            if (!empty($course_details[$field])) {
-                $text = $course_details[$field];
-                
-                // Look for patterns like "1.5 CE", "2 hours", "3.0 credits"
-                if (preg_match('/(\d+(?:\.\d+)?)\s*(?:CE|credit|hour)s?/i', $text, $matches)) {
-                    return $matches[1];
-                }
-            }
-        }
-
-        return null;
+        return $objectives;
     }
 }
