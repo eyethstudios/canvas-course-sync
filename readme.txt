@@ -5,7 +5,7 @@ Tags: canvas, lms, course, sync, education
 Requires at least: 5.0
 Tested up to: 6.4
 Requires PHP: 7.4
-Stable tag: 3.3.0
+Stable tag: 3.3.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -46,6 +46,11 @@ The token needs read access to courses and basic user information.
 3. Logging and status monitoring
 
 == Changelog ==
+
+= 3.3.1 =
+* Removed badge image display from course content
+* Enhanced continuing education credit section to use Canvas course-specific data instead of generic defaults
+* Improved course content display with cleaner formatting
 
 = 3.2.5 =
 * Enhanced content extraction to display actual Canvas course-specific information instead of generic placeholders
