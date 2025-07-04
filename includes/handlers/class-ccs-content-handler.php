@@ -656,7 +656,7 @@ class CCS_Content_Handler {
             $content .= "<strong>" . esc_html($badge_info['category']) . "</strong></p>\n\n";
             
             // Add badge image with proper styling to match catalog
-            $badge_image_url = plugins_url('src/assets/' . $badge_info['image_file'], dirname(dirname(__DIR__)));
+            $badge_image_url = plugins_url('assets/images/' . $badge_info['image_file'], dirname(dirname(__DIR__)));
             $content .= "<div class='badge-image' style='text-align: center; margin: 20px 0;'>\n";
             $content .= "<img src='" . esc_url($badge_image_url) . "' alt='Badge for " . esc_attr($badge_info['category']) . "' style='width: 150px; height: 150px; border-radius: 50%; border: 3px solid #2c5aa0;' />\n";
             $content .= "</div>\n\n";
@@ -675,7 +675,7 @@ class CCS_Content_Handler {
             $content .= "<strong>" . esc_html($badge_category) . "</strong></p>\n\n";
             
             // Add default badge image
-            $badge_image_url = plugins_url('src/assets/ndc-badge.svg', dirname(dirname(__DIR__)));
+            $badge_image_url = plugins_url('assets/images/ndc-badge.svg', dirname(dirname(__DIR__)));
             $content .= "<div class='badge-image' style='text-align: center; margin: 20px 0;'>\n";
             $content .= "<img src='" . esc_url($badge_image_url) . "' alt='NDC Badge' style='width: 150px; height: 150px;' />\n";
             $content .= "</div>\n\n";
