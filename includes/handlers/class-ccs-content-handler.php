@@ -518,9 +518,6 @@ class CCS_Content_Handler {
         
         return $objectives;
     }
-        
-        return $content;
-    }
 
     /**
      * Extract objectives from HTML content
