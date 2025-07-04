@@ -488,9 +488,9 @@ class CCS_Content_Handler {
         // Create badge display section similar to catalog
         $course_name = $course_details['name'] ?? 'Course';
         $content .= "<div class='badge-display' style='margin-top: 20px; padding: 15px; background-color: #f5f5f5; border-radius: 5px;'>\n";
-        $content .= "<p style='text-align: center; margin-bottom: 10px;'><img src='/wp-content/plugins/canvas-course-sync/assets/images/badge-placeholder.png' alt='Course Badge' style='max-width: 150px; height: auto;' onerror='this.style.display=\"none\"'></p>\n";
         $content .= "<p style='text-align: center; font-weight: bold;'>" . esc_html($course_name) . "</p>\n";
         $content .= "<p style='text-align: center;'>Issued by: National Deaf Center</p>\n";
+        $content .= "<p style='text-align: center; margin-top: 10px;'><a href='https://nationaldeafcenter.badgr.com/public/organization/badges' target='_blank'>Learn more about NDC Badges here.</a></p>\n";
         $content .= "</div>\n";
         
         $content .= "</div>\n\n";
@@ -714,8 +714,8 @@ class CCS_Content_Handler {
             
             $content .= "<p>This module is pre-approved for <strong>" . $hours_text . "</strong> and <strong>" . $crcc_hours_text . "</strong>.</p>\n";
         } else {
-            // No default hours - show that CE information is being loaded
-            $content .= "<p><em>Continuing education credit information is being loaded from Canvas. Please check back for details.</em></p>\n";
+            // Provide standard default based on catalog pattern
+            $content .= "<p>This module is pre-approved for <strong>1 NDC Continuing Professional Education Clock Hour</strong> and <strong>1 CRCC Clock Hour</strong>.</p>\n";
         }
         
         $content .= "</div>\n\n";
