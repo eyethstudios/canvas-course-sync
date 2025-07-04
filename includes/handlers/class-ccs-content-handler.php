@@ -828,8 +828,8 @@ class CCS_Content_Handler {
             'assistive_technology_in_training_and_workplace_settings' => array(
                 'category' => 'Accessibility Practices',
                 'badge_name' => 'Assistive Technology',
-                'badge_url' => 'https://nationaldeafcenter.badgr.com/public/badges/assistive-technology',
-                'image_file' => 'ndc-badge.svg'
+                'badge_url' => 'https://nationaldeafcenter.badgr.com/public/badges/y3wQw7_ZSKaNBW8FQmHFVA',
+                'image_file' => 'assistive-technology-badge.png'
             ),
             'effective_mentoring_for_deaf_people' => array(
                 'category' => 'Systems Knowledge',
@@ -840,8 +840,8 @@ class CCS_Content_Handler {
             'deaf_awareness_for_vocational_rehabilitation_professionals' => array(
                 'category' => 'Vocational Rehabilitation',
                 'badge_name' => 'Deaf Awareness',
-                'badge_url' => 'https://nationaldeafcenter.badgr.com/public/badges/deaf-awareness',
-                'image_file' => 'ndc-badge.svg'
+                'badge_url' => 'https://nationaldeafcenter.badgr.com/public/badges/sKm9pq-rTZu4vKOEoAqxrA',
+                'image_file' => 'deaf-awareness-badge.png'
             ),
             'introduction_to_deaf_rehabilitation' => array(
                 'category' => 'Vocational Rehabilitation',
