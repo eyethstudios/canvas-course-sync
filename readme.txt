@@ -5,7 +5,7 @@ Tags: canvas, lms, course, sync, education
 Requires at least: 5.0
 Tested up to: 6.4
 Requires PHP: 7.4
-Stable tag: 3.4.2
+Stable tag: 3.5.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -46,6 +46,12 @@ The token needs read access to courses and basic user information.
 3. Logging and status monitoring
 
 == Changelog ==
+
+= 3.5.0 =
+* Fixed badge image paths - moved badge images to WordPress-compatible assets/images/ directory
+* Updated all badge image references to use proper WordPress plugin URL structure
+* Ensured badge images are web-accessible for display in course content
+* Minor version increment for WordPress plugin directory compatibility
 
 = 3.4.2 =
 * Fixed additional PHP syntax errors in content handler
