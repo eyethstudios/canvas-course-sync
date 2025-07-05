@@ -5,7 +5,7 @@ Tags: canvas, lms, course, sync, education
 Requires at least: 5.0
 Tested up to: 6.4
 Requires PHP: 7.4
-Stable tag: 3.5.2
+Stable tag: 3.5.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -46,6 +46,13 @@ The token needs read access to courses and basic user information.
 3. Logging and status monitoring
 
 == Changelog ==
+
+= 3.5.3 =
+* Comprehensive badge mapping system updated with all 55 unique badge files
+* Enhanced badge-to-course matching with improved normalization and partial matching
+* Added extensive logging for badge lookup debugging and troubleshooting
+* Fixed badge image URL generation to be version-agnostic using WordPress constants
+* Organized badge mappings by category (Assistive Technology, Deaf Awareness, Webinars, etc.)
 
 = 3.5.2 =
 * Enhanced badge information and images to sync properly from National Deaf Center catalog
