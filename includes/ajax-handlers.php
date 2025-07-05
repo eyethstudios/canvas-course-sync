@@ -243,11 +243,18 @@ function ccs_sync_courses_handler() {
         return;
     }
     
+    error_log('CCS Ajax: Starting sync_courses_handler');
+    
     $canvas_course_sync = canvas_course_sync();
+    error_log('CCS Ajax: canvas_course_sync function returned: ' . ($canvas_course_sync ? 'success' : 'null'));
+    
     if (!$canvas_course_sync || !$canvas_course_sync->importer) {
+        error_log('CCS Ajax: FATAL - Importer not initialized. canvas_course_sync: ' . ($canvas_course_sync ? 'exists' : 'null') . ', importer: ' . (isset($canvas_course_sync->importer) ? 'exists' : 'null'));
         wp_send_json_error('Importer not initialized');
         return;
     }
+    
+    error_log('CCS Ajax: Importer is available, proceeding with sync');
     
     try {
         // Set sync status
