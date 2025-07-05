@@ -55,6 +55,14 @@ class CCS_Content_Handler {
             return '';
         }
 
+        // Try to fetch catalog content first
+        $catalog_content = $this->fetch_catalog_content($course_details);
+        
+        if (!empty($catalog_content)) {
+            return $catalog_content;
+        }
+
+        // Fallback to generic content if catalog fetch fails
         $content = '';
 
         // Build simple course content sections
@@ -68,6 +76,184 @@ class CCS_Content_Handler {
         $content .= $this->build_continuing_education_credit($course_details);
 
         return $content;
+    }
+
+    /**
+     * Fetch content from catalog listing
+     * 
+     * @param array $course_details Course details from Canvas API
+     * @return string Catalog content HTML or empty string if failed
+     */
+    private function fetch_catalog_content($course_details) {
+        $course_name = $course_details['name'] ?? '';
+        
+        if (empty($course_name)) {
+            return '';
+        }
+
+        // Generate catalog URL from course name
+        $catalog_url = $this->generate_catalog_url($course_name);
+        
+        if (empty($catalog_url)) {
+            return '';
+        }
+
+        // Fetch catalog page
+        $response = wp_remote_get($catalog_url, array(
+            'timeout' => 30,
+            'headers' => array(
+                'User-Agent' => 'Canvas Course Sync Plugin'
+            )
+        ));
+
+        if (is_wp_error($response)) {
+            if ($this->logger) {
+                $this->logger->log('Failed to fetch catalog content from ' . $catalog_url . ': ' . $response->get_error_message());
+            }
+            return '';
+        }
+
+        $body = wp_remote_retrieve_body($response);
+        return $this->parse_catalog_content($body);
+    }
+
+    /**
+     * Generate catalog URL from course name
+     * 
+     * @param string $course_name Course name
+     * @return string Catalog URL or empty string
+     */
+    private function generate_catalog_url($course_name) {
+        // Convert course name to URL slug
+        $slug = sanitize_title($course_name);
+        
+        if (empty($slug)) {
+            return '';
+        }
+
+        return 'https://learn.nationaldeafcenter.org/courses/' . $slug;
+    }
+
+    /**
+     * Parse catalog content from HTML
+     * 
+     * @param string $html HTML content from catalog page
+     * @return string Parsed content HTML
+     */
+    private function parse_catalog_content($html) {
+        if (empty($html)) {
+            return '';
+        }
+
+        // Create DOMDocument to parse HTML
+        $dom = new DOMDocument();
+        libxml_use_internal_errors(true);
+        $dom->loadHTML('<?xml encoding="utf-8" ?>' . $html);
+        libxml_clear_errors();
+        
+        $xpath = new DOMXPath($dom);
+        $content = '';
+
+        // Extract Module Description
+        $module_desc = $this->extract_module_description($xpath);
+        if (!empty($module_desc)) {
+            $content .= "<div class='module-description'>\n";
+            $content .= "<h2>Module Description</h2>\n";
+            $content .= "<p>" . wp_kses_post($module_desc) . "</p>\n";
+            $content .= "</div>\n\n";
+        }
+
+        // Extract Learning Objectives
+        $learning_objectives = $this->extract_learning_objectives($xpath);
+        if (!empty($learning_objectives)) {
+            $content .= "<div class='learning-objectives'>\n";
+            $content .= "<h2>Learning Objectives</h2>\n";
+            $content .= "<p><strong>Participants will be able to:</strong></p>\n";
+            $content .= "<ul>\n";
+            foreach ($learning_objectives as $objective) {
+                $content .= "<li>" . wp_kses_post($objective) . "</li>\n";
+            }
+            $content .= "</ul>\n";
+            $content .= "</div>\n\n";
+        }
+
+        // Add Continuing Education Credit section
+        $content .= $this->build_continuing_education_credit(array());
+
+        if ($this->logger && !empty($content)) {
+            $this->logger->log('Successfully parsed catalog content, length: ' . strlen($content));
+        }
+
+        return $content;
+    }
+
+    /**
+     * Extract module description from catalog HTML
+     * 
+     * @param DOMXPath $xpath XPath object
+     * @return string Module description or empty string
+     */
+    private function extract_module_description($xpath) {
+        // Look for "Module Description:" text
+        $desc_nodes = $xpath->query("//*[contains(text(), 'Module Description:')]");
+        
+        if ($desc_nodes->length > 0) {
+            $parent = $desc_nodes->item(0)->parentNode;
+            // Get the text content after "Module Description:"
+            $full_text = $parent->textContent;
+            $pos = strpos($full_text, 'Module Description:');
+            if ($pos !== false) {
+                $desc_text = substr($full_text, $pos + strlen('Module Description:'));
+                // Clean up and trim
+                $desc_text = trim($desc_text);
+                // Remove any learning objectives that might be included
+                $obj_pos = strpos($desc_text, 'Learning objectives');
+                if ($obj_pos !== false) {
+                    $desc_text = substr($desc_text, 0, $obj_pos);
+                }
+                return trim($desc_text);
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * Extract learning objectives from catalog HTML
+     * 
+     * @param DOMXPath $xpath XPath object
+     * @return array Array of learning objectives
+     */
+    private function extract_learning_objectives($xpath) {
+        $objectives = array();
+        
+        // Look for "Learning objectives" text
+        $obj_nodes = $xpath->query("//*[contains(text(), 'Learning objectives')]");
+        
+        if ($obj_nodes->length > 0) {
+            $parent = $obj_nodes->item(0)->parentNode;
+            $full_text = $parent->textContent;
+            
+            // Find the start of objectives list
+            $start_pos = strpos($full_text, 'Participants will be able to:');
+            if ($start_pos !== false) {
+                $objectives_text = substr($full_text, $start_pos + strlen('Participants will be able to:'));
+                
+                // Split by bullet points or line breaks
+                $lines = preg_split('/\n|\r|\•|-/', $objectives_text);
+                
+                foreach ($lines as $line) {
+                    $line = trim($line);
+                    if (!empty($line) && strlen($line) > 10) {
+                        // Clean up the objective text
+                        $line = preg_replace('/^\s*[\•\-\*]\s*/', '', $line);
+                        $objectives[] = trim($line);
+                    }
+                }
+            }
+        }
+
+        return $objectives;
     }
 
     /**
