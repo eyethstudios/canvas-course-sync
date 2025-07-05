@@ -28,7 +28,7 @@ if (!defined('ABSPATH')) {
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 // Define plugin constants
-define('CCS_VERSION', '3.5.3');
+define('CCS_VERSION', '3.5.2');
 define('CCS_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('CCS_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('CCS_PLUGIN_BASENAME', plugin_basename(__FILE__));
