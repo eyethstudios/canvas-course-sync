@@ -1354,11 +1354,23 @@ class CCS_Content_Handler {
         
         // Clean the course name for mapping
         $course_key = $this->normalize_course_name($course_name);
+        error_log("CCS_Content_Handler: Looking up badge for course: '{$course_name}' -> normalized: '{$course_key}'");
         
         if (isset($badge_catalog[$course_key])) {
+            error_log("CCS_Content_Handler: Found badge mapping for: {$course_key} -> " . $badge_catalog[$course_key]['badge_name']);
             return $badge_catalog[$course_key];
         }
         
+        // Try partial matching for similar course names
+        foreach ($badge_catalog as $catalog_key => $badge_info) {
+            if (stripos($course_name, str_replace('_', ' ', $catalog_key)) !== false || 
+                stripos($catalog_key, $this->normalize_course_name($course_name)) !== false) {
+                error_log("CCS_Content_Handler: Found partial badge match for '{$course_name}' with catalog key '{$catalog_key}'");
+                return $badge_info;
+            }
+        }
+        
+        error_log("CCS_Content_Handler: No badge mapping found for course: {$course_name}");
         return null;
     }
     
