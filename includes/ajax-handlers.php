@@ -227,13 +227,17 @@ add_action('wp_ajax_ccs_get_courses', 'ccs_get_courses_handler');
 function ccs_sync_courses_handler() {
     // Verify nonce
     if (!wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ccs_sync_courses')) {
+        error_log('CCS Ajax: Nonce verification failed');
         wp_die('Security check failed');
     }
     
     // Check permissions
     if (!current_user_can('manage_options')) {
+        error_log('CCS Ajax: Insufficient permissions');
         wp_die('Insufficient permissions');
     }
+    
+    error_log('CCS Ajax: Basic security checks passed');
     
     // Get course IDs
     $course_ids = isset($_POST['course_ids']) ? array_map('intval', $_POST['course_ids']) : array();
