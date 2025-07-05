@@ -710,14 +710,15 @@ class CCS_Content_Handler {
             
             // Add badge image with proper styling to match catalog  
             $badge_image_file = $badge_info['image_file'];
-            $badge_image_path = plugin_dir_path(__FILE__) . '../../assets/images/' . $badge_image_file;
+            $badge_image_path = CCS_PLUGIN_DIR . 'assets/images/' . $badge_image_file;
             
             // Check if badge image file exists, otherwise use default
             if (!file_exists($badge_image_path)) {
                 $badge_image_file = 'ndc-badge.svg'; // Use default badge if specific one doesn't exist
+                $badge_image_path = CCS_PLUGIN_DIR . 'assets/images/' . $badge_image_file;
             }
             
-            $badge_image_url = plugins_url('canvas-course-sync/assets/images/' . $badge_image_file);
+            $badge_image_url = CCS_PLUGIN_URL . 'assets/images/' . $badge_image_file;
             $content .= "<div class='badge-image' style='text-align: center; margin: 20px 0;'>\n";
             $content .= "<img src='" . esc_url($badge_image_url) . "' alt='Badge for " . esc_attr($badge_info['category']) . "' style='width: 150px; height: 150px; border-radius: 50%; border: 3px solid #2c5aa0;' />\n";
             $content .= "</div>\n\n";
