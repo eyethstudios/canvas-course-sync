@@ -258,7 +258,9 @@ function ccs_sync_courses_handler() {
         ), 300);
         
         // Import courses
+        error_log('CCS Ajax: About to call import_courses with IDs: ' . print_r($course_ids, true));
         $result = $canvas_course_sync->importer->import_courses($course_ids);
+        error_log('CCS Ajax: Import result: ' . print_r($result, true));
         
         // Clear sync status
         delete_transient('ccs_sync_status');
