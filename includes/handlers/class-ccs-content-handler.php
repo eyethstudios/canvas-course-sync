@@ -709,7 +709,56 @@ class CCS_Content_Handler {
             $content .= "<strong>" . esc_html($badge_info['category']) . "</strong></p>\n\n";
             
             // Add badge image with proper styling to match catalog
-            $badge_image_url = CCS_PLUGIN_URL . 'assets/images/' . $badge_info['image_file'];
+            $badge_image_file = $badge_info['image_file'];
+            $badge_image_path = CCS_PLUGIN_DIR . 'assets/images/' . $badge_image_file;
+            
+            // Check if badge image file exists, otherwise use fallback
+            if (!file_exists($badge_image_path)) {
+                // Try to map to available badge categories
+                $available_badges = [
+                    'assistive-technology-badge.png',
+                    'accessible-education-badge.png', 
+                    'campus-access-badge.png',
+                    'communication-access-badge.png',
+                    'community-engagement-badge.png',
+                    'data-evaluation-badge.png',
+                    'deaf-awareness-badge.png',
+                    'health-wellness-badge.png',
+                    'leadership-badge.png',
+                    'legal-compliance-badge.png',
+                    'mentoring-badge.png',
+                    'remote-services-badge.png',
+                    'summer-programs-badge.png',
+                    'systems-change-badge.png',
+                    'transition-services-badge.png',
+                    'vocational-rehabilitation-badge.png',
+                    'webinar-badge.png',
+                    'work-based-learning-badge.png'
+                ];
+                
+                // Simple keyword matching for fallback
+                $badge_image_file = 'ndc-badge.svg'; // Default fallback
+                foreach ($available_badges as $available_badge) {
+                    if (stripos($badge_info['image_file'], 'assistive') !== false && stripos($available_badge, 'assistive') !== false) {
+                        $badge_image_file = $available_badge;
+                        break;
+                    } elseif (stripos($badge_info['image_file'], 'deaf-awareness') !== false && stripos($available_badge, 'deaf-awareness') !== false) {
+                        $badge_image_file = $available_badge;
+                        break;
+                    } elseif (stripos($badge_info['image_file'], 'mentoring') !== false && stripos($available_badge, 'mentoring') !== false) {
+                        $badge_image_file = $available_badge;
+                        break;
+                    } elseif (stripos($badge_info['image_file'], 'vocational') !== false && stripos($available_badge, 'vocational') !== false) {
+                        $badge_image_file = $available_badge;
+                        break;
+                    } elseif (stripos($badge_info['image_file'], 'webinar') !== false && stripos($available_badge, 'webinar') !== false) {
+                        $badge_image_file = $available_badge;
+                        break;
+                    }
+                }
+            }
+            
+            $badge_image_url = CCS_PLUGIN_URL . 'assets/images/' . $badge_image_file;
             $content .= "<div class='badge-image' style='text-align: center; margin: 20px 0;'>\n";
             $content .= "<img src='" . esc_url($badge_image_url) . "' alt='Badge for " . esc_attr($badge_info['category']) . "' style='width: 150px; height: 150px; border-radius: 50%; border: 3px solid #2c5aa0;' />\n";
             $content .= "</div>\n\n";
@@ -1048,7 +1097,7 @@ class CCS_Content_Handler {
                 'category' => 'Assistive Technology',
                 'badge_name' => 'Assistive Technology',
                 'badge_url' => 'https://nationaldeafcenter.badgr.com/public/badges/y3wQw7_ZSKaNBW8FQmHFVA',
-                'image_file' => 'assistive-technology-in-training-and-workplace-settings-badge.png'
+                'image_file' => 'assistive-technology-badge.png'
             ),
             'effective_mentoring_for_deaf_people' => array(
                 'category' => 'Professional Development',
@@ -1060,13 +1109,13 @@ class CCS_Content_Handler {
                 'category' => 'Deaf Awareness',
                 'badge_name' => 'Deaf Awareness',
                 'badge_url' => 'https://nationaldeafcenter.badgr.com/public/badges/sKm9pq-rTZu4vKOEoAqxrA',
-                'image_file' => 'deaf-awareness-for-vr-professionals-badge.png'
+                'image_file' => 'deaf-awareness-badge.png'
             ),
             'introduction_to_deaf_rehabilitation' => array(
                 'category' => 'Vocational Rehabilitation',
                 'badge_name' => 'Deaf Rehabilitation',
                 'badge_url' => 'https://nationaldeafcenter.badgr.com/public/badges/deaf-rehabilitation',
-                'image_file' => 'intro-to-deaf-rehab-badge.png'
+                'image_file' => 'vocational-rehabilitation-badge.png'
             ),
             
             // Accessibility and Education Badges
