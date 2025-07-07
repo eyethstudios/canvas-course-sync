@@ -154,37 +154,82 @@ class CCS_Content_Handler {
         $xpath = new DOMXPath($dom);
         $content = '';
 
-        // Extract Module Description
-        $module_desc = $this->extract_module_description($xpath);
-        if (!empty($module_desc)) {
-            $content .= "<div class='module-description'>\n";
-            $content .= "<h2>Module Description</h2>\n";
-            $content .= "<p>" . wp_kses_post($module_desc) . "</p>\n";
-            $content .= "</div>\n\n";
-        }
-
-        // Extract Learning Objectives
-        $learning_objectives = $this->extract_learning_objectives($xpath);
-        if (!empty($learning_objectives)) {
-            $content .= "<div class='learning-objectives'>\n";
-            $content .= "<h2>Learning Objectives</h2>\n";
-            $content .= "<p><strong>Participants will be able to:</strong></p>\n";
-            $content .= "<ul>\n";
-            foreach ($learning_objectives as $objective) {
-                $content .= "<li>" . wp_kses_post($objective) . "</li>\n";
+        // Look for the main content div that contains course information
+        $content_nodes = $xpath->query("//div[contains(@class, 'css-8no1sn-text')]");
+        
+        if ($content_nodes->length > 0) {
+            $main_content = $content_nodes->item(0);
+            
+            // Get the raw HTML content
+            $raw_content = '';
+            foreach ($main_content->childNodes as $child) {
+                $raw_content .= $dom->saveHTML($child);
             }
-            $content .= "</ul>\n";
-            $content .= "</div>\n\n";
+            
+            // Clean up and process the content
+            $content = $this->process_catalog_html_content($raw_content);
         }
 
-        // Add Continuing Education Credit section
-        $content .= $this->build_continuing_education_credit(array());
+        // If no content found, fallback to old extraction method
+        if (empty($content)) {
+            // Extract Module Description
+            $module_desc = $this->extract_module_description($xpath);
+            if (!empty($module_desc)) {
+                $content .= "<div class='module-description'>\n";
+                $content .= "<h2>Module Description</h2>\n";
+                $content .= "<p>" . wp_kses_post($module_desc) . "</p>\n";
+                $content .= "</div>\n\n";
+            }
+
+            // Extract Learning Objectives
+            $learning_objectives = $this->extract_learning_objectives($xpath);
+            if (!empty($learning_objectives)) {
+                $content .= "<div class='learning-objectives'>\n";
+                $content .= "<h2>Learning Objectives</h2>\n";
+                $content .= "<p><strong>Participants will be able to:</strong></p>\n";
+                $content .= "<ul>\n";
+                foreach ($learning_objectives as $objective) {
+                    $content .= "<li>" . wp_kses_post($objective) . "</li>\n";
+                }
+                $content .= "</ul>\n";
+                $content .= "</div>\n\n";
+            }
+
+            // Add Continuing Education Credit section
+            $content .= $this->build_continuing_education_credit(array());
+        }
 
         if ($this->logger && !empty($content)) {
             $this->logger->log('Successfully parsed catalog content, length: ' . strlen($content));
         }
 
         return $content;
+    }
+
+    /**
+     * Process raw HTML content from catalog
+     * 
+     * @param string $raw_content Raw HTML content
+     * @return string Processed content HTML
+     */
+    private function process_catalog_html_content($raw_content) {
+        if (empty($raw_content)) {
+            return '';
+        }
+
+        // Clean up the HTML and format it properly
+        $content = wp_kses_post($raw_content);
+        
+        // Remove badge information paragraph (contains "Badge information:")
+        $content = preg_replace('/<p[^>]*><strong>Badge information:.*?<\/p>/s', '', $content);
+        
+        // Remove any empty paragraphs with just &nbsp;
+        $content = preg_replace('/<p[^>]*>\s*&nbsp;\s*<\/p>/s', '', $content);
+        
+        // Ensure proper spacing between sections
+        $content = preg_replace('/(<\/p>)\s*(<p><strong>)/s', '$1' . "\n\n" . '$2', $content);
+        
+        return trim($content);
     }
 
     /**
