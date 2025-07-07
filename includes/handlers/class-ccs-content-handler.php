@@ -98,7 +98,7 @@ class CCS_Content_Handler {
             return '';
         }
 
-        // Fetch catalog page
+        // Try to fetch catalog page with the generated URL
         $response = wp_remote_get($catalog_url, array(
             'timeout' => 30,
             'headers' => array(
@@ -110,11 +110,27 @@ class CCS_Content_Handler {
             if ($this->logger) {
                 $this->logger->log('Failed to fetch catalog content from ' . $catalog_url . ': ' . $response->get_error_message());
             }
-            return '';
+            return $this->try_fallback_urls($course_name);
+        }
+
+        // Check HTTP response code
+        $response_code = wp_remote_retrieve_response_code($response);
+        if ($response_code !== 200) {
+            if ($this->logger) {
+                $this->logger->log('Received HTTP ' . $response_code . ' for catalog URL: ' . $catalog_url);
+            }
+            return $this->try_fallback_urls($course_name);
         }
 
         $body = wp_remote_retrieve_body($response);
-        return $this->parse_catalog_content($body);
+        $parsed_content = $this->parse_catalog_content($body);
+        
+        // If we got a valid response but no content, log it
+        if (empty($parsed_content) && $this->logger) {
+            $this->logger->log('Successfully fetched catalog page but could not extract content from: ' . $catalog_url);
+        }
+        
+        return $parsed_content;
     }
 
     /**
@@ -128,10 +144,50 @@ class CCS_Content_Handler {
         $slug = sanitize_title($course_name);
         
         if (empty($slug)) {
+            if ($this->logger) {
+                $this->logger->log('Failed to generate slug for course: ' . $course_name);
+            }
             return '';
         }
 
-        return 'https://learn.nationaldeafcenter.org/courses/' . $slug;
+        // Handle special cases and common variations
+        $slug = $this->normalize_course_slug($slug);
+        
+        $catalog_url = 'https://learn.nationaldeafcenter.org/courses/' . $slug;
+        
+        if ($this->logger) {
+            $this->logger->log('Generated catalog URL for "' . $course_name . '": ' . $catalog_url);
+        }
+        
+        return $catalog_url;
+    }
+
+    /**
+     * Normalize course slug to match catalog URL patterns
+     * 
+     * @param string $slug Generated slug
+     * @return string Normalized slug
+     */
+    private function normalize_course_slug($slug) {
+        // Handle common variations and ensure consistent formatting
+        $normalizations = array(
+            // Common word replacements
+            'vr-professionals' => 'vocational-rehabilitation-professionals',
+            'deaf-awareness-for-vr' => 'deaf-awareness-for-vocational-rehabilitation-professionals',
+            'assistive-tech' => 'assistive-technology',
+            'work-based-learning-experiences' => 'work-based-learning',
+            // Add more normalizations as needed
+        );
+        
+        // Apply normalizations
+        foreach ($normalizations as $pattern => $replacement) {
+            if (strpos($slug, $pattern) !== false) {
+                $slug = str_replace($pattern, $replacement, $slug);
+                break;
+            }
+        }
+        
+        return $slug;
     }
 
     /**
@@ -230,6 +286,96 @@ class CCS_Content_Handler {
         $content = preg_replace('/(<\/p>)\s*(<p><strong>)/s', '$1' . "\n\n" . '$2', $content);
         
         return trim($content);
+    }
+
+    /**
+     * Try fallback URLs when the primary URL fails
+     * 
+     * @param string $course_name Course name
+     * @return string Parsed content HTML or empty string
+     */
+    private function try_fallback_urls($course_name) {
+        if ($this->logger) {
+            $this->logger->log('Trying fallback URLs for course: ' . $course_name);
+        }
+        
+        // Generate alternative slug patterns
+        $fallback_slugs = $this->generate_fallback_slugs($course_name);
+        
+        foreach ($fallback_slugs as $slug) {
+            $fallback_url = 'https://learn.nationaldeafcenter.org/courses/' . $slug;
+            
+            if ($this->logger) {
+                $this->logger->log('Trying fallback URL: ' . $fallback_url);
+            }
+            
+            $response = wp_remote_get($fallback_url, array(
+                'timeout' => 30,
+                'headers' => array(
+                    'User-Agent' => 'Canvas Course Sync Plugin'
+                )
+            ));
+            
+            if (!is_wp_error($response) && wp_remote_retrieve_response_code($response) === 200) {
+                $body = wp_remote_retrieve_body($response);
+                $content = $this->parse_catalog_content($body);
+                
+                if (!empty($content)) {
+                    if ($this->logger) {
+                        $this->logger->log('Successfully found content using fallback URL: ' . $fallback_url);
+                    }
+                    return $content;
+                }
+            }
+        }
+        
+        if ($this->logger) {
+            $this->logger->log('All fallback URLs failed for course: ' . $course_name);
+        }
+        
+        return '';
+    }
+
+    /**
+     * Generate fallback slug variations
+     * 
+     * @param string $course_name Course name
+     * @return array Array of fallback slugs
+     */
+    private function generate_fallback_slugs($course_name) {
+        $slugs = array();
+        $base_slug = sanitize_title($course_name);
+        
+        // Try common variations
+        $variations = array(
+            // Remove common words
+            str_replace(array('-for-', '-and-', '-the-', '-in-', '-on-', '-of-'), '-', $base_slug),
+            // Shortened versions
+            str_replace('vocational-rehabilitation', 'vr', $base_slug),
+            str_replace('assistive-technology', 'assistive-tech', $base_slug),
+            str_replace('professionals', 'pros', $base_slug),
+            // Different word orders for multi-word titles
+            $this->reverse_slug_words($base_slug),
+        );
+        
+        // Remove duplicates and empty values
+        $slugs = array_unique(array_filter($variations));
+        
+        return $slugs;
+    }
+
+    /**
+     * Reverse word order in slug for alternative matching
+     * 
+     * @param string $slug Original slug
+     * @return string Reversed slug
+     */
+    private function reverse_slug_words($slug) {
+        $words = explode('-', $slug);
+        if (count($words) > 2) {
+            return implode('-', array_reverse($words));
+        }
+        return $slug;
     }
 
     /**
