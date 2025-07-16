@@ -219,7 +219,7 @@ class CCS_Importer {
 					error_log( 'CCS_Importer: ERROR - Failed to create post: ' . $post_id->get_error_message() );
 					++$results['errors'];
 					$results['details'][] = array(
-						'course_id' => $course_id,
+						'course_id' => $catalog_id,
 						'status'    => 'error',
 						'reason'    => 'Failed to create post: ' . $post_id->get_error_message(),
 					);
@@ -229,7 +229,7 @@ class CCS_Importer {
 				error_log( 'CCS_Importer: ✓ Course created as DRAFT - Post ID: ' . $post_id );
 
 				// Handle course image
-				if ( ! empty( $course_details['image_download_url'] ) && $this->media_handler ) {
+				if ( ! empty( $course_details['listing_image'] ) && $this->media_handler ) {
 					$image_result = $this->media_handler->set_featured_image( $post_id, $course_details['listing_image'], $course_name );
 					if ( $image_result ) {
 						error_log( 'CCS_Importer: ✓ Featured image set successfully' );

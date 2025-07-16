@@ -18,7 +18,7 @@ class CCS_Logger {
 	/**
 	 * Log table name
 	 */
-	private $table_name;
+	public $table_name;
 
 	/**
 	 * Flag to track if table existence has been verified

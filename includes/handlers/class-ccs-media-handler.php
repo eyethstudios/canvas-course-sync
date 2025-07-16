@@ -24,9 +24,9 @@ class CCS_Media_Handler {
 	/**
 	 * API instance
 	 *
-	 * @var CCS_Canvas_API
+	 * @var CCS_Catalog_API
 	 */
-	private $api;
+	private $catalogApi;
 
 	/**
 	 * Constructor
@@ -47,10 +47,10 @@ class CCS_Media_Handler {
 			$this->logger = new CCS_Logger();
 		}
 
-		if ( $canvas_course_sync && isset( $canvas_course_sync->api ) ) {
-			$this->api = $canvas_course_sync->api;
+		if ( $canvas_course_sync && isset( $canvas_course_sync->catalogApi ) ) {
+			$this->catalogApi = $canvas_course_sync->catalogApi;
 		} elseif ( class_exists( 'CCS_Canvas_API' ) ) {
-			$this->api = new CCS_Canvas_API();
+			$this->catalogApi = new CCS_Catalog_API( $this->logger );
 		}
 	}
 
@@ -80,8 +80,8 @@ class CCS_Media_Handler {
 		try {
 			// Download the image using Canvas API
 			$image_data = null;
-			if ( $this->api && method_exists( $this->api, 'download_file' ) ) {
-				$image_data = $this->api->download_file( $image_url );
+			if ( $this->catalogApi && method_exists( $this->catalogApi, 'download_file' ) ) {
+				$image_data = $this->catalogApi->download_file( $image_url );
 				if ( is_wp_error( $image_data ) ) {
 					if ( $this->logger ) {
 						$this->logger->log( 'Failed to download image via API: ' . $image_data->get_error_message(), 'error' );

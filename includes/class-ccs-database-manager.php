@@ -19,30 +19,32 @@ class CCS_Database_Manager {
 	private $logger;
 
 	/**
+	 * Tracking table name
+	 */
+	public $table_name;
+
+	/**
 	 * Constructor with dependency injection
 	 *
 	 * @param CCS_Logger|null $logger Logger instance (optional)
 	 */
 	public function __construct( CCS_Logger $logger = null ) {
-		$this->logger = $logger;
+		global $wpdb;
 
-		// Create custom table for course tracking if needed
-		$this->maybe_create_course_tracking_table();
-
-		// Database manager initialized
+		$this->logger     = $logger;
+		$this->table_name = $wpdb->prefix . 'ccs_course_tracking';
+		$this->create_course_tracking_table();
 	}
 
 	/**
 	 * Create course tracking table with proper constraints
 	 */
-	private function maybe_create_course_tracking_table() {
+	private function create_course_tracking_table() {
 		global $wpdb;
-
-		$table_name = $wpdb->prefix . 'ccs_course_tracking';
 
 		$charset_collate = $wpdb->get_charset_collate();
 
-		$sql = "CREATE TABLE IF NOT EXISTS $table_name (
+		$sql = "CREATE TABLE IF NOT EXISTS $this->table_name (
             id mediumint(9) NOT NULL AUTO_INCREMENT,
             canvas_course_id bigint NOT NULL,
             catalog_course_id bigint NOT NULL,
@@ -64,9 +66,8 @@ class CCS_Database_Manager {
         ) $charset_collate;";
 
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
-		$result = dbDelta( $sql );
 
-		// Suppress output for AJAX requests
+		dbDelta( $sql );
 	}
 
 	/**

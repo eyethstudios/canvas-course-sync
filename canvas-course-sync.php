@@ -243,32 +243,35 @@ class Canvas_Course_Sync {
 		// Load text domain for translations
 		load_plugin_textdomain( 'canvas-course-sync', false, dirname( plugin_basename( __FILE__ ) ) . '/languages' );
 
-		register_post_type(
-			'courses',
-			array(
-				'labels'       => array(
-					'name'               => 'Courses',
-					'singular_name'      => 'Course',
-					'menu_name'          => 'Courses',
-					'name_admin_bar'     => 'Course',
-					'add_new'            => 'Add Course',
-					'add_new_item'       => 'Add New Course',
-					'new_item'           => 'New Course',
-					'edit_item'          => 'Edit Course',
-					'view_item'          => 'View Course',
-					'all_items'          => 'All Courses',
-					'search_items'       => 'Search Courses',
-					'not_found'          => 'No courses found.',
-					'not_found_in_trash' => 'No courses found in trash.',
-				),
-				'public'       => true,
-				'has_archive'  => true,
-				'rewrite'      => array( 'slug' => 'courses' ),
-				'show_in_rest' => true, // Important for Gutenberg & REST API
-				'supports'     => array( 'title', 'editor', 'thumbnail', 'excerpt' ),
-				'menu_icon'    => 'dashicons-book',
-			)
-		);
+		// Load the CPT
+		if ( ! post_type_exists( 'courses' ) ) {
+			register_post_type(
+				'courses',
+				array(
+					'labels'       => array(
+						'name'               => 'Courses',
+						'singular_name'      => 'Course',
+						'menu_name'          => 'Courses',
+						'name_admin_bar'     => 'Course',
+						'add_new'            => 'Add Course',
+						'add_new_item'       => 'Add New Course',
+						'new_item'           => 'New Course',
+						'edit_item'          => 'Edit Course',
+						'view_item'          => 'View Course',
+						'all_items'          => 'All Courses',
+						'search_items'       => 'Search Courses',
+						'not_found'          => 'No courses found.',
+						'not_found_in_trash' => 'No courses found in trash.',
+					),
+					'public'       => true,
+					'has_archive'  => true,
+					'rewrite'      => array( 'slug' => 'courses' ),
+					'show_in_rest' => true, // Important for Gutenberg & REST API
+					'supports'     => array( 'title', 'editor', 'thumbnail', 'excerpt' ),
+					'menu_icon'    => 'dashicons-book',
+				)
+			);
+		}
 	}
 
 	/**
