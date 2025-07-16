@@ -6,8 +6,8 @@
  */
 
 // Exit if accessed directly
-if (!defined('ABSPATH')) {
-    exit;
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
 }
 
 // AJAX handlers are now registered in includes/ajax-handlers.php

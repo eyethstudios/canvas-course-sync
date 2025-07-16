@@ -12,8 +12,7 @@ if (!defined('WP_UNINSTALL_PLUGIN')) {
 }
 
 // Delete plugin options
-delete_option('ccs_canvas_domain');
-delete_option('ccs_canvas_token');
+delete_option('ccs_catalog_token');
 delete_option('ccs_version');
 delete_option('ccs_flush_rewrite_rules');
 
