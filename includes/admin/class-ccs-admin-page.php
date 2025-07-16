@@ -52,9 +52,7 @@ class CCS_Admin_Page {
 			require_once plugin_dir_path( __FILE__ ) . '../class-ccs-script-verifier.php';
 		}
 		$this->script_verifier = new CCS_Script_Verifier();
-
-		// Script verifier initialized
-	}
+    }
 
 	/**
 	 * Render admin page
