@@ -373,8 +373,6 @@ input:checked + .ccs-toggle-slider:before {
 .ccs-course-list {
     max-height: 400px;
     overflow-y: auto;
-    border: 1px solid #ddd;
-    border-radius: 4px;
     background: #fff;
 }
 

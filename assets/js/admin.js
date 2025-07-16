@@ -95,15 +95,6 @@
             const $result = $('#ccs-connection-result');
             const originalText = $button.text();
             
-            // Validate inputs
-            const domain = $('#ccs_canvas_domain').val();
-            const token = $('#ccs_canvas_token').val();
-            
-            if (!domain || !token) {
-                ErrorHandler.showUser('Please enter both Canvas domain and API token');
-                return;
-            }
-            
             UI.showLoading($button, 'Testing...');
             $result.html('');
             
@@ -118,7 +109,7 @@
                 success: function(response) {
                     if (response.success) {
                         $result.html('<div class="ccs-success">✓ Connection successful!</div>');
-                        UI.showSuccess('Canvas API connection verified');
+                        UI.showSuccess('Catalog API connection verified');
                     } else {
                         const errorMsg = response.data || 'Connection test failed';
                         $result.html(`<div class="ccs-error">✗ ${errorMsg}</div>`);
@@ -148,7 +139,6 @@
             $(document).on('click', '#ccs-omit-selected', CourseManager.omitSelected);
             $(document).on('click', '#ccs-restore-omitted', CourseManager.restoreOmitted);
             $(document).on('click', '#ccs-cleanup-deleted', CourseManager.cleanupDeleted);
-            $(document).on('click', '#ccs-refresh-catalog', CourseManager.refreshCatalog);
         },
         
         getCourses: function(e) {
@@ -177,20 +167,8 @@
                     console.log('CCS: Get courses response:', response);
                     
                     if (response.success && response.data) {
-                        const courses = response.data.courses || response.data;
-                        const validationReport = response.data.validation_report || '';
-                        const autoOmittedCount = response.data.auto_omitted_count || 0;
-                        
-                        // Show validation report if there is one
-                        if (validationReport) {
-                            $list.prepend(validationReport);
-                        }
-                        
-                        // Show info about catalog filtering
-                        if (autoOmittedCount > 0) {
-                            console.log(`CCS: ${autoOmittedCount} courses auto-omitted due to catalog validation`);
-                        }
-                        
+                        const courses = response.data.courses || response.data;                    
+                    
                         // Enhanced debug logging for update check responses
                         if (response.data.debug_info) {
                             console.log('CCS Update Debug:', response.data.debug_info);
@@ -224,7 +202,6 @@
             }
             
             let html = '<div class="ccs-courses-header">';
-            html += '<strong>Found ' + courses.length + ' course(s)</strong>';
             html += '<div class="ccs-course-filters" style="margin-top: 10px;">';
             html += '<label style="margin-right: 15px;"><input type="radio" name="course-filter" value="all" checked> Show All (' + courses.length + ')</label>';
             
@@ -243,11 +220,13 @@
             html += '<th><input type="checkbox" id="ccs-select-all-checkbox"></th>';
             html += '<th>Course Name</th>';
             html += '<th>Canvas ID</th>';
+            html += '<th>Catalog ID</th>';
             html += '<th>Status</th>';
             html += '</tr></thead><tbody id="ccs-course-table-body">';
             
             courses.forEach(function(course) {
-                const courseId = course.id || 0;
+                const catalogId = course.id || 0;
+                const canvasId = course.canvas_id || 0;
                 const courseName = course.name || 'Unnamed Course';
                 const isOmitted = course.is_omitted || false;
                 
@@ -268,9 +247,10 @@
                 }
                 
                 html += '<tr class="' + rowClass + '" data-status="' + (isOmitted ? 'omitted' : course.status) + '">';
-                html += '<td><input type="checkbox" class="ccs-course-checkbox" value="' + courseId + '"></td>';
+                html += '<td><input type="checkbox" class="ccs-course-checkbox" value="' + catalogId + '"></td>';
                 html += '<td><strong>' + CourseManager.escapeHtml(courseName) + '</strong></td>';
-                html += '<td>' + courseId + '</td>';
+                html += '<td>' + canvasId + '</td>';
+                html += '<td>' + catalogId + '</td>';
                 html += '<td><span class="notice ' + statusClass + '">' + statusText + '</span></td>';
                 html += '</tr>';
             });
@@ -517,55 +497,6 @@
                 error: function(xhr, status, error) {
                     ErrorHandler.log(error, 'Cleanup Deleted');
                     ErrorHandler.showUser('Network error while cleaning up deleted courses');
-                },
-                complete: function() {
-                    UI.hideLoading($button, originalText);
-                }
-            });
-        },
-        
-        refreshCatalog: function(e) {
-            e.preventDefault();
-            console.log('CCS: Refreshing course catalog');
-            
-            const $button = $(this);
-            const originalText = $button.text();
-            
-            UI.showLoading($button, 'Refreshing...');
-            
-            $.ajax({
-                url: ccsAjax.ajaxUrl,
-                type: 'POST',
-                data: {
-                    action: 'ccs_refresh_catalog',
-                    nonce: ccsAjax.nonces.refreshCatalog
-                },
-                timeout: 30000,
-                success: function(response) {
-                    console.log('CCS: Catalog refresh response:', response);
-                    
-                    if (response.success) {
-                        const data = response.data;
-                        let message = data.message || 'Catalog refreshed successfully';
-                        
-                        if (data.course_count) {
-                            message += ' Found ' + data.course_count + ' approved courses.';
-                        }
-                        
-                        UI.showSuccess(message);
-                        
-                        // Refresh course list to reflect any new courses
-                        setTimeout(() => {
-                            $('#ccs-get-courses').trigger('click');
-                        }, 1000);
-                    } else {
-                        const errorMsg = response.data || 'Failed to refresh catalog';
-                        ErrorHandler.showUser(errorMsg);
-                    }
-                },
-                error: function(xhr, status, error) {
-                    ErrorHandler.log(error, 'Refresh Catalog');
-                    ErrorHandler.showUser('Network error while refreshing catalog');
                 },
                 complete: function() {
                     UI.hideLoading($button, originalText);
