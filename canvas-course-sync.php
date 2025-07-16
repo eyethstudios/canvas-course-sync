@@ -227,7 +227,7 @@ class Canvas_Course_Sync {
 
 		// Initialize scheduler with dependencies
 		if ( class_exists( 'CCS_Scheduler' ) ) {
-			$this->scheduler = new CCS_Scheduler( $this->logger, $this->api, $this->importer );
+			$this->scheduler = new CCS_Scheduler( $this->logger, $this->catalogApi, $this->importer );
 		}
 
 		// Initialize admin components
