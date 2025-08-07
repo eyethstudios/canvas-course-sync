@@ -1,7 +1,7 @@
 <?php
 // Prevent direct file access
-if (!defined('ABSPATH')) {
-    exit;
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
 }
 
 // This file is reserved for future handler functionality

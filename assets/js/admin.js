@@ -1,28 +1,27 @@
-
 /**
  * Canvas Course Sync - Consolidated Admin JavaScript
- * 
+ *
  * @package Canvas_Course_Sync
  */
 
 (function($) {
     'use strict';
-    
+
     console.log('CCS: Admin script loaded');
-    
+
     // Verify AJAX object exists
     if (typeof ccsAjax === 'undefined') {
         console.error('CCS: ccsAjax object not available - AJAX calls will fail');
         return;
     }
-    
+
     // Core error handler
     const ErrorHandler = {
         log: function(error, context = '') {
             const timestamp = new Date().toISOString();
             const errorMsg = typeof error === 'string' ? error : (error.message || 'Unknown error');
             console.error(`CCS Error ${timestamp}: [${context}] ${errorMsg}`, error);
-            
+
             // Log to server if available
             if (ccsAjax.nonces && ccsAjax.nonces.logError) {
                 $.ajax({
@@ -39,16 +38,16 @@
                 }).fail(() => console.warn('CCS: Failed to log error to server'));
             }
         },
-        
+
         showUser: function(message, context = '') {
             const fullMsg = context ? `[${context}] ${message}` : message;
-            
+
             // Try to find error container
             let $container = $('#ccs-error-display');
             if (!$container.length) {
                 $container = $('.ccs-admin-container').first();
             }
-            
+
             if ($container.length) {
                 const $errorDiv = $('<div class="notice notice-error is-dismissible"><p></p></div>');
                 $errorDiv.find('p').text(fullMsg);
@@ -59,17 +58,17 @@
             }
         }
     };
-    
+
     // UI helpers
     const UI = {
         showLoading: function($element, message = 'Loading...') {
             $element.prop('disabled', true).text(message);
         },
-        
+
         hideLoading: function($element, originalText) {
             $element.prop('disabled', false).text(originalText);
         },
-        
+
         showSuccess: function(message) {
             const $container = $('.ccs-admin-container').first();
             const $successDiv = $('<div class="notice notice-success is-dismissible"><p></p></div>');
@@ -78,7 +77,7 @@
             setTimeout(() => $successDiv.fadeOut(), 5000);
         }
     };
-    
+
     // Connection testing
     const ConnectionTester = {
         init: function() {
@@ -87,26 +86,17 @@
                 ConnectionTester.test();
             });
         },
-        
+
         test: function() {
             console.log('CCS: Testing connection');
-            
+
             const $button = $('#ccs-test-connection');
             const $result = $('#ccs-connection-result');
             const originalText = $button.text();
-            
-            // Validate inputs
-            const domain = $('#ccs_canvas_domain').val();
-            const token = $('#ccs_canvas_token').val();
-            
-            if (!domain || !token) {
-                ErrorHandler.showUser('Please enter both Canvas domain and API token');
-                return;
-            }
-            
+
             UI.showLoading($button, 'Testing...');
             $result.html('');
-            
+
             $.ajax({
                 url: ccsAjax.ajaxUrl,
                 type: 'POST',
@@ -118,7 +108,7 @@
                 success: function(response) {
                     if (response.success) {
                         $result.html('<div class="ccs-success">✓ Connection successful!</div>');
-                        UI.showSuccess('Canvas API connection verified');
+                        UI.showSuccess('Catalog API connection verified');
                     } else {
                         const errorMsg = response.data || 'Connection test failed';
                         $result.html(`<div class="ccs-error">✗ ${errorMsg}</div>`);
@@ -135,11 +125,11 @@
             });
         }
     };
-    
+
     // Course management
     const CourseManager = {
         syncInProgress: false,
-        
+
         init: function() {
             $(document).on('click', '#ccs-get-courses', CourseManager.getCourses);
             $(document).on('click', '#ccs-sync-selected', CourseManager.syncSelected);
@@ -148,23 +138,22 @@
             $(document).on('click', '#ccs-omit-selected', CourseManager.omitSelected);
             $(document).on('click', '#ccs-restore-omitted', CourseManager.restoreOmitted);
             $(document).on('click', '#ccs-cleanup-deleted', CourseManager.cleanupDeleted);
-            $(document).on('click', '#ccs-refresh-catalog', CourseManager.refreshCatalog);
         },
-        
+
         getCourses: function(e) {
             e.preventDefault();
             console.log('CCS: Getting courses');
-            
+
             const $button = $(this);
             const $loading = $('#ccs-loading-courses');
             const $wrapper = $('#ccs-courses-wrapper');
             const $list = $('#ccs-course-list');
-            
+
             UI.showLoading($button, 'Loading...');
             $loading.show();
             $wrapper.hide();
             $list.empty();
-            
+
             $.ajax({
                 url: ccsAjax.ajaxUrl,
                 type: 'POST',
@@ -175,27 +164,15 @@
                 timeout: 60000,
                 success: function(response) {
                     console.log('CCS: Get courses response:', response);
-                    
+
                     if (response.success && response.data) {
                         const courses = response.data.courses || response.data;
-                        const validationReport = response.data.validation_report || '';
-                        const autoOmittedCount = response.data.auto_omitted_count || 0;
-                        
-                        // Show validation report if there is one
-                        if (validationReport) {
-                            $list.prepend(validationReport);
-                        }
-                        
-                        // Show info about catalog filtering
-                        if (autoOmittedCount > 0) {
-                            console.log(`CCS: ${autoOmittedCount} courses auto-omitted due to catalog validation`);
-                        }
-                        
+
                         // Enhanced debug logging for update check responses
                         if (response.data.debug_info) {
                             console.log('CCS Update Debug:', response.data.debug_info);
                         }
-                        
+
                         CourseManager.renderCourses(courses, $list);
                         $wrapper.show();
                     } else {
@@ -216,45 +193,46 @@
                 }
             });
         },
-        
+
         renderCourses: function(courses, $container) {
             if (!Array.isArray(courses) || courses.length === 0) {
                 $container.html('<div class="notice notice-info"><p>No courses found.</p></div>');
                 return;
             }
-            
+
             let html = '<div class="ccs-courses-header">';
-            html += '<strong>Found ' + courses.length + ' course(s)</strong>';
             html += '<div class="ccs-course-filters" style="margin-top: 10px;">';
             html += '<label style="margin-right: 15px;"><input type="radio" name="course-filter" value="all" checked> Show All (' + courses.length + ')</label>';
-            
+
             // Count courses by status
             const newCourses = courses.filter(c => c.status === 'available' && !c.is_omitted);
             const syncedCourses = courses.filter(c => c.status === 'synced');
             const omittedCourses = courses.filter(c => c.is_omitted);
-            
+
             html += '<label style="margin-right: 15px;"><input type="radio" name="course-filter" value="new"> New Courses (' + newCourses.length + ')</label>';
             html += '<label style="margin-right: 15px;"><input type="radio" name="course-filter" value="synced"> Already Synced (' + syncedCourses.length + ')</label>';
             html += '<label><input type="radio" name="course-filter" value="omitted"> Omitted (' + omittedCourses.length + ')</label>';
             html += '</div></div>';
-            
+
             html += '<table class="wp-list-table widefat fixed striped">';
             html += '<thead><tr>';
             html += '<th><input type="checkbox" id="ccs-select-all-checkbox"></th>';
             html += '<th>Course Name</th>';
             html += '<th>Canvas ID</th>';
+            html += '<th>Catalog ID</th>';
             html += '<th>Status</th>';
             html += '</tr></thead><tbody id="ccs-course-table-body">';
-            
+
             courses.forEach(function(course) {
-                const courseId = course.id || 0;
+                const catalogId = course.id || 0;
+                const canvasId = course.canvas_id || 0;
                 const courseName = course.name || 'Unnamed Course';
                 const isOmitted = course.is_omitted || false;
-                
+
                 let statusText = 'Available';
                 let statusClass = 'notice-info';
                 let rowClass = 'course-available';
-                
+
                 if (isOmitted) {
                     statusText = 'Omitted';
                     statusClass = 'notice-warning';
@@ -266,29 +244,30 @@
                 } else {
                     rowClass = 'course-new';
                 }
-                
+
                 html += '<tr class="' + rowClass + '" data-status="' + (isOmitted ? 'omitted' : course.status) + '">';
-                html += '<td><input type="checkbox" class="ccs-course-checkbox" value="' + courseId + '"></td>';
+                html += '<td><input type="checkbox" class="ccs-course-checkbox" value="' + catalogId + '"></td>';
                 html += '<td><strong>' + CourseManager.escapeHtml(courseName) + '</strong></td>';
-                html += '<td>' + courseId + '</td>';
+                html += '<td>' + canvasId + '</td>';
+                html += '<td>' + catalogId + '</td>';
                 html += '<td><span class="notice ' + statusClass + '">' + statusText + '</span></td>';
                 html += '</tr>';
             });
-            
+
             html += '</tbody></table>';
             $container.html(html);
-            
+
             // Bind select all checkbox
             $('#ccs-select-all-checkbox').on('change', function() {
                 $('.ccs-course-checkbox:visible').prop('checked', $(this).prop('checked'));
             });
-            
+
             // Bind filter functionality
             $('input[name="course-filter"]').on('change', function() {
                 const filterValue = $(this).val();
                 const $tableBody = $('#ccs-course-table-body');
                 const $rows = $tableBody.find('tr');
-                
+
                 if (filterValue === 'all') {
                     $rows.show();
                 } else if (filterValue === 'new') {
@@ -301,41 +280,41 @@
                     $rows.hide();
                     $rows.filter('.course-omitted').show();
                 }
-                
+
                 // Update select all checkbox to only affect visible courses
                 $('#ccs-select-all-checkbox').prop('checked', false);
             });
         },
-        
+
         syncSelected: function(e) {
             e.preventDefault();
-            
+
             if (CourseManager.syncInProgress) {
                 alert('Sync already in progress');
                 return;
             }
-            
+
             const selectedCourses = $('.ccs-course-checkbox:checked').map(function() {
                 return $(this).val();
             }).get();
-            
+
             if (selectedCourses.length === 0) {
                 alert('Please select at least one course');
                 return;
             }
-            
+
             if (!confirm('Sync ' + selectedCourses.length + ' course(s)?')) {
                 return;
             }
-            
+
             CourseManager.syncInProgress = true;
             const $button = $(this);
             const originalText = $button.text();
-            
+
             UI.showLoading($button, 'Syncing...');
             $('#ccs-sync-progress').show();
             $('#ccs-sync-results').hide();
-            
+
             $.ajax({
                 url: ccsAjax.ajaxUrl,
                 type: 'POST',
@@ -347,16 +326,16 @@
                 timeout: 300000, // 5 minutes
                 success: function(response) {
                     console.log('CCS: Sync response:', response);
-                    
+
                     if (response.success && response.data) {
                         const data = response.data;
                         $('#ccs-sync-message').html('<div class="notice notice-success"><p>' + (data.message || 'Sync completed!') + '</p></div>');
                         $('#ccs-imported').text(data.imported || 0);
                         $('#ccs-skipped').text(data.skipped || 0);
                         $('#ccs-errors').text(data.errors || 0);
-                        
+
                         UI.showSuccess('Successfully synced ' + (data.imported || 0) + ' course(s)');
-                        
+
                         // Refresh course list instead of reloading page
                         setTimeout(() => {
                             $('#ccs-get-courses').trigger('click');
@@ -366,7 +345,7 @@
                         $('#ccs-sync-message').html('<div class="notice notice-error"><p>' + errorMsg + '</p></div>');
                         ErrorHandler.log(errorMsg, 'Sync');
                     }
-                    
+
                     $('#ccs-sync-results').show();
                 },
                 error: function(xhr, status, error) {
@@ -382,38 +361,38 @@
                 }
             });
         },
-        
+
         selectAll: function(e) {
             e.preventDefault();
             $('.ccs-course-checkbox').prop('checked', true);
         },
-        
+
         deselectAll: function(e) {
             e.preventDefault();
             $('.ccs-course-checkbox').prop('checked', false);
         },
-        
+
         omitSelected: function(e) {
             e.preventDefault();
-            
+
             const selectedCourses = $('.ccs-course-checkbox:checked').map(function() {
                 return $(this).val();
             }).get();
-            
+
             if (selectedCourses.length === 0) {
                 alert('Please select courses to omit');
                 return;
             }
-            
+
             if (!confirm('Omit ' + selectedCourses.length + ' course(s) from auto-sync?')) {
                 return;
             }
-            
+
             const $button = $(this);
             const originalText = $button.text();
-            
+
             UI.showLoading($button, 'Omitting...');
-            
+
             $.ajax({
                 url: ccsAjax.ajaxUrl,
                 type: 'POST',
@@ -439,19 +418,19 @@
                 }
             });
         },
-        
+
         restoreOmitted: function(e) {
             e.preventDefault();
-            
+
             if (!confirm('Restore all omitted courses for auto-sync?')) {
                 return;
             }
-            
+
             const $button = $(this);
             const originalText = $button.text();
-            
+
             UI.showLoading($button, 'Restoring...');
-            
+
             $.ajax({
                 url: ccsAjax.ajaxUrl,
                 type: 'POST',
@@ -476,19 +455,19 @@
                 }
             });
         },
-        
+
         cleanupDeleted: function(e) {
             e.preventDefault();
-            
+
             if (!confirm('Check for deleted/trashed WordPress courses and update their sync status to "available"?')) {
                 return;
             }
-            
+
             const $button = $(this);
             const originalText = $button.text();
-            
+
             UI.showLoading($button, 'Cleaning up...');
-            
+
             $.ajax({
                 url: ccsAjax.ajaxUrl,
                 type: 'POST',
@@ -500,14 +479,14 @@
                     if (response.success) {
                         const data = response.data;
                         let message = data.message;
-                        
+
                         if (data.details && data.details.length > 0) {
                             message += '\n\nUpdated courses:';
                             data.details.forEach(function(course) {
                                 message += '\n- ' + course.course_title + ' (Canvas ID: ' + course.canvas_id + ')';
                             });
                         }
-                        
+
                         UI.showSuccess(message);
                         $('#ccs-get-courses').trigger('click'); // Refresh course list
                     } else {
@@ -523,56 +502,7 @@
                 }
             });
         },
-        
-        refreshCatalog: function(e) {
-            e.preventDefault();
-            console.log('CCS: Refreshing course catalog');
-            
-            const $button = $(this);
-            const originalText = $button.text();
-            
-            UI.showLoading($button, 'Refreshing...');
-            
-            $.ajax({
-                url: ccsAjax.ajaxUrl,
-                type: 'POST',
-                data: {
-                    action: 'ccs_refresh_catalog',
-                    nonce: ccsAjax.nonces.refreshCatalog
-                },
-                timeout: 30000,
-                success: function(response) {
-                    console.log('CCS: Catalog refresh response:', response);
-                    
-                    if (response.success) {
-                        const data = response.data;
-                        let message = data.message || 'Catalog refreshed successfully';
-                        
-                        if (data.course_count) {
-                            message += ' Found ' + data.course_count + ' approved courses.';
-                        }
-                        
-                        UI.showSuccess(message);
-                        
-                        // Refresh course list to reflect any new courses
-                        setTimeout(() => {
-                            $('#ccs-get-courses').trigger('click');
-                        }, 1000);
-                    } else {
-                        const errorMsg = response.data || 'Failed to refresh catalog';
-                        ErrorHandler.showUser(errorMsg);
-                    }
-                },
-                error: function(xhr, status, error) {
-                    ErrorHandler.log(error, 'Refresh Catalog');
-                    ErrorHandler.showUser('Network error while refreshing catalog');
-                },
-                complete: function() {
-                    UI.hideLoading($button, originalText);
-                }
-            });
-        },
-        
+
         escapeHtml: function(text) {
             const map = {
                 '&': '&amp;',
@@ -584,22 +514,22 @@
             return text.replace(/[&<>"']/g, function(m) { return map[m]; });
         }
     };
-    
+
     // Log management
     const LogManager = {
         init: function() {
             $(document).on('click', '#ccs-refresh-logs', LogManager.refresh);
             $(document).on('click', '#ccs-clear-logs', LogManager.clear);
         },
-        
+
         refresh: function(e) {
             e.preventDefault();
-            
+
             const $button = $(this);
             const originalText = $button.text();
-            
+
             UI.showLoading($button, 'Refreshing...');
-            
+
             $.ajax({
                 url: ccsAjax.ajaxUrl,
                 type: 'POST',
@@ -624,19 +554,19 @@
                 }
             });
         },
-        
+
         clear: function(e) {
             e.preventDefault();
-            
+
             if (!confirm('Clear all logs? This cannot be undone.')) {
                 return;
             }
-            
+
             const $button = $(this);
             const originalText = $button.text();
-            
+
             UI.showLoading($button, 'Clearing...');
-            
+
             $.ajax({
                 url: ccsAjax.ajaxUrl,
                 type: 'POST',
@@ -662,22 +592,22 @@
             });
         }
     };
-    
+
     // Auto-sync management
     const AutoSync = {
         init: function() {
             $(document).on('click', '#ccs-trigger-auto-sync', AutoSync.run);
             $(document).on('change', '#ccs_auto_sync_enabled', AutoSync.toggleEmailRow);
         },
-        
+
         run: function(e) {
             e.preventDefault();
-            
+
             const $button = $(this);
             const originalText = $button.text();
-            
+
             UI.showLoading($button, 'Running...');
-            
+
             $.ajax({
                 url: ccsAjax.ajaxUrl,
                 type: 'POST',
@@ -703,12 +633,12 @@
                 }
             });
         },
-        
+
         toggleEmailRow: function() {
             const isChecked = $(this).is(':checked');
             const emailRow = $('#ccs-email-row');
             const emailInput = $('#ccs_notification_email');
-            
+
             if (isChecked) {
                 emailRow.show();
                 emailInput.prop('required', true);
@@ -718,15 +648,15 @@
             }
         }
     };
-    
+
     // Debug panel functionality
     const DebugPanel = {
         init: function() {
             console.log('CCS Debug: Admin page DOM ready');
-            
+
             // Update status indicators
             $('#js-status').text('Loaded');
-            
+
             if (typeof ccsAjax !== 'undefined') {
                 $('#ajax-status').html('<span class="ccs-debug-status-available">Available</span>');
                 console.log('CCS Debug: ccsAjax object:', ccsAjax);
@@ -736,17 +666,17 @@
             }
         }
     };
-    
+
     // GitHub update checker - make it globally available
     window.ccsCheckForUpdates = function() {
         console.log('CCS: Checking for updates');
-        
+
         if (!ccsAjax.nonces.checkUpdates) {
             console.error('CCS: Update check nonce not available');
             alert('Update check not available - missing security nonce');
             return;
         }
-        
+
         $.ajax({
             url: ccsAjax.ajaxUrl,
             type: 'POST',
@@ -771,18 +701,18 @@
     // Initialize everything when document is ready
     $(document).ready(function() {
         console.log('CCS: Initializing admin functionality');
-        
+
         try {
             ConnectionTester.init();
             CourseManager.init();
             LogManager.init();
             AutoSync.init();
             DebugPanel.init();
-            
+
             console.log('CCS: All modules initialized successfully');
         } catch (error) {
             ErrorHandler.log(error, 'Initialization');
         }
     });
-    
+
 })(jQuery);
